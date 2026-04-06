@@ -6,10 +6,9 @@ st.set_page_config(page_title="Paichi Academy", layout="wide")
 st.title("🎓 PAICHI ACADEMY")
 st.write("ഇവിടെ നമുക്ക് പൈത്തൺ പഠിക്കാം!")
 
-# 2. ജെമിനി സെറ്റപ്പ്
-# നിന്റെ API Key ഇവിടെ കൃത്യമാണെന്ന് ഉറപ്പുവരുത്തുക
-genai.configure(api_key="AIzaSyBzKD8uPmnF_agwO5-C7wMDDXXcAUlw8U4")
-model = genai.GenerativeModel('gemini-2.0-flash')
+# 2. പുതിയ ജെമിനി സെറ്റപ്പ്
+genai.configure(api_key="AIzaSyDPVdluZOQjg4lBHh5K0XfdAYaCzmhf0Q4")
+model = genai.GenerativeModel('gemini-1.5-flash')
 
 # 3. ചോദ്യം ചോദിക്കാനുള്ള ബോക്സ്
 st.subheader("🤖 Ask Gemini about Python")
