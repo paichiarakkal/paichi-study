@@ -1,4 +1,4 @@
-Import streamlit as st
+import streamlit as st
 import google.generativeai as genai
 
 # API key Streamlit secrets-ൽ നിന്ന് എടുക്കുക (deploy ചെയ്യുമ്പോൾ)
