@@ -46,4 +46,4 @@ elif page == "Trading Calc":
             st.error(f"നഷ്ടം: ₹{abs(pnl)}"
                      
 elif page=="Trading Bot":
-st.title("f"nifty bank nifty ")
+st.title("nifty bank nifty ")
