@@ -6,7 +6,7 @@ st.set_page_config(page_title="PAICHI TRADING HUB", layout="wide")
 
 # 2. സൈഡ്‌ബാർ മെനു
 st.sidebar.title("📈 PAICHI HUB")
-page = st.sidebar.radio("Go to:", ["Dashboard", "AI Learning Zone", "Trading Calc"])
+page = st.sidebar.radio("Go to:", ["Dashboard", "AI Learning Zone", "Trading Calc","Trading Bot"])
 
 # 3. API Key സെറ്റപ്പ്
 try:
