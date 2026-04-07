@@ -7,7 +7,8 @@ st.set_page_config(page_title="PAICHI TRADING HUB", layout="wide")
 # 2. സൈഡ്‌ബാർ മെനു സെറ്റപ്പ്
 st.sidebar.title("📈 PAICHI HUB")
 page = st.sidebar.radio("Go to:", ["Dashboard", "AI Learning Zone", "Trading Calc", "Trading Bot"])
-
+# നിന്റെ വാട്സ്ആപ്പ് ലിങ്ക്
+st.sidebar.markdown("[💬 Contact on WhatsApp](https://wa.me/91XXXXXXXXXX)")
 # 3. ഗൂഗിൾ ജെമിനി AI സെറ്റപ്പ്
 try:
     api_key = st.secrets["GOOGLE_API_KEY"]
