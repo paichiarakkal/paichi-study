@@ -7,14 +7,30 @@ st.set_page_config(page_title="PAICHI TRADING HUB", layout="wide")
 # സൈഡ്‌ബാറിൽ മെനു ഉണ്ടാക്കുന്നു
 st.sidebar.title("📈 PAICHI HUB")
 page = st.sidebar.radio("Go to:", ["Dashboard", "AI Learning Zone", "Market Watch"])
-
+["Dashboard", "AI Learning Zone", "Trading Calc", "Market Watch"]
 # API Key സെറ്റപ്പ്
 try:
     api_key = st.secrets["GOOGLE_API_KEY"]
 except:
     # നിന്റെ പുതിയ കീ ഇവിടെ നൽകാം
     api_key = "AIzaSyCs2bRTki97CGu_Jgn67U_JAHdt1c1It-8"
-
+elif page == "Trading Calc":
+    st.title("💰 Profit & Loss Calculator")
+    
+    # യൂസറിൽ നിന്ന് വിവരങ്ങൾ വാങ്ങുന്നു
+    buy_price = st.number_input("വാങ്ങിയ വില (Buy Price):", value=0.0)
+    sell_price = st.number_input("വിറ്റ വില (Sell Price):", value=0.0)
+    quantity = st.number_input("ക്വാണ്ടിറ്റി (Quantity):", value=1)
+    
+    if st.button("Calculate"):
+        pnl = (sell_price - buy_price) * quantity
+        
+        if pnl > 0:
+            st.success(f"അടിപൊളി! നിനക്ക് ₹{pnl} ലാഭമുണ്ട്. 📈")
+        elif pnl < 0:
+            st.error(f"സാരമില്ല, ₹{abs(pnl)} നഷ്ടമാണ്. അടുത്ത തവണ ശരിയാക്കാം. 📉")
+        else:
+            st.warning("ലാഭവും ഇല്ല, നഷ്ടവും ഇല്ല (No Profit No Loss).")
 client = genai.Client(api_key=api_key)
 
 # --- പേജുകൾ ---
