@@ -43,3 +43,4 @@ elif page == "Trading Calc":
             st.success(f"ലാഭം: ₹{pnl}")
         else:
             st.error(f"നഷ്ടം: ₹{abs(pnl)}")
+elif page=="Trading Bot":
