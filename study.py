@@ -40,7 +40,9 @@ elif page == "Trading Calc":
     if st.button("Calculate"):
         pnl = (sell - buy) * qty
         if pnl > 0:
+        
             st.success(f"ലാഭം: ₹{pnl}")
         else:
-            st.error(f"നഷ്ടം: ₹{abs(pnl)}")
+            st.error(f"നഷ്ടം: ₹{abs(pnl)}"
+                     
 elif page=="Trading Bot":
