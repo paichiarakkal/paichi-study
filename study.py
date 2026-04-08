@@ -1,33 +1,34 @@
 import streamlit as st
-import pandas as pd
-import yfinance as ticker # ലൈവ് വിലകൾ എടുക്കാൻ ഇത് സഹായിക്കും
 
-st.set_page_config(page_title="PAICHI LIVE TRADING", layout="wide")
+st.set_page_config(page_title="Family Study Tracker", layout="wide")
+st.title("🎓 Family Education Portal")
 
-st.title("🚀 PAICHI LIVE MARKET")
+# ഒരു സൈഡ്ബാർ മെനു ഉണ്ടാക്കാം
+option = st.sidebar.selectbox("Choose Student", ["Select Student", "SSLC Student", "+2 Student"])
 
-# മാർക്കറ്റ് ഡാറ്റ കാണിക്കാനുള്ള സെക്ഷൻ
-col1, col2, col3 = st.columns(3)
+if option == "SSLC Student":
+    st.header("📝 SSLC Mark Entry")
+    # കുട്ടിയുടെ പേര് ചോദിക്കുന്നു
+    name = st.text_input("Student Name")
+    
+    # മാർക്കുകൾ വാങ്ങുന്നു
+    maths = st.number_input("Maths (Out of 100)", 0, 100)
+    science = st.number_input("Science (Out of 100)", 0, 100)
+    english = st.number_input("English (Out of 100)", 0, 100)
+    
+    if st.button("Generate Result"):
+        total = maths + science + english
+        average = total / 3
+        st.success(f"ഹലോ {name}, നിന്റെ ടോട്ടൽ മാർക്ക് {total} ആണ്.")
+        st.info(f"ശരാശരി (Average): {average:.2f}%")
 
-def get_live_price(symbol):
-    data = ticker.Ticker(symbol).history(period='1d')
-    return round(data['Close'].iloc[-1], 2)
-
-try:
-    with col1:
-        nifty_price = get_live_price("^NSEI")
-        st.metric("NIFTY 50", f"₹{nifty_price}")
-
-    with col2:
-        bank_nifty_price = get_live_price("^NSEBANK")
-        st.metric("BANK NIFTY", f"₹{bank_nifty_price}")
-
-    with col3:
-        # ക്രൂഡ് ഓയിൽ വില (USD-ൽ ആണ് ലഭിക്കുക)
-        crude_price = get_live_price("CL=F")
-        st.metric("CRUDE OIL (USD)", f"${crude_price}")
-
-except:
-    st.write("മാന്യമായ ഇന്റർനെറ്റ് കണക്ഷൻ ഉണ്ടെന്ന് ഉറപ്പുവരുത്തുക.")
-
-st.sidebar.markdown("[💬 Contact on WhatsApp](https://wa.me/message/CILS6MWZTN1)")
+elif option == "+2 Student":
+    st.header("📚 Plus Two Grade Tracker")
+    # ഇവിടെ നമുക്ക് ഗ്രേഡുകൾ നൽകാം
+    physics = st.selectbox("Physics Grade", ["A+", "A", "B+", "B", "C"])
+    chemistry = st.selectbox("Chemistry Grade", ["A+", "A", "B+", "B", "C"])
+    
+    if st.button("Show Status"):
+        st.write(f"Physics: {physics}")
+        st.write(f"Chemistry: {chemistry}")
+        st.balloons() # ഒരു ചെറിയ ആനിമേഷൻ!
