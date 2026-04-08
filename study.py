@@ -113,7 +113,27 @@ elif option == "Plus Two Student":
         st.error("Incorrect Password!")
 
 # 5. ഫോട്ടോ ഗാലറി (ഇപ്പോൾ ഫോട്ടോകൾ വരും)
+elif option == # --- PHOTO GALLERY SECTION (Updated) ---
 elif option == "Photo Gallery":
+    st.header("📸 Family Memories")
+    st.write("കുടുംബത്തിലെ മനോഹര നിമിഷങ്ങൾ താഴെ കാണാം.")
+    
+    # ചിത്രങ്ങൾ വരിവരിയായി (Columns) കാണിക്കാൻ
+    col_img1, col_img2 = st.columns(2)
+    
+    with col_img1:
+        # ആദ്യത്തെ ഫോട്ടോ (മാറ്റമില്ല)
+        st.image("https://img.freepik.com/free-photo/family-celebrating-ramadan-together_23-2151240097.jpg", caption="Family Dinner", use_column_width=True)
+        
+        # രണ്ടാമത്തെ ഫോട്ടോ (പുതിയത് - നീ ചോദിച്ച Ugadi ഫോട്ടോയ്ക്ക് പകരം)
+        st.image("https://img.freepik.com/free-photo/happy-family-outdoors-park_23-2148873752.jpg", caption="Our Vacation", use_column_width=True)
+
+    with col_img2:
+        # മൂന്നാമത്തെ ഫോട്ടോ (പഠിക്കുന്ന കുട്ടികൾ)
+        st.image("https://img.freepik.com/free-photo/kids-studying-together-home_23-2148873760.jpg", caption="Study Time", use_column_width=True)
+        
+        # നാലാമത്തെ ഫോട്ടോ (ഒരുമിച്ച് ചിരിക്കുന്ന ഫോട്ടോ)
+        st.image("https://img.freepik.com/free-photo/family-smiling-camera-outdoors_23-2148873740.jpg", caption="Happy Smiles", use_column_width=True)
     st.header("📸 Family Memories")
     st.write("മനോഹരമായ നിമിഷങ്ങൾ ഇവിടെ കാണാം.")
     
