@@ -1,61 +1,62 @@
 import streamlit as st
 import pandas as pd
 
-# 1. ആപ്പിന്റെ അടിസ്ഥാന സെറ്റിംഗ്സ്
+# 1. App Settings
 st.set_page_config(page_title="PAICHI Family Hub", layout="wide")
 
-st.title("🎓 PAICHI Family Education & Expense Portal")
+st.title("🎓 PAICHI Family Hub")
 
-# 2. പാസ്‌വേഡുകൾ
-EXPENSE_PASSWORD = "wife123"
+# 2. Defaults (Nee itilaanu adhyam password set cheyyendathu)
+if 'my_pwd' not in st.session_state:
+    st.session_state['my_pwd'] = "wife123" # Default Password
 
-# 3. ലിങ്കുകൾ (നിന്റെ ഡാറ്റാബേസുമായി കണക്ട് ചെയ്തിട്ടുണ്ട്)
+# 3. Links
 GOOGLE_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSfr32sd7l4p0QkWnocnhKf_jbwYsKrHT06CjZnVWD4y1a1afw/viewform"
-SHEET_ID = "1Dml8r92UeygAKpnR5QNMkzcM4q3UEb2IwirHJ9otYSM"
-SHEET_URL_CSV = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
-SHEET_VIEW_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/edit#gid=0"
+SHEET_ID = "1Dml8r92UeygAKpnR5 (ittittu...) " # Ninte Sheet ID
+SHEET_URL_CSV = f"https://docs.google.com/spreadsheets/d/1Dml8r92UeygAKpnR5QNMkzcM4q3UEb2IwirHJ9otYSM/export?format=csv"
 
-# 4. സൈഡ്ബാർ മെനു
-option = st.sidebar.selectbox("Choose Section", ["Home", "Wife's Expenses"])
+# 4. Sidebar
+option = st.sidebar.selectbox("Choose Section", ["Home", "Wife's Expenses", "Settings"])
 
-# --- സെക്ഷനുകൾ ---
-
+# --- Home ---
 if option == "Home":
-    st.header("സ്വാഗതം ഫൈസൽ!")
-    st.write("കുടുംബത്തിന് വേണ്ടിയുള്ള നിന്റെ സ്വന്തം പൈത്തൺ ആപ്പ്.")
+    st.header("Welcome Faisal!")
+    st.write("Wife's Expenses section-il poyi password adikkuka.")
 
+# --- Wife's Expenses ---
 elif option == "Wife's Expenses":
     st.header("💰 Wife's Monthly Expense Tracker")
     
-    # പാസ്‌വേഡ് സെക്ഷൻ (നീ ചോദിച്ചതുപോലെ)
-    pwd = st.text_input("Enter Password", type="password")
-    confirm_pwd = st.text_input("Confirm Password", type="password")
+    # Password adikkunna bagam (Aarkkum kaanan pattilla)
+    pwd = st.text_input("Enter Password", type="password", help="Enter your secret password")
+    confirm_pwd = st.text_input("Confirm Password", type="password", help="Re-type password to confirm")
     
     if pwd != "" and confirm_pwd != "":
         if pwd == confirm_pwd:
-            if pwd == EXPENSE_PASSWORD:
+            if pwd == st.session_state['my_pwd']:
                 st.success("Access Granted!")
                 
-                # ആകെ തുക കാണിക്കുന്നു
+                # Total Calculation
                 try:
                     df = pd.read_csv(SHEET_URL_CSV)
-                    # ഷീറ്റിലെ 'Amount' കോളം നമ്പറുകളാണെന്ന് ഉറപ്പുവരുത്തി കൂട്ടുന്നു
                     total_expense = pd.to_numeric(df['Amount'], errors='coerce').sum()
                     st.metric(label="ഈ മാസത്തെ ആകെ ചിലവ്", value=f"₹{total_expense}")
                 except:
-                    st.info("കണക്കുകൾ ശേഖരിക്കുന്നു. ആദ്യത്തെ എൻട്രി നൽകിയാൽ ഇവിടെ ടോട്ടൽ വരും.")
+                    st.info("No data found in sheet.")
 
                 st.divider()
-                st.write("പുതിയ ചിലവുകൾ താഴെ കാണുന്ന ബട്ടൺ അമർത്തി രേഖപ്പെടുത്തുക.")
-                st.link_button("📝 പുതിയ ചിലവ് ചേർക്കുക (Open Form)", GOOGLE_FORM_URL)
-                
-                st.subheader("📊 പഴയ ലിസ്റ്റ് കാണാൻ")
-                st.link_button("👁️ View Full Google Sheet", SHEET_VIEW_URL)
+                st.link_button("📝 പുതിയ ചിലവ് ചേർക്കുക", GOOGLE_FORM_URL)
             else:
                 st.error("Incorrect Password!")
         else:
             st.warning("Passwords do not match!")
 
-# ഫൂട്ടർ
-st.sidebar.markdown("---")
-st.sidebar.write("Created with ❤️ by Faisal")
+# --- Settings (Password Maattan) ---
+elif option == "Settings":
+    st.header("⚙️ Change Password")
+    old_p = st.text_input("Current Password", type="password")
+    if old_p == st.session_state['my_pwd']:
+        new_p = st.text_input("New Password", type="password")
+        if st.button("Update Password"):
+            st.session_state['my_pwd'] = new_p
+            st.success("Password Updated Successfully!")
