@@ -9,7 +9,7 @@ st.title("🎓 Family Education Portal")
 
 # സൈഡ്ബാർ മെനു
 st.sidebar.title("📌 Menu")
-option = st.sidebar.selectbox("Choose Section", ["Home", "fiza", "fammu"])
+option = st.sidebar.selectbox("Choose Section", ["Home", "SSLC Student", "Plus Two Student"])
 
 # സ്റ്റഡി ടിപ്‌സ് ലിസ്റ്റ്
 tips = [
