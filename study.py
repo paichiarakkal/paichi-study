@@ -1,15 +1,16 @@
 import streamlit as st
 import random
 
-# ആപ്പിന്റെ പേരും ലേഔട്ടും സെറ്റ് ചെയ്യുന്നു
-st.set_page_config(page_title="Family Education Portal", layout="wide")
+# ആപ്പിന്റെ സെറ്റിംഗ്സ്
+st.set_page_config(page_title="PAICHI Study Hub", layout="wide")
 
 # ടൈറ്റിൽ
-st.title("🎓 Family Education Portal")
+st.title("🎓 PAICHI Family Education Portal")
 
-# സൈഡ്ബാർ മെനു
-st.sidebar.title("📌 Menu")
-option = st.sidebar.selectbox("Choose Section", ["Home", "SSLC Student", "Plus Two Student"])
+# സൈഡ്ബാർ മെനു - പുതിയ സെക്ഷനുകൾ ഇവിടെ ചേർത്തു
+st.sidebar.title("📌 Main Menu")
+option = st.sidebar.selectbox("Choose Section", 
+    ["Home", "SSLC Student", "Plus Two Student", "Photo Gallery", "Maths Lab (Loops)", "Study Resources"])
 
 # സ്റ്റഡി ടിപ്‌സ് ലിസ്റ്റ്
 tips = [
@@ -27,62 +28,77 @@ st.sidebar.subheader("💡 Study Zone")
 if st.sidebar.button("Get a Study Tip"):
     st.sidebar.info(random.choice(tips))
 
-# ഹോം പേജ്
+# 1. ഹോം പേജ്
 if option == "Home":
-    st.header("സ്വാഗതം!")
-    st.write("ഈ ആപ്പ് ഉപയോഗിച്ച് നിനക്ക് മാർക്കുകൾ ട്രാക്ക് ചെയ്യാനും പഠനത്തിനുള്ള ടിപ്‌സ് നേടാനും കഴിയും.")
+    st.header("സ്വാഗതം ഫൈസൽ!")
+    st.write("പൈത്തൺ പഠനത്തിന്റെ ഭാഗമായി നീ നിർമ്മിച്ച നിന്റെ സ്വന്തം ഫാമിലി ആപ്പ് ആണിത്.")
     st.image("https://img.freepik.com/free-vector/graduation-cap-with-diploma-scroll-realistic-style_1284-18155.jpg", width=300)
 
-# SSLC സെക്ഷൻ
+# 2. SSLC സെക്ഷൻ
 elif option == "SSLC Student":
     st.header("📝 SSLC Mark Entry")
-    name = st.text_input("fiza")
-    
+    name = st.text_input("Student Name")
     col1, col2 = st.columns(2)
     with col1:
-        maths = st.number_input("Maths (Out of 100)", 0, 100)
-        science = st.number_input("Science (Out of 100)", 0, 100)
+        maths = st.number_input("Maths (0-100)", 0, 100)
+        science = st.number_input("Science (0-100)", 0, 100)
     with col2:
-        english = st.number_input("English (Out of 100)", 0, 100)
-        malayalam = st.number_input("Malayalam (Out of 100)", 0, 100)
+        english = st.number_input("English (0-100)", 0, 100)
+        malayalam = st.number_input("Malayalam (0-100)", 0, 100)
     
     if st.button("Generate Result"):
         total = maths + science + english + malayalam
         average = total / 4
-        
         st.divider()
         st.success(f"ഹലോ {name}, നിന്റെ ടോട്ടൽ മാർക്ക് {total} ആണ്.")
         st.write(f"Your Progress: {average:.1f}%")
         st.progress(int(average))
-        
-        if average >= 80:
-            st.balloons()
-            st.write("🌟 **അടിപൊളി! മികച്ച പ്രകടനം.**")
-        elif average >= 40:
-            st.write("👍 **നന്നായിട്ടുണ്ട്! ഇനിയും മെച്ചപ്പെടുത്താം.**")
-        else:
-            st.write("💪 **വിഷമിക്കേണ്ട, കൂടുതൽ പരിശ്രമിച്ചാൽ അടുത്ത തവണ വിജയിക്കാം!**")
+        if average >= 80: st.balloons()
 
-# പ്ലസ് ടു സെക്ഷൻ
+# 3. പ്ലസ് ടു സെക്ഷൻ
 elif option == "Plus Two Student":
     st.header("📚 Plus Two Grade Tracker")
-    name_p2 = st.text_input("fammu")
-    
+    name_p2 = st.text_input("Student Name")
+    grades = ["A+", "A", "B+", "B", "C", "D+"]
     col1, col2 = st.columns(2)
     with col1:
-        physics = st.selectbox("Physics Grade", ["A+", "A", "B+", "B", "C", "D+"])
-        chemistry = st.selectbox("Chemistry Grade", ["A+", "A", "B+", "B", "C", "D+"])
+        physics = st.selectbox("Physics", grades)
+        chemistry = st.selectbox("Chemistry", grades)
     with col2:
-        maths_p2 = st.selectbox("Maths Grade", ["A+", "A", "B+", "B", "C", "D+"])
-        biology = st.selectbox("Biology Grade", ["A+", "A", "B+", "B", "C", "D+"])
+        maths_p2 = st.selectbox("Maths", grades)
+        biology = st.selectbox("Biology", grades)
     
     if st.button("Show My Grades"):
-        st.success(f"ഹലോ {name_p2}, നിന്റെ ഗ്രേഡുകൾ താഴെ നൽകുന്നു:")
-        st.write(f"📍 Physics: **{physics}**")
-        st.write(f"📍 Chemistry: **{chemistry}**")
-        st.write(f"📍 Maths: **{maths_p2}**")
-        st.write(f"📍 Biology: **{biology}**")
-        st.snow() # മഞ്ഞ് വീഴുന്ന ആനിമേഷൻ!
+        st.success(f"ഹലോ {name_p2}, നിന്റെ ഗ്രേഡുകൾ റെഡിയാണ്!")
+        st.write(f"📍 Physics: **{physics}** | Chemistry: **{chemistry}**")
+        st.write(f"📍 Maths: **{maths_p2}** | Biology: **{biology}**")
+        st.snow()
+
+# 4. ഫോട്ടോ ഗാലറി
+elif option == "Photo Gallery":
+    st.header("📸 Family Memories")
+    st.write("നമ്മുടെ പ്രിയപ്പെട്ട നിമിഷങ്ങൾ.")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.image("https://img.freepik.com/free-photo/family-celebrating-ramadan-together_23-2151240097.jpg", caption="Family Time ❤️")
+    with col2:
+        st.image("https://img.freepik.com/free-photo/workplace-with-laptop-charts-office_23-2148443360.jpg", caption="Learning Python 🐍")
+
+# 5. മാത്സ് ലാബ് (Loops പഠിക്കാൻ)
+elif option == "Maths Lab (Loops)":
+    st.header("🔢 Multiplication Table Generator")
+    num = st.number_input("ഏത് സംഖ്യയുടെ പട്ടിക വേണം?", value=5)
+    if st.button("പട്ടിക കാണുക"):
+        for i in range(1, 11):
+            st.write(f"{num} x {i} = **{num * i}**")
+
+# 6. സ്റ്റഡി റിസോഴ്‌സസ് (പുതിയ സെക്ഷൻ)
+elif option == "Study Resources":
+    st.header("📖 Textbook Downloads")
+    st.write("കേരള സിലബസ് പാഠപുസ്തകങ്ങൾ താഴെയുള്ള ബട്ടണുകൾ വഴി ഡൗൺലോഡ് ചെയ്യാം:")
+    st.link_button("Download SSLC Books", "https://samagra.kite.kerala.gov.in/#/textbook/view")
+    st.link_button("Download Plus Two Books", "https://samagra.kite.kerala.gov.in/#/textbook/view")
+    st.info("ഈ ലിങ്ക് തുറന്ന് നിനക്ക് വേണ്ട ക്ലാസ്സും മീഡിയവും തിരഞ്ഞെടുത്താൽ മതി.")
 
 # ഫൂട്ടർ
 st.sidebar.markdown("---")
