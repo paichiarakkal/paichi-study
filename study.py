@@ -36,7 +36,7 @@ if option == "Home":
 # SSLC സെക്ഷൻ
 elif option == "SSLC Student":
     st.header("📝 SSLC Mark Entry")
-    name = st.text_input("Student Name")
+    name = st.text_input("fiza")
     
     col1, col2 = st.columns(2)
     with col1:
@@ -66,7 +66,7 @@ elif option == "SSLC Student":
 # പ്ലസ് ടു സെക്ഷൻ
 elif option == "Plus Two Student":
     st.header("📚 Plus Two Grade Tracker")
-    name_p2 = st.text_input("Student Name")
+    name_p2 = st.text_input("fammu")
     
     col1, col2 = st.columns(2)
     with col1:
