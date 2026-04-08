@@ -21,7 +21,9 @@ if option == "SSLC Student":
         average = total / 3
         st.success(f"ഹലോ {name}, നിന്റെ ടോട്ടൽ മാർക്ക് {total} ആണ്.")
         st.info(f"ശരാശരി (Average): {average:.2f}%")
-
+        # മാർക്കിന്റെ ശതമാനം കാണിക്കാൻ ഒരു പ്രോഗ്രസ് ബാർ
+        st.write(f"Your Progress: {average:.1f}%")
+        st.progress(int(average)) # 0 മുതൽ 100 വരെയുള്ള ശതമാനം കാണിക്കും
 elif option == "+2 Student":
     st.header("📚 Plus Two Grade Tracker")
     # ഇവിടെ നമുക്ക് ഗ്രേഡുകൾ നൽകാം
