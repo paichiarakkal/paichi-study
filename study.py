@@ -9,28 +9,27 @@ st.markdown("""
     <style>
     /* സൈഡ്‌ബാർ ഗോൾഡ് (Gold) കളർ */
     [data-testid="stSidebar"] {
-        background-color: #D4AF37;
+        background-color: #D4AF37 !important;
     }
     [data-testid="stSidebar"] * {
         color: black !important;
         font-weight: bold;
     }
     
-    /* മെയിൻ ബോഡി സിൽവർ + ഗോൾഡ് മിക്സ് */
-    .main {
+    /* മെയിൻ ബോഡി സിൽവർ + ഗോൾഡ് മിക്സ് (Silver & Gold Mix) */
+    .stApp {
         background: linear-gradient(135deg, #C0C0C0 30%, #D4AF37 90%);
-        color: #1a1a1a;
     }
     
-    /* ഹെഡിംഗുകൾ കറുപ്പ് നിറത്തിൽ */
-    h1, h2, h3 {
+    /* ടൈറ്റിൽ ആൻഡ് ടെക്സ്റ്റ് കളർ */
+    h1, h2, h3, p, span {
         color: #1a1a1a !important;
     }
 
-    /* ബട്ടണുകളുടെ സ്റ്റൈൽ */
+    /* ബട്ടണുകളുടെ ഡിസൈൻ */
     .stButton>button {
-        background-color: #D4AF37;
-        color: black;
+        background-color: #D4AF37 !important;
+        color: black !important;
         border-radius: 12px;
         border: 2px solid #C0C0C0;
         font-weight: bold;
@@ -49,7 +48,7 @@ SHEET_ID = "1Dml8r92UeygAKpnR5QNMkzcM4q3UEb2IwirHJ9otYSM"
 SHEET_URL_CSV = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 SHEET_VIEW_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/edit#gid=0"
 
-# 4. സൈഡ്ബാർ മെനു (നീ പറഞ്ഞതുപോലെ Home Expenses)
+# 4. സൈഡ്ബാർ മെനു (Home Expenses എന്ന് മാറ്റിയിട്ടുണ്ട്)
 st.sidebar.title("🔱 PAICHI MENU")
 option = st.sidebar.selectbox("Choose Section", 
     ["Home", "Home Expenses", "SSLC Student", "Plus Two Student", "Photo Gallery", "Study Resources"])
@@ -63,8 +62,8 @@ if option == "Home":
     col1, col2 = st.columns([2, 1])
     with col1:
         st.subheader("സ്വാഗതം ഫൈസൽ!")
-        st.write("കുടുംബത്തിന് വേണ്ടി നിർമ്മിച്ച ഡിജിറ്റൽ ഡയറി.")
-        st.info("💡 **ഇന്നത്തെ ചിന്ത:** കൃത്യമായ കണക്കുകൾ കൃത്യമായ സമ്പാദ്യത്തിലേക്കുള്ള ആദ്യ പടിയാണ്.")
+        st.write("നിന്റെ കുടുംബത്തിന്റെ എല്ലാ ആവശ്യങ്ങൾക്കുമായി ഈ ഡിജിറ്റൽ ഹബ്ബ് ഉപയോഗിക്കാം.")
+        st.info("💡 **ഇന്നത്തെ ചിന്ത:** കൃത്യമായ പ്ലാനിംഗ് വിജയത്തിലേക്കുള്ള ആദ്യ ചുവടുവെപ്പാണ്.")
     with col2:
         st.image("https://img.freepik.com/free-vector/home-concept-illustration_114360-1007.jpg")
 
@@ -76,16 +75,19 @@ elif option == "Home Expenses":
     if pwd == EXPENSE_PASSWORD:
         st.success("Access Granted!")
         
-        # ടോട്ടൽ തുക ആപ്പിൽ കാണിക്കുന്നു
+        # ടോട്ടൽ തുക തനിയെ കൂട്ടി കാണിക്കുന്നു
         try:
             df = pd.read_csv(SHEET_URL_CSV)
             total_expense = pd.to_numeric(df['Amount'], errors='coerce').sum()
             st.metric(label="ഈ മാസത്തെ ആകെ ചിലവ്", value=f"₹{total_expense}")
         except:
-            st.info("ഡാറ്റ ലോഡ് ചെയ്യുന്നു...")
+            st.info("കണക്കുകൾ ശേഖരിക്കുന്നു. പുതിയ മറുപടികൾ നൽകിയ ശേഷം ഇവിടെ കാണാം.")
 
         st.divider()
+        st.write("പുതിയ വിവരങ്ങൾ ചേർക്കാൻ താഴെ കാണുന്ന ബട്ടൺ ഉപയോഗിക്കുക:")
         st.link_button("📝 പുതിയ ചിലവ് ചേർക്കുക (Open Form)", GOOGLE_FORM_URL)
+        
+        st.subheader("📊 പഴയ റെക്കോർഡുകൾ")
         st.link_button("👁️ View Full Google Sheet", SHEET_VIEW_URL)
     elif pwd != "":
         st.error("Incorrect Password!")
@@ -110,10 +112,10 @@ elif option == "Plus Two Student":
     elif pwd_p != "":
         st.error("Incorrect Password!")
 
-# 5. ഫോട്ടോ ഗാലറി (Fixed Images)
+# 5. ഫോട്ടോ ഗാലറി (ഇപ്പോൾ ഫോട്ടോകൾ വരും)
 elif option == "Photo Gallery":
     st.header("📸 Family Memories")
-    st.write("കുടുംബത്തിലെ മനോഹര നിമിഷങ്ങൾ താഴെ കാണാം.")
+    st.write("മനോഹരമായ നിമിഷങ്ങൾ ഇവിടെ കാണാം.")
     
     col_img1, col_img2 = st.columns(2)
     with col_img1:
