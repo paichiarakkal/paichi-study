@@ -4,6 +4,40 @@ import pandas as pd
 # 1. ആപ്പിന്റെ അടിസ്ഥാന സെറ്റിംഗ്സ്
 st.set_page_config(page_title="PAICHI Family Hub", layout="wide")
 
+# --- CUSTOM CSS FOR THEME (Gold & Silver Mix) ---
+st.markdown("""
+    <style>
+    /* സൈഡ്‌ബാർ ഗോൾഡ് (Gold) കളർ */
+    [data-testid="stSidebar"] {
+        background-color: #D4AF37;
+    }
+    [data-testid="stSidebar"] * {
+        color: black !important;
+        font-weight: bold;
+    }
+    
+    /* മെയിൻ ബോഡി സിൽവർ + ഗോൾഡ് മിക്സ് */
+    .main {
+        background: linear-gradient(135deg, #C0C0C0 30%, #D4AF37 90%);
+        color: #1a1a1a;
+    }
+    
+    /* ഹെഡിംഗുകൾ കറുപ്പ് നിറത്തിൽ */
+    h1, h2, h3 {
+        color: #1a1a1a !important;
+    }
+
+    /* ബട്ടണുകളുടെ സ്റ്റൈൽ */
+    .stButton>button {
+        background-color: #D4AF37;
+        color: black;
+        border-radius: 12px;
+        border: 2px solid #C0C0C0;
+        font-weight: bold;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
 # 2. പാസ്‌വേഡുകൾ
 SSLC_PASSWORD = "sslc123"
 PLUS2_PASSWORD = "plus123"
@@ -15,49 +49,40 @@ SHEET_ID = "1Dml8r92UeygAKpnR5QNMkzcM4q3UEb2IwirHJ9otYSM"
 SHEET_URL_CSV = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 SHEET_VIEW_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/edit#gid=0"
 
-# 4. സൈഡ്ബാർ മെനു
-st.sidebar.title("📌 Main Menu")
+# 4. സൈഡ്ബാർ മെനു (നീ പറഞ്ഞതുപോലെ Home Expenses)
+st.sidebar.title("🔱 PAICHI MENU")
 option = st.sidebar.selectbox("Choose Section", 
-    ["Home", "Wife's Expenses", "SSLC Student", "Plus Two Student", "Photo Gallery", "Study Resources"])
+    ["Home", "Home Expenses", "SSLC Student", "Plus Two Student", "Photo Gallery", "Study Resources"])
 
 # --- സെക്ഷനുകൾ താഴെ ---
 
-# 1. ഹോം പേജ് (പുതുക്കിയത്)
+# 1. ഹോം പേജ്
 if option == "Home":
-    st.markdown("<h1 style='text-align: center; color: #4A90E2;'>🏠 PAICHI Family Hub</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center;'>🏠 PAICHI Family Hub</h1>", unsafe_allow_html=True)
     st.write("---")
-    
     col1, col2 = st.columns([2, 1])
-    
     with col1:
         st.subheader("സ്വാഗതം ഫൈസൽ!")
-        st.write("""
-        ഈ ആപ്പ് നിന്റെ കുടുംബത്തിന്റെ ആവശ്യങ്ങൾക്കായി പ്രത്യേകം തയ്യാറാക്കിയതാണ്. 
-        ഇവിടെ നിനക്ക് താഴെ പറയുന്ന കാര്യങ്ങൾ ചെയ്യാം:
-        
-        * 💰 **ചിലവുകൾ രേഖപ്പെടുത്താം:** ദിവസേനയുള്ള ചിലവുകൾ കൃത്യമായി ട്രാക്ക് ചെയ്യാം.
-        * 📚 **പഠന സഹായി:** കുട്ടികൾക്ക് പഠനത്തിനാവശ്യമായ നോട്ടുകളും ലിങ്കുകളും ഇവിടെ ലഭിക്കും.
-        * 📸 **ഓർമ്മകൾ:** കുടുംബത്തിലെ നല്ല നിമിഷങ്ങൾ ഫോട്ടോ ഗാലറിയിൽ സൂക്ഷിക്കാം.
-        """)
-        
-        st.info("💡 **ഇന്നത്തെ ചിന്ത:** ലക്ഷ്യത്തിലേക്കുള്ള ചെറിയ ചുവടുവെപ്പുകളാണ് വലിയ വിജയങ്ങളിലേക്ക് നയിക്കുന്നത്. നന്നായി പഠിക്കുക, കൃത്യമായി പ്ലാൻ ചെയ്യുക!")
-
+        st.write("കുടുംബത്തിന് വേണ്ടി നിർമ്മിച്ച ഡിജിറ്റൽ ഡയറി.")
+        st.info("💡 **ഇന്നത്തെ ചിന്ത:** കൃത്യമായ കണക്കുകൾ കൃത്യമായ സമ്പാദ്യത്തിലേക്കുള്ള ആദ്യ പടിയാണ്.")
     with col2:
-        st.image("https://img.freepik.com/free-vector/home-concept-illustration_114360-1007.jpg", use_column_width=True)
+        st.image("https://img.freepik.com/free-vector/home-concept-illustration_114360-1007.jpg")
 
-# 2. വൈഫിന്റെ എക്സ്പെൻസ് സെക്ഷൻ
-elif option == "Wife's Expenses":
-    st.header("💰 Wife's Monthly Expense Tracker")
+# 2. ഹോം എക്സ്പെൻസസ് (Home Expenses Tracker)
+elif option == "Home Expenses":
+    st.header("💰 Home Expenses Tracker")
     pwd = st.text_input("Enter Password", type="password", key="exp_pwd")
     
     if pwd == EXPENSE_PASSWORD:
         st.success("Access Granted!")
+        
+        # ടോട്ടൽ തുക ആപ്പിൽ കാണിക്കുന്നു
         try:
             df = pd.read_csv(SHEET_URL_CSV)
             total_expense = pd.to_numeric(df['Amount'], errors='coerce').sum()
             st.metric(label="ഈ മാസത്തെ ആകെ ചിലവ്", value=f"₹{total_expense}")
         except:
-            st.info("കണക്കുകൾ ശേഖരിക്കുന്നു...")
+            st.info("ഡാറ്റ ലോഡ് ചെയ്യുന്നു...")
 
         st.divider()
         st.link_button("📝 പുതിയ ചിലവ് ചേർക്കുക (Open Form)", GOOGLE_FORM_URL)
@@ -71,7 +96,6 @@ elif option == "SSLC Student":
     pwd_s = st.text_input("SSLC Password", type="password", key="sslc_pwd")
     if pwd_s == SSLC_PASSWORD:
         st.success("Welcome to SSLC Portal")
-        st.write("പഠന വിവരങ്ങളും നോട്ടുകളും ഇവിടെ ലഭ്യമാണ്.")
         st.balloons()
     elif pwd_s != "":
         st.error("Incorrect Password!")
@@ -82,15 +106,22 @@ elif option == "Plus Two Student":
     pwd_p = st.text_input("Plus Two Password", type="password", key="p2_pwd")
     if pwd_p == PLUS2_PASSWORD:
         st.success("Welcome to Plus Two Portal")
-        st.write("സ്റ്റഡി മെറ്റീരിയലുകൾ ഇവിടെ നോക്കാം.")
         st.snow()
     elif pwd_p != "":
         st.error("Incorrect Password!")
 
-# 5. ഫോട്ടോ ഗാലറി
+# 5. ഫോട്ടോ ഗാലറി (Fixed Images)
 elif option == "Photo Gallery":
     st.header("📸 Family Memories")
-    st.image("https://img.freepik.com/free-photo/family-celebrating-ramadan-together_23-2151240097.jpg")
+    st.write("കുടുംബത്തിലെ മനോഹര നിമിഷങ്ങൾ താഴെ കാണാം.")
+    
+    col_img1, col_img2 = st.columns(2)
+    with col_img1:
+        st.image("https://img.freepik.com/free-photo/family-celebrating-ramadan-together_23-2151240097.jpg", use_column_width=True)
+        st.image("https://img.freepik.com/free-photo/happy-family-outdoors-park_23-2148873752.jpg", use_column_width=True)
+    with col_img2:
+        st.image("https://img.freepik.com/free-photo/kids-studying-together-home_23-2148873760.jpg", use_column_width=True)
+        st.image("https://img.freepik.com/free-photo/family-smiling-camera-outdoors_23-2148873740.jpg", use_column_width=True)
 
 # 6. സ്റ്റഡി റിസോഴ്‌സസ്
 elif option == "Study Resources":
