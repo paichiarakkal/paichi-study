@@ -4,7 +4,7 @@ import pandas as pd
 # 1. ആപ്പിന്റെ അടിസ്ഥാന സെറ്റിംഗ്സ്
 st.set_page_config(page_title="PAICHI Family Hub", layout="wide")
 
-# --- CUSTOM CSS FOR GOLD & SILVER THEME ---
+# --- CUSTOM CSS FOR THEME (Gold & Silver Mix) ---
 st.markdown("""
     <style>
     /* സൈഡ്‌ബാർ ഗോൾഡ് (Gold) കളർ */
@@ -16,7 +16,7 @@ st.markdown("""
         font-weight: bold;
     }
     
-    /* മെയിൻ ബോഡി സിൽവർ + ഗോൾഡ് മിക്സ് (Silver & Gold Mix) */
+    /* മെയിൻ ബോഡി സിൽവർ + ഗോൾഡ് മിക്സ് */
     .stApp {
         background: linear-gradient(135deg, #C0C0C0 30%, #D4AF37 90%) !important;
     }
@@ -48,8 +48,8 @@ SHEET_ID = "1Dml8r92UeygAKpnR5QNMkzcM4q3UEb2IwirHJ9otYSM"
 SHEET_URL_CSV = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 SHEET_VIEW_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/edit#gid=0"
 
-# 4. സൈഡ്ബാർ മെനു
-st.sidebar.title("🔱 PAICHI MENU")
+# 4. സൈഡ്ബാർ മെനു (ചിഹ്നം മാറ്റിയിട്ടുണ്ട്)
+st.sidebar.title("PAICHI MENU")
 option = st.sidebar.selectbox("Choose Section", 
     ["Home", "Home Expenses", "SSLC Student", "Plus Two Student", "Photo Gallery", "Study Resources"])
 
@@ -59,11 +59,17 @@ option = st.sidebar.selectbox("Choose Section",
 if option == "Home":
     st.markdown("<h1 style='text-align: center;'>🏠 PAICHI Family Hub</h1>", unsafe_allow_html=True)
     st.write("---")
+    
     col1, col2 = st.columns([2, 1])
+    
     with col1:
         st.subheader("സ്വാഗതം ഫൈസൽ!")
-        st.write("കുടുംബത്തിന്റെ ആവശ്യങ്ങൾക്കായി നിർമ്മിച്ച നിന്റെ സ്വന്തം പൈത്തൺ ആപ്പ്.")
-        st.info("💡 **ഇന്നത്തെ ചിന്ത:** കൃത്യമായ പ്ലാനിംഗ് വിജയത്തിലേക്കുള്ള ആദ്യ ചുവടുവെപ്പാണ്.")
+        st.write("കുടുംബത്തിന്റെ ആവശ്യങ്ങൾക്കായി നിർമ്മിച്ച ഡിജിറ്റൽ ഹബ്ബ്.")
+        
+        st.markdown("### 🚀 Quick Access")
+        st.link_button("📝 പുതിയ ചിലവ് ചേർക്കുക", GOOGLE_FORM_URL)
+        st.info("💡 ബാക്കി ഓപ്ഷനുകൾക്കായി മെനു ഉപയോഗിക്കുക.")
+        
     with col2:
         st.image("https://img.freepik.com/free-vector/home-concept-illustration_114360-1007.jpg")
 
@@ -87,7 +93,7 @@ elif option == "Home Expenses":
     elif pwd != "":
         st.error("Incorrect Password!")
 
-# 3. SSLC സെക്ഷൻ
+# 3. SSLC & 4. Plus Two
 elif option == "SSLC Student":
     st.header("📝 SSLC Student Zone")
     pwd_s = st.text_input("SSLC Password", type="password", key="sslc_pwd")
@@ -97,7 +103,6 @@ elif option == "SSLC Student":
     elif pwd_s != "":
         st.error("Incorrect Password!")
 
-# 4. പ്ലസ് ടു സെക്ഷൻ
 elif option == "Plus Two Student":
     st.header("📚 Plus Two Student Zone")
     pwd_p = st.text_input("Plus Two Password", type="password", key="p2_pwd")
@@ -107,21 +112,15 @@ elif option == "Plus Two Student":
     elif pwd_p != "":
         st.error("Incorrect Password!")
 
-# 5. ഫോട്ടോ ഗാലറി (പുതുക്കിയത് - Ugadi Photo ഒഴിവാക്കി)
+# 5. ഫോട്ടോ ഗാലറി (Ugadi ഫോട്ടോ ഇല്ലാതെ)
 elif option == "Photo Gallery":
     st.header("📸 Family Memories")
-    st.write("കുടുംബത്തിലെ മനോഹര നിമിഷങ്ങൾ താഴെ കാണാം.")
-    
     col_img1, col_img2 = st.columns(2)
     with col_img1:
-        # ഫാമിലി ഡിന്നർ ഫോട്ടോ
         st.image("https://img.freepik.com/free-photo/family-celebrating-ramadan-together_23-2151240097.jpg", use_column_width=True)
-        # വെക്കേഷൻ ഫോട്ടോ
         st.image("https://img.freepik.com/free-photo/happy-family-outdoors-park_23-2148873752.jpg", use_column_width=True)
     with col_img2:
-        # കുട്ടികൾ പഠിക്കുന്ന ഫോട്ടോ
         st.image("https://img.freepik.com/free-photo/kids-studying-together-home_23-2148873760.jpg", use_column_width=True)
-        # ചിരിച്ചു നിൽക്കുന്ന ഫാമിലി ഫോട്ടോ
         st.image("https://img.freepik.com/free-photo/family-smiling-camera-outdoors_23-2148873740.jpg", use_column_width=True)
 
 # 6. സ്റ്റഡി റിസോഴ്‌സസ്
