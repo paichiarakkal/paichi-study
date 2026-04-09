@@ -1,94 +1,136 @@
 import streamlit as st
 import pandas as pd
+import requests
+import os
+from mtranslate import translate
 
-# 1. ആപ്പിന്റെ അടിസ്ഥാന സെറ്റിംഗ്സ്
-st.set_page_config(page_title="PAICHI Family Hub", layout="wide")
+# 1. പേജ് സെറ്റിംഗ്സ്
+st.set_page_config(page_title="PAICHI Study Hub", layout="wide")
 
-# --- CUSTOM CSS ---
+# --- CUSTOM CSS (Color & Style) ---
 st.markdown("""
     <style>
-    [data-testid="stSidebar"] { background-color: #D4AF37 !important; }
-    .stApp { background: linear-gradient(135deg, #C0C0C0 30%, #D4AF37 90%) !important; }
-    h1, h2, h3, p, span, label, .stMetric { color: #1a1a1a !important; }
-    .stButton>button {
-        background-color: #D4AF37 !important;
-        color: black !important;
-        border-radius: 12px !important;
-        font-weight: bold !important;
+    /* ബാക്ക്ഗ്രൗണ്ട് നിറം */
+    .stApp { 
+        background: linear-gradient(135deg, #BF953F, #FCF6BA, #B38728, #AA771C); 
+        color: #000; 
+    }
+    /* സൈഡ്ബാർ സ്റ്റൈൽ */
+    [data-testid="stSidebar"] { 
+        background-color: #000 !important; 
+    }
+    [data-testid="stSidebar"] .stMarkdown p {
+        color: #FFD700 !important;
+    }
+    /* വാർത്താ ബോക്സ് */
+    .news-ticker {
+        background-color: #000;
+        color: #FFD700;
+        padding: 10px;
+        border-radius: 10px;
+        border: 2px solid #FFD700;
+        font-weight: bold;
+        font-size: 18px;
+        margin-bottom: 25px;
+    }
+    /* ടേബിൾ സ്റ്റൈൽ */
+    .stDataFrame, .stTable {
+        background-color: rgba(255, 255, 255, 0.8) !important;
+        border-radius: 10px;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. പാസ്‌വേഡുകൾ
-PASSWORDS = {
-    "HOME_EXPENSES": "wife123",
-    "SSLC": "sslc123",
-    "PLUS_TWO": "plus123"
-}
+# --- വാർത്തകൾ എടുക്കാനുള്ള ഫംഗ്ഷൻ ---
+def get_malayalam_news():
+    try:
+        # ഗൾഫ് വാർത്തകളും കേരള വാർത്തകളും കലർന്ന ഒരു സെർച്ച്
+        url = "https://query1.finance.yahoo.com/v1/finance/search?q=Kerala,Dubai,Gold,Market&newsCount=5"
+        res = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}).json()
+        titles = [item['title'] for item in res['news']]
+        combined = "  |  ".join(titles)
+        return translate(combined, "ml", "en")
+    except:
+        return "വാർത്തകൾ ലോഡ് ചെയ്യുന്നു... ദയവായി കാത്തിരിക്കൂ..."
 
-# 3. സൈഡ്ബാർ മെനു
-st.sidebar.title("PAICHI MENU")
-option = st.sidebar.selectbox("Choose Section", 
-    ["Home", "Home Expenses", "SSLC Student", "Plus Two Student", "Photo Gallery", "Study Resources"])
+# ഫയൽ സെറ്റിംഗ്സ്
+EXP_FILE = 'study_expenses.csv'
+MARK_FILE = 'study_marks.csv'
 
-# --- സെക്ഷനുകൾ താഴെ ---
+# --- 1. LIVE NEWS TICKER (TOP) ---
+live_news = get_malayalam_news()
+st.markdown(f"""
+    <div class="news-ticker">
+        <marquee scrollamount="6">
+            📢 {live_news}
+        </marquee>
+    </div>
+""", unsafe_allow_html=True)
 
-if option == "Home":
-    st.markdown("<h1 style='text-align: center;'>🏠 PAICHI Family Hub</h1>", unsafe_allow_html=True)
+# --- 2. SIDEBAR ---
+st.sidebar.title("🏠 STUDY MENU")
+menu = st.sidebar.radio("വിഭാഗം തിരഞ്ഞെടുക്കുക:", ["Home", "💰 Home Expenses", "📚 Student Corner"])
+
+# --- 3. MAIN CONTENT ---
+
+if menu == "Home":
+    st.markdown("<h1 style='text-align: center; color: white; text-shadow: 2px 2px #000;'>🏠 Paichi Study App</h1>", unsafe_allow_html=True)
     st.write("---")
-    st.subheader("സ്വാഗതം ഫൈസൽ!")
-    st.write("നിന്റെ കുടുംബത്തിന് വേണ്ടിയുള്ള ഡിജിറ്റൽ ഹബ്ബ്.")
+    st.subheader("സ്വാഗതം!")
+    st.info("ഈ ആപ്പിൽ നിനക്ക് വീട്ടിലെ ചെലവുകളും കുട്ടികളുടെ പഠന വിവരങ്ങളും കൃത്യമായി രേഖപ്പെടുത്താം.")
 
-elif option == "Home Expenses":
-    st.header("💰 Home Expenses Tracker")
-    pwd = st.text_input("Enter Password", type="password", key="exp_pwd")
-    if pwd == PASSWORDS["HOME_EXPENSES"]:
-        st.success("Access Granted!")
-        st.info("ഇവിടെ ഹോം എക്സ്പെൻസസ് ഡീറ്റെയിൽസ് കാണാം.")
-        # ഗൂഗിൾ ഷീറ്റ് ലിങ്ക് ഇവിടെ വരും
-    elif pwd != "":
-        st.error("Incorrect Password!")
-
-elif option == "SSLC Student":
-    st.header("📝 SSLC Student Zone")
-    pwd_s = st.text_input("Enter SSLC Password", type="password", key="sslc_key")
+elif menu == "💰 Home Expenses":
+    st.markdown("<h1 style='color: white; text-shadow: 2px 2px #000;'>💰 Home Expenses</h1>", unsafe_allow_html=True)
     
-    # പാസ്‌വേഡ് ശരിയാണെങ്കിൽ ലിങ്കുകൾ നേരിട്ട് വരും
-    if pwd_s == PASSWORDS["SSLC"]:
-        st.success("Welcome to SSLC Portal!")
-        st.balloons()
-        
-        st.markdown("### 📚 Study Materials")
-        st.write("1. [SSLC Model Questions](https://www.scert.kerala.gov.in)")
-        st.write("2. [Previous Year Papers](https://www.keralapareekshabhavan.in)")
-        st.write("3. [Online Classes (Victers)](https://www.youtube.com/@ItsVicters)")
-        
-    elif pwd_s != "":
-        st.error("Incorrect Password!")
-
-elif option == "Plus Two Student":
-    st.header("📚 Plus Two Student Zone")
-    pwd_p = st.text_input("Enter Plus Two Password", type="password", key="p2_key")
+    col1, col2 = st.columns([1, 1.5])
     
-    if pwd_p == PASSWORDS["PLUS_TWO"]:
-        st.success("Welcome to Plus Two Portal!")
-        st.snow()
-        
-        st.markdown("### 📖 Higher Secondary Resources")
-        st.write("1. [Plus Two Textbooks](https://samagra.kite.kerala.gov.in)")
-        st.write("2. [Focus Area Notes](https://www.hsslive.in)")
-        st.write("3. [Question Bank](https://www.dhsekerala.gov.in)")
-        
-    elif pwd_p != "":
-        st.error("Incorrect Password!")
+    with col1:
+        st.subheader("പുതിയത് ചേർക്കുക")
+        with st.form("exp_form"):
+            date = st.date_input("തിയതി")
+            item = st.text_input("വിവരണം")
+            amt = st.number_input("തുക", min_value=0)
+            submitted = st.form_submit_button("സേവ് ചെയ്യുക")
+            
+            if submitted:
+                new_row = pd.DataFrame([[date, item, amt]], columns=['Date', 'Item', 'Amount'])
+                if not os.path.isfile(EXP_FILE): new_row.to_csv(EXP_FILE, index=False)
+                else: new_row.to_csv(EXP_FILE, mode='a', header=False, index=False)
+                st.success("ലിസ്റ്റ് അപ്‌ഡേറ്റ് ചെയ്തു!")
 
-elif option == "Photo Gallery":
-    st.header("📸 Family Memories")
-    st.image("https://img.freepik.com/free-photo/family-celebrating-ramadan-together_23-2151240097.jpg")
+    with col2:
+        st.subheader("ലിസ്റ്റ് (Expense Table)")
+        if os.path.isfile(EXP_FILE):
+            df = pd.read_csv(EXP_FILE)
+            st.table(df) # ലിസ്റ്റ് പട്ടികയായി കാണിക്കുന്നു
+            st.markdown(f"### **ആകെ ചെലവ്: ₹{df['Amount'].sum()}**")
+        else:
+            st.warning("ലിസ്റ്റ് കാലിയാണ്.")
 
-elif option == "Study Resources":
-    st.header("📖 Textbook Downloads")
-    st.link_button("Download Textbooks", "https://samagra.kite.kerala.gov.in/#/textbook/view")
+elif menu == "📚 Student Corner":
+    st.markdown("<h1 style='color: white; text-shadow: 2px 2px #000;'>📚 Student Corner</h1>", unsafe_allow_html=True)
+    
+    cat = st.selectbox("ക്ലാസ്സ്:", ["SSLC", "Plus One", "Plus Two"])
+    
+    with st.expander("മാർക്ക് എന്റർ ചെയ്യുക"):
+        name = st.text_input("പേര്")
+        m1 = st.number_input("മലയാളം", 0, 100)
+        m2 = st.number_input("ഇംഗ്ലീഷ്", 0, 100)
+        m3 = st.number_input("മാക്സ്/അക്കൗണ്ടൻസി", 0, 100)
+        if st.button("Submit Result"):
+            total = m1+m2+m3
+            new_m = pd.DataFrame([[name, cat, m1, m2, m3, total]], columns=['Name', 'Class', 'M1', 'M2', 'M3', 'Total'])
+            if not os.path.isfile(MARK_FILE): new_m.to_csv(MARK_FILE, index=False)
+            else: new_m.to_csv(MARK_FILE, mode='a', header=False, index=False)
+            st.success("മാർക്ക് ലിസ്റ്റ് സേവ് ചെയ്തു!")
 
-st.sidebar.markdown("---")
-st.sidebar.write("Created with ❤️ by Faisal")
+    st.subheader(f"📊 {cat} Mark List")
+    if os.path.isfile(MARK_FILE):
+        df_m = pd.read_csv(MARK_FILE)
+        filtered = df_m[df_m['Class'] == cat]
+        st.table(filtered)
+    else:
+        st.info("മാർക്കുകൾ ഒന്നും ലഭ്യമല്ല.")
+
+st.sidebar.write("---")
+st.sidebar.write("Designed by Faisal")
