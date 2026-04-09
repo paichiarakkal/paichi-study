@@ -1,13 +1,8 @@
 import streamlit as st
 import pandas as pd
-import os
-import requests
-from mtranslate import translate
 
-# 1. നിന്റെ ഗൂഗിൾ ഷീറ്റ് ലിങ്ക് (CSV ഫോർമാറ്റിൽ)
-# ഷീറ്റിൽ 'Anyone with the link' എന്ന് സെറ്റ് ചെയ്തതുകൊണ്ട് ഇത് വർക്ക് ആകും.
-SHEET_URL = "https://docs.google.com/spreadsheets/d/1nu09TIn8p6s0NJblSaH-Ji2KWDowQTLfYasPWZhO1yg/export?format=csv" 
-MARK_FILE = 'marks_data.csv'
+# 1. നീ പബ്ലിഷ് ചെയ്തപ്പോൾ കിട്ടിയ പുതിയ CSV ലിങ്ക്
+NEW_SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTupW3xiZrAzp632NVBO3SpfRKcloT_GtUfOYetoWP1ZedonX8xKWZuvluEuOel54ZLewlxXfqahVsl/pub?output=csv"
 
 # പേജ് സെറ്റിംഗ്സ്
 st.set_page_config(page_title="PAICHI Family Hub", layout="wide")
@@ -16,62 +11,33 @@ st.set_page_config(page_title="PAICHI Family Hub", layout="wide")
 st.markdown("""
     <style>
     .stApp { background: linear-gradient(135deg, #BF953F, #FCF6BA, #AA771C); color: #000; }
-    [data-testid="stSidebar"] { background-color: #000 !important; }
-    .news-ticker { background-color: #000; color: #FFD700; padding: 12px; border-radius: 10px; border: 2px solid #FFD700; font-size: 18px; font-weight: bold; }
-    .total-box { background-color: #000; color: #FFD700; padding: 15px; border-radius: 10px; text-align: center; font-size: 24px; font-weight: bold; border: 2px solid #FFD700; }
-    .stTable { background-color: white !important; border-radius: 10px; color: black !important; }
-    h1, h2 { color: black !important; text-align: center; font-weight: bold; }
+    .total-box { background-color: #000; color: #FFD700; padding: 20px; border-radius: 15px; text-align: center; font-size: 28px; font-weight: bold; border: 3px solid #FFD700; margin-top: 20px; }
+    .stDataFrame { background-color: white !important; border-radius: 10px; padding: 10px; }
+    h1 { color: black !important; text-align: center; font-weight: bold; }
     </style>
     """, unsafe_allow_html=True)
 
-# വാർത്തകൾ
-def get_news():
-    try:
-        url = "https://query1.finance.yahoo.com/v1/finance/search?q=Kerala,Dubai&newsCount=5"
-        res = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}).json()
-        titles = "  |  ".join([item['title'] for item in res['news']])
-        return translate(titles, "ml", "en")
-    except: return "വാർത്തകൾ ലോഡ് ചെയ്യുന്നു..."
+st.title("🏠 PAICHI Live Tracker")
 
-st.markdown(f'<div class="news-ticker"><marquee scrollamount="5">📢 {get_news()}</marquee></div>', unsafe_allow_html=True)
+try:
+    # ഷീറ്റിൽ നിന്നും വിവരങ്ങൾ എടുക്കുന്നു
+    df = pd.read_csv(NEW_SHEET_URL)
+    
+    st.subheader("📊 Expense List")
+    
+    # പട്ടിക കാണിക്കുന്നു
+    st.dataframe(df, use_container_width=True)
+    
+    # 'Amount' കോളത്തിലെ തുകകൾ കൂട്ടുന്നു
+    if 'Amount' in df.columns:
+        # നമ്പറുകൾ ആണെന്ന് ഉറപ്പുവരുത്തുന്നു
+        total = pd.to_numeric(df['Amount'], errors='coerce').sum()
+        st.markdown(f'<div class="total-box">ആകെ ചെലവ്: ₹ {total:,.2f}</div>', unsafe_allow_html=True)
+    else:
+        st.warning("ഷീറ്റിൽ 'Amount' എന്ന കോളം കാണുന്നില്ല. ഹെഡർ പരിശോധിക്കുക.")
 
-# മെനു
-menu = st.sidebar.radio("Go To:", ["🏠 Home", "💰 Home Expenses", "📚 SSLC & Plus Two"])
-
-if menu == "🏠 Home":
-    st.title("🏠 Paichi Family Hub")
-    st.success("സ്വാഗതം ഫൈസൽ!")
-    st.info("ഗൂഗിൾ ഫോം വഴി നൽകുന്ന വിവരങ്ങൾ 'Home Expenses' എന്നതിൽ കാണാം.")
-    st.markdown(f"[ലിങ്ക്: ഇവിടെ ക്ലിക്ക് ചെയ്ത് പുതിയ ചെലവുകൾ ചേർക്കാം](https://forms.gle/smPfVnZepcELmAgH6)")
-
-elif menu == "💰 Home Expenses":
-    st.header("💵 Expense Tracker (Live)")
-    try:
-        df = pd.read_csv(SHEET_URL)
-        st.table(df) 
-        
-        # ടോട്ടൽ കണക്കാക്കുന്നു 
-        # നീ ഷീറ്റിൽ 'Items', 'Amount' എന്നാണ് പേര് നൽകിയിരിക്കുന്നത് (45223.jpg)
-        if 'Amount' in df.columns:
-            total = pd.to_numeric(df['Amount'], errors='coerce').sum()
-            st.markdown(f'<div class="total-box">ആകെ ചെലവ്: ₹ {total:,.2f}</div>', unsafe_allow_html=True)
-    except:
-        st.error("ഡാറ്റ ലോഡ് ചെയ്യാൻ കഴിഞ്ഞില്ല. ഷീറ്റ് ലിങ്ക് ചെക്ക് ചെയ്യൂ.")
-
-elif menu == "📚 SSLC & Plus Two":
-    st.header("📊 Mark List (App Storage)")
-    with st.expander("പുതിയ മാർക്ക് ചേർക്കുക"):
-        with st.form("mark_form", clear_on_submit=True):
-            name = st.text_input("പേര്")
-            cat = st.selectbox("ക്ലാസ്സ്", ["SSLC", "Plus Two"])
-            mark = st.number_input("മാർക്ക്", min_value=0)
-            if st.form_submit_button("Save"):
-                new_data = pd.DataFrame([[name, cat, mark]], columns=['Name', 'Class', 'Mark'])
-                if not os.path.isfile(MARK_FILE): new_data.to_csv(MARK_FILE, index=False)
-                else: new_data.to_csv(MARK_FILE, mode='a', header=False, index=False)
-                st.success("സേവ് ചെയ്തു!")
-    if os.path.isfile(MARK_FILE):
-        st.table(pd.read_csv(MARK_FILE))
+except Exception as e:
+    st.error("ഡാറ്റ ലോഡ് ചെയ്യാൻ കഴിഞ്ഞില്ല. ഷീറ്റ് പബ്ലിഷ് ചെയ്തിട്ടുണ്ടെന്ന് ഉറപ്പുവരുത്തുക.")
 
 st.sidebar.write("---")
-st.sidebar.write("Designed by Faisal")
+st.sidebar.write("Design by Faisal")
