@@ -6,102 +6,97 @@ import random
 from PIL import Image
 import numpy as np
 
-# AI ലൈബ്രറി ലോഡ് ചെയ്യുന്നു
+# AI ലൈബ്രറി ലോഡ് ചെയ്യുന്ന ഭാഗം - എറർ ഒഴിവാക്കാൻ try/except ചേർത്തു
 try:
     import easyocr
-    # ഇത് ആദ്യമായി റൺ ചെയ്യുമ്പോൾ AI മോഡൽ ഡൗൺലോഡ് ചെയ്യാൻ അല്പം സമയമെടുക്കും
     @st.cache_resource
-    def load_reader():
+    def load_ai():
         return easyocr.Reader(['en'])
-    reader = load_reader()
 except Exception as e:
-    st.error(f"AI ലോഡ് ചെയ്യാൻ കഴിഞ്ഞില്ല: {e}")
+    st.sidebar.error("AI സിസ്റ്റം റെഡിയായിട്ടില്ല.")
 
-# നിന്റെ ഗൂഗിൾ ലിങ്കുകൾ
+# നിന്റെ ശരിയായ ലിങ്കുകൾ
 CSV_URL = f"https://docs.google.com/spreadsheets/d/e/2PACX-1vR2UqKgCAEEv42IC6vwe0D2g_pW7-XR2Qiv7_FwAZYFDTDLd7pOwKQ5yvClbwy88AZmD6Ar2AiFQ8Xu/pub?gid=1126266048&single=true&output=csv&x={random.randint(1,10000)}"
 FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLScHkSw0nkgNQSeRGocM85t4bZCkWHQS6EUSDf-5dIts1gWZXw/formResponse"
 
-st.set_page_config(page_title="PAICHI AI Hub", layout="wide")
+st.set_page_config(page_title="PAICHI Family Hub", layout="wide")
 
-# പ്രീമിയം ഗോൾഡൻ ഡിസൈൻ
+# ഡിസൈൻ സെറ്റിംഗ്സ് (നീ അയച്ച ഫോട്ടോയിലെ പോലെ)
 st.markdown("""
     <style>
-    .stApp { background: linear-gradient(135deg, #BF953F, #FCF6BA, #AA771C); color: #000; }
-    [data-testid="stSidebar"] { background: linear-gradient(180deg, #C0C0C0, #E8E8E8, #A9A9A9) !important; }
-    .total-box { background-color: #000; color: #FFD700; padding: 25px; border-radius: 15px; text-align: center; font-size: 35px; font-weight: bold; border: 4px solid #FFD700; }
-    .stButton>button { background-color: #000 !important; color: #FFD700 !important; font-weight: bold; width: 100%; border: 2px solid #FFD700; height: 50px; }
-    h1, h2, h3, label, p { color: black !important; font-weight: bold !important; }
+    .stApp { background: linear-gradient(180deg, #F9D976, #F39C12); color: #000; }
+    .total-box { background-color: #000; color: #FFD700; padding: 25px; border-radius: 20px; text-align: center; font-size: 38px; font-weight: bold; border: 4px solid #FFD700; margin-bottom: 20px; }
+    h1, h2, h3, label, p { color: black !important; font-weight: bold !important; font-family: 'Arial'; }
+    .stButton>button { background-color: #000 !important; color: #FFD700 !important; font-weight: bold; width: 100%; border: 2px solid #FFD700; border-radius: 10px; height: 50px; }
     </style>
     """, unsafe_allow_html=True)
 
-# സൈഡ്‌ബാർ
-st.sidebar.title("⚪ PAICHI AI MENU")
-menu = st.sidebar.selectbox("തിരഞ്ഞെടുക്കുക:", 
-    ["🏠 Home", "💰 Expenses", "📸 AI Bill Scanner", "📊 Report", "⏰ Reminders"])
+# സൈഡ്‌ബാർ മെനു - ഇത് ലളിതമാക്കി
+st.sidebar.title("⚪ PAICHI MENU")
+menu = st.sidebar.radio("Select Option:", ["💰 Expense History", "➕ Add Expense", "📸 AI Bill Scan"])
 
-if menu == "🏠 Home":
-    st.title("🏠 Welcome Faisal!")
-    st.write("നിന്റെ പേഴ്സണൽ AI അസിസ്റ്റന്റ് ഇപ്പോൾ റെഡിയാണ്. ബില്ലുകൾ സ്കാൻ ചെയ്യാൻ 'AI Bill Scanner' തിരഞ്ഞെടുക്കുക.")
-
-elif menu == "📸 AI Bill Scanner":
-    st.title("📸 AI Smart Scan")
-    st.write("ബില്ലിന്റെ ഫോട്ടോ എടുക്കുകയോ അപ്‌ലോഡ് ചെയ്യുകയോ ചെയ്യുക. AI തുക തനിയെ കണ്ടെത്തും.")
-    
-    img_file = st.file_uploader("Upload or Take Photo", type=['jpg', 'png', 'jpeg'])
-    
-    if img_file:
-        img = Image.open(img_file)
-        st.image(img, caption="നിങ്ങൾ നൽകിയ ബില്ല്", width=300)
-        
-        if st.button("🔍 SCAN WITH AI"):
-            with st.spinner("AI ബില്ല് വായിക്കുന്നു..."):
-                result = reader.readtext(np.array(img))
-                all_text = [res[1] for res in result]
-                
-                # നമ്പറുകൾ മാത്രം കണ്ടുപിടിക്കുന്നു
-                prices = []
-                for text in all_text:
-                    clean = text.replace(',', '').replace(' ', '')
-                    try:
-                        prices.append(float(clean))
-                    except:
-                        continue
-                
-                if prices:
-                    detected_amt = max(prices) # സാധാരണ ഏറ്റവും വലിയ നമ്പറാണ് ടോട്ടൽ
-                    st.success(f"AI കണ്ടെത്തിയ തുക: ₹ {detected_amt}")
-                    
-                    # ഫോമിലേക്ക് അയക്കാൻ
-                    with st.form("ai_save"):
-                        final_item = st.text_input("Item Name", value="AI Scanned Bill")
-                        final_price = st.number_input("Amount", value=float(detected_amt))
-                        if st.form_submit_button("SAVE TO SHEET"):
-                            payload = {
-                                "entry.1069832729": datetime.now().strftime("%Y-%m-%d"),
-                                "entry.1896057694": final_item,
-                                "entry.1570426033": str(final_price)
-                            }
-                            requests.post(FORM_URL, data=payload)
-                            st.balloons()
-                            st.success("വിജയകരമായി സേവ് ചെയ്തു!")
-                else:
-                    st.error("ക്ഷമിക്കണം, തുക കണ്ടെത്താൻ കഴിഞ്ഞില്ല. നേരിട്ട് ടൈപ്പ് ചെയ്യുക.")
-
-elif menu == "💰 Expenses":
+if menu == "💰 Expense History":
     st.title("💰 Expense History")
     try:
         df = pd.read_csv(CSV_URL)
         if not df.empty:
-            # തുകയുള്ള വരികൾ മാത്രം (0 ഒഴിവാക്കാൻ)
             df['Amount'] = pd.to_numeric(df.iloc[:, -1], errors='coerce').fillna(0)
             df = df[df['Amount'] > 0]
-            
             total = df['Amount'].sum()
             st.markdown(f'<div class="total-box">Total: ₹ {total:,.2f}</div>', unsafe_allow_html=True)
             
-            st.table(df.iloc[:, [2, -1]].tail(10).iloc[::-1])
+            # ഹിസ്റ്ററി ടേബിൾ
+            display_df = df.iloc[:, [2, -1]].tail(15).iloc[::-1]
+            display_df.columns = ['Item', 'Amount']
+            st.table(display_df)
     except:
         st.info("ഡാറ്റ ലോഡ് ചെയ്യാൻ കഴിഞ്ഞില്ല. Refresh ചെയ്യുക.")
 
+elif menu == "➕ Add Expense":
+    st.title("➕ Add New Entry")
+    with st.form("manual_form", clear_on_submit=True):
+        item_name = st.text_input("സാധനം (Item Name)")
+        item_amount = st.number_input("തുക (Amount)", min_value=0, value=None, placeholder="0")
+        
+        if st.form_submit_button("SAVE DATA"):
+            if item_name and item_amount:
+                payload = {
+                    "entry.1069832729": datetime.now().strftime("%Y-%m-%d"),
+                    "entry.1896057694": item_name,
+                    "entry.1570426033": str(item_amount)
+                }
+                requests.post(FORM_URL, data=payload)
+                st.success(f"{item_name} സേവ് ചെയ്തു!")
+                st.rerun()
+
+elif menu == "📸 AI Bill Scan":
+    st.title("📸 AI Smart Scanner")
+    st.write("ബില്ലിന്റെ ഫോട്ടോ നൽകുക.")
+    img_file = st.file_uploader("Upload Bill Image", type=['jpg', 'png', 'jpeg'])
+    
+    if img_file:
+        img = Image.open(img_file)
+        st.image(img, width=300)
+        
+        if st.button("🔍 START SCANNING"):
+            try:
+                reader = load_ai()
+                with st.spinner("AI ബില്ല് പരിശോധിക്കുന്നു..."):
+                    result = reader.readtext(np.array(img))
+                    prices = []
+                    for res in result:
+                        txt = res[1].replace(',', '').replace(' ', '')
+                        try: prices.append(float(txt))
+                        except: continue
+                    
+                    if prices:
+                        st.success(f"തുക കണ്ടെത്തി: ₹ {max(prices)}")
+                        # ബാക്കി സേവിംഗ്സ് ഓപ്ഷൻ ഇവിടെ വരും
+                    else:
+                        st.warning("തുക കിട്ടിയില്ല, നേരിട്ട് അടിക്കുക.")
+            except:
+                st.error("AI ലോഡ് ആകാൻ കുറച്ചു സമയം കൂടി നൽകൂ.")
+
 st.sidebar.write("---")
-st.sidebar.write("AI Powered by Faisal")
+if st.sidebar.button("🔄 Refresh App"):
+    st.rerun()
