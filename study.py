@@ -16,8 +16,9 @@ def load_ai_reader():
         return easyocr.Reader(['en'])
     except: return None
 
-# 2. നിന്റെ ലിങ്കുകൾ (Updated)
+# 2. നിന്റെ ശരിയായ ലിങ്കുകൾ (നിന്റെ പുതിയ മെസേജിലെ ലിങ്കുകൾ ഉപയോഗിച്ചത്)
 CSV_URL = f"https://docs.google.com/spreadsheets/d/e/2PACX-1vQRmFHWgvrzRobTTuiUO4pMbZ8QP1dAuBsn1hCaUf2ON7Bow1SeR2xHjYwupJZYYfMHW_Mm8pmtLUFA/pub?gid=663160667&single=true&output=csv&x={random.randint(1,10000)}"
+# നോട്ട്: വോയ്‌സ് വർക്ക് ചെയ്യാൻ നിന്റെ ഫോമുമായി കണക്ട് ചെയ്ത API ലിങ്ക് താഴെ നൽകുന്നു
 FORM_URL_API = "https://docs.google.com/forms/d/e/1FAIpQLScHkSw0nkgNQSeRGocM85t4bZCkWHQS6EUSDf-5dIts1gWZXw/formResponse"
 
 st.set_page_config(page_title="PAICHI AI Super Hub", layout="wide")
@@ -58,7 +59,7 @@ if menu == "🏠 Home":
     st.title("🏠 Welcome Faisal!")
     st.write("പൈച്ചി ഫാമിലി ഹബ്ബിലേക്ക് സ്വാഗതം. ഡാറ്റ ചേർക്കാൻ Expenses പേജിൽ പോകുക.")
 
-# --- 2. EXPENSES (ഷീറ്റും ഗൂഗിൾ ഫോമും പൂർണ്ണമായും ഒഴിവാക്കി) ---
+# --- 2. EXPENSES (ഷീറ്റും ഗൂഗിൾ ഫോമും പൂർണ്ണമായും ഒഴിവാക്കി - ക്ലീൻ എന്റർ മാത്രം) ---
 elif menu == "💰 Expenses (Add Entry)":
     st.title("💵 Add New Entry")
     st.write("🎤 വോയ്‌സ് വഴി ചേർക്കാൻ മൈക്കിൽ അമർത്തുക:")
@@ -76,7 +77,13 @@ elif menu == "💰 Expenses (Add Entry)":
             amt = st.number_input("തുക (Amount)", min_value=0, value=None, placeholder="0")
             if st.form_submit_button("SAVE TO CLOUD"):
                 if item and amt:
-                    requests.post(FORM_URL_API, data={"entry.1069832729": datetime.now().strftime("%Y-%m-%d"), "entry.1896057694": item, "entry.1570426033": str(amt)})
+                    # നിന്റെ ഷീറ്റിലെ കോളം ഐഡികൾ അനുസരിച്ചുള്ള പേലോഡ്
+                    payload = {
+                        "entry.1069832729": datetime.now().strftime("%Y-%m-%d"), 
+                        "entry.1896057694": item, 
+                        "entry.1570426033": str(amt)
+                    }
+                    requests.post(FORM_URL_API, data=payload)
                     st.success(f"{item} വിജയകരമായി സേവ് ചെയ്തു!")
         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -101,7 +108,7 @@ elif menu == "📊 Smart Analytics & WhatsApp":
         df = load_data()
         if not df.empty:
             total = df['Amount'].sum()
-            st.markdown(f'<div class="total-box">Total Balance: ₹ {total:,.2f}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="total-box">Total Expense: ₹ {total:,.2f}</div>', unsafe_allow_html=True)
             
             col_a, col_b = st.columns(2)
             with col_a:
@@ -113,7 +120,7 @@ elif menu == "📊 Smart Analytics & WhatsApp":
                 st.table(df.iloc[:, [2, -1]].tail(20).iloc[::-1])
             
             st.markdown("---")
-            wa_text = f"PAICHI HUB REPORT\nTotal: ₹{total}"
+            wa_text = f"PAICHI HUB REPORT\nDate: {datetime.now().strftime('%d-%m-%Y')}\nTotal Expense: ₹{total}"
             wa_url = f"https://wa.me/?text={requests.utils.quote(wa_text)}"
             if st.button("📲 SEND TO WHATSAPP"):
                 st.markdown(f'<a href="{wa_url}" target="_blank" style="text-decoration:none;"><div style="background-color:#25D366; color:white; padding:15px; text-align:center; border-radius:10px; font-weight:bold;">CONFIRM ON WHATSAPP</div></a>', unsafe_allow_html=True)
@@ -121,12 +128,12 @@ elif menu == "📊 Smart Analytics & WhatsApp":
 # --- 4. AI SCANNER ---
 elif menu == "📸 AI Bill Scanner":
     st.title("📸 AI Smart Scan")
-    file = st.file_uploader("Upload Image", type=['jpg','png','jpeg'])
+    file = st.file_uploader("Upload Bill Image", type=['jpg','png','jpeg'])
     if file and st.button("SCAN NOW"):
         reader = load_ai_reader()
         if reader:
             res = reader.readtext(np.array(Image.open(file)))
-            if res: st.success(f"Detected: {res[0][1]}")
+            if res: st.success(f"Detected Text: {res[0][1]}")
 
 # --- OTHERS ---
 elif menu == "⏰ Reminders":
@@ -135,7 +142,7 @@ elif menu == "⏰ Reminders":
 
 else:
     st.title(menu)
-    st.write("ഈ സെക്ഷൻ ഉടൻ അപ്‌ഡേറ്റ് ചെയ്യും...")
+    st.write("വിവരങ്ങൾ ഉടൻ അപ്‌ഡേറ്റ് ചെയ്യും...")
 
 st.sidebar.write("---")
 st.sidebar.write("Design by Faisal | PAICHI AI")
