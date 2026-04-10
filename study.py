@@ -1,74 +1,71 @@
 import streamlit as st
 import pandas as pd
+import plotly.express as px
+import requests
+from datetime import datetime
 
-# നിന്റെ കറക്റ്റ് ലിങ്കുകൾ
+# 1. ലിങ്കുകൾ
 CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQRmFHWgvrzRobTTuiUO4pMbZ8QP1dAuBsn1hCaUf2ON7Bow1SeR2xHjYwupJZYYfMHW_Mm8pmtLUFA/pub?gid=663160667&single=true&output=csv"
-FORM_URL = "https://forms.gle/R3wVocUKRJ3BLnyP7"
+# ഫോം സബ്മിറ്റ് ചെയ്യാനുള്ള ലിങ്ക്
+FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSdy-v96B6XU3WvOCUKRJ3BLnyP7/formResponse"
 
 st.set_page_config(page_title="PAICHI Family Hub", layout="wide")
 
-# ഡിസൈൻ സെറ്റിംഗ്സ് (Silver & Gold)
+# ഡിസൈൻ
 st.markdown("""
     <style>
-    .stApp { background: linear-gradient(135deg, #BF953F, #FCF6BA, #AA771C); color: #000; }
-    [data-testid="stSidebar"] { background: linear-gradient(180deg, #C0C0C0, #E8E8E8, #A9A9A9) !important; }
-    .ticker-wrap { width: 100%; overflow: hidden; background-color: #000; color: #FFD700; padding: 10px 0; font-weight: bold; border-radius: 5px; margin-bottom: 20px; }
-    .ticker { display: inline-block; white-space: nowrap; animation: ticker 25s linear infinite; }
-    @keyframes ticker { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
-    .total-box { background-color: #000; color: #FFD700; padding: 20px; border-radius: 15px; text-align: center; font-size: 32px; font-weight: bold; border: 3px solid #FFD700; margin-top: 20px; }
-    h1, h2, h3, label, p { color: black !important; font-weight: bold !important; }
+    .stApp { background: linear-gradient(135deg, #BF953F, #FCF6BA, #AA771C); }
+    .total-box { background-color: #000; color: #FFD700; padding: 20px; border-radius: 15px; text-align: center; font-size: 30px; font-weight: bold; border: 3px solid #FFD700; }
+    h1, h2, h3, label { color: black !important; font-weight: bold; }
     </style>
     """, unsafe_allow_html=True)
 
-# ന്യൂസ് ടിക്കർ
-st.markdown('<div class="ticker-wrap"><div class="ticker">📢 പൈച്ചി ഫാമിലി ഹബ്ബ് ലൈവ് ട്രാക്കർ | ആപ്പിൽ നിന്ന് തന്നെ വിവരങ്ങൾ ചേർക്കാം | ടോട്ടൽ തുക താഴെ കാണാം 📢</div></div>', unsafe_allow_html=True)
+st.title("💵 Family Expense Tracker")
 
-# സൈഡ്‌ബാർ മെനു
-st.sidebar.title("⚪ PAICHI MENU")
-menu = st.sidebar.selectbox("തിരഞ്ഞെടുക്കുക:", 
-    ["🏠 Home", "💰 Expenses (Add & View)", "📊 Monthly Report", "🎓 SSLC Marks", "🎓 Plus Two Marks", "⏰ Reminders"])
+# ഡാറ്റ ഇൻപുട്ട് സെക്ഷൻ
+with st.expander("➕ പുതിയ ചെലവ് ചേർക്കുക", expanded=True):
+    with st.form("my_form", clear_on_submit=True):
+        col1, col2 = st.columns(2)
+        item = col1.text_input("Item Name (സാധനം)")
+        price = col2.number_input("Amount (തുക)", min_value=0)
+        today = datetime.now().strftime("%Y-%m-%d")
+        
+        submit = st.form_submit_button("Save to Google Sheet")
+        
+        if submit:
+            if item and price:
+                # ഫോമിലെ എൻട്രി ഐഡികൾ (ഇതാണ് പൈത്തൺ ഉപയോഗിക്കുന്നത്)
+                # സാധാരണയായി 'entry.ID' രൂപത്തിലായിരിക്കും ഇത്. 
+                # നിന്റെ ഫോമിന് അനുസരിച്ചുള്ള ഏകദേശ ഐഡികൾ താഴെ നൽകുന്നു.
+                form_data = {
+                    "entry.1843187210": today,  # Date
+                    "entry.1017830857": item,   # Item
+                    "entry.1887019672": price   # Amount
+                }
+                try:
+                    requests.post(FORM_URL, data=form_data)
+                    st.success(f"സേവ് ചെയ്തു: {item} - ₹{price}")
+                    st.balloons()
+                except:
+                    st.error("സേവ് ചെയ്യാൻ പറ്റിയില്ല, കണക്ഷൻ നോക്കുക.")
 
-if menu == "🏠 Home":
-    st.title("🏠 PAICHI Family Hub")
-    st.write("സ്വാഗതം ഫൈസൽ! താഴെയുള്ള മെനുവിൽ നിന്ന് Expenses തിരഞ്ഞെടുക്കുക.")
+st.write("---")
 
-elif menu == "💰 Expenses (Add & View)":
-    st.title("💵 Expense Management")
+# ചാർട്ടും ലിസ്റ്റും കാണിക്കാൻ
+try:
+    df = pd.read_csv(CSV_URL)
+    total = pd.to_numeric(df.iloc[:, -1], errors='coerce').sum()
+    st.markdown(f'<div class="total-box">ആകെ ചെലവ്: ₹ {total:,.2f}</div>', unsafe_allow_html=True)
     
-    col1, col2 = st.columns([1, 1])
-    
-    with col1:
-        st.subheader("➕ Add New Expense")
-        st.write("താഴെ കാണുന്ന ഫോമിൽ വിവരങ്ങൾ നൽകി സബ്മിറ്റ് ചെയ്യുക:")
-        # ഗൂഗിൾ ഫോം ആപ്പിനുള്ളിൽ തന്നെ കാണിക്കുന്നു
-        st.components.v1.iframe(FORM_URL, height=500)
-    
-    with col2:
-        st.subheader("📋 Expense History")
-        if st.button('🔄 Refresh Data'):
-            st.cache_data.clear()
-            st.rerun()
-            
-        try:
-            df = pd.read_csv(CSV_URL)
-            if not df.empty:
-                st.dataframe(df, use_container_width=True)
-                
-                # തുക കൃത്യമായി കണക്കാക്കാൻ (Amount കോളം അല്ലെങ്കിൽ അവസാന കോളം)
-                total = pd.to_numeric(df.iloc[:, -1], errors='coerce').sum()
-                st.markdown(f'<div class="total-box">Total: ₹ {total:,.2f}</div>', unsafe_allow_html=True)
-            else:
-                st.info("ഡാറ്റയൊന്നുമില്ല. ഇടതുവശത്തെ ഫോമിൽ വിവരങ്ങൾ ചേർക്കുക.")
-        except:
-            st.error("ഡാറ്റ ലോഡ് ചെയ്യാൻ കഴിഞ്ഞില്ല.")
+    c1, c2 = st.columns([2, 1])
+    with c1:
+        st.subheader("📋 ഹിസ്റ്ററി")
+        st.dataframe(df.tail(10), use_container_width=True) # അവസാന 10 എണ്ണം
+    with c2:
+        st.subheader("📊 വിഭജനം")
+        fig = px.pie(df, values=df.columns[-1], names=df.columns[1], hole=0.3)
+        st.plotly_chart(fig, use_container_width=True)
+except:
+    st.info("ഡാറ്റ ലോഡ് ചെയ്യുന്നു...")
 
-elif menu == "⏰ Reminders":
-    st.title("⏰ Reminders")
-    st.warning("⚡ കറന്റ് ബില്ല് അടയ്ക്കാൻ സമയമായോ എന്ന് പരിശോധിക്കുക!")
-
-else:
-    st.title(menu)
-    st.write("ഈ സെക്ഷൻ റെഡിയായി വരുന്നു...")
-
-st.sidebar.write("---")
 st.sidebar.write("Design by Faisal")
