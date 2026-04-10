@@ -3,32 +3,20 @@ import pandas as pd
 import requests
 from datetime import datetime
 import random
-from PIL import Image
-import numpy as np
 import plotly.express as px
 from streamlit_mic_recorder import speech_to_text
 
-# 1. AI ബിൽ റീഡർ
-@st.cache_resource
-def load_ai_reader():
-    try:
-        import easyocr
-        return easyocr.Reader(['en'])
-    except: return None
+# --- നിന്റെ പുതിയ ലിങ്കുകൾ താഴെ സെറ്റ് ചെയ്തിട്ടുണ്ട് ---
 
-# ---------------------------------------------------------
-# 2. നിന്റെ പുതിയ ലിങ്കുകൾ ഇവിടെ നൽകുക
-# ---------------------------------------------------------
-# നിന്റെ പുതിയ ഗൂഗിൾ ഷീറ്റ് CSV ലിങ്ക് ഇവിടെ നൽകുക
-CSV_URL = "നിന്റെ_പുതിയ_CSV_ലിങ്ക്_ഇവിടെ_നൽകുക"
+# 1. നിന്റെ ഷീറ്റിന്റെ CSV ലിങ്ക് (നീ അയച്ച ലിങ്കിൽ നിന്ന് മാറ്റം വരുത്തിയത്)
+CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR2UqKgCAEEv42IC6vwe0D2g_pW7-XR2Qiv7_FwAZYFDTDLd7pOwKQ5yvClbwy88AZmD6Ar2AiFQ8Xu/pub?output=csv"
 
-# നിന്റെ പുതിയ ഗൂഗിൾ ഫോം API ലിങ്ക് (formResponse) ഇവിടെ നൽകുക
-FORM_URL_API = "നിന്റെ_പുതിയ_FORM_API_ലിങ്ക്_ഇവിടെ_നൽകുക"
-# ---------------------------------------------------------
+# 2. നിന്റെ ഫോം API ലിങ്ക്
+FORM_URL_API = "https://docs.google.com/forms/d/e/1FAIpQLScHkSw0nkgNQSeRGocM85t4bZCkWHQS6EUSDf-5dIts1gWZXw/formResponse"
 
 st.set_page_config(page_title="PAICHI AI Super Hub", layout="wide")
 
-# 3. ഡിസൈൻ സെറ്റിംഗ്സ് (Silver & Gold)
+# ഡിസൈൻ സെറ്റിംഗ്സ് (Silver & Gold)
 st.markdown("""
     <style>
     .stApp { background: linear-gradient(135deg, #BF953F, #FCF6BA, #AA771C); color: #000; }
@@ -43,33 +31,33 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # ന്യൂസ് ടിക്കർ
-st.markdown('<div class="ticker-wrap"><div class="ticker">📢 പൈച്ചി ഫാമിലി ഹബ്ബ് ലൈവ് ട്രാക്കർ | വോയ്‌സ് വഴിയോ നേരിട്ടോ വിവരങ്ങൾ സുരക്ഷിതമായി ചേർക്കാം 📢</div></div>', unsafe_allow_html=True)
+st.markdown('<div class="ticker-wrap"><div class="ticker">📢 പൈച്ചി ഫാമിലി ഹബ്ബ് ലൈവ് ട്രാക്കർ | വിവരങ്ങൾ സുരക്ഷിതമായി ചേർക്കാം 📢</div></div>', unsafe_allow_html=True)
 
 def load_data():
     try:
-        df = pd.read_csv(CSV_URL)
+        # Cache ഒഴിവാക്കാൻ ഒരു റാൻഡം നമ്പർ കൂടി ചേർക്കുന്നു
+        url = f"{CSV_URL}&x={random.randint(1, 1000)}"
+        df = pd.read_csv(url)
         if not df.empty:
-            df.columns = [f'Col{i}' for i in range(len(df.columns))]
+            # തുകയുള്ള കോളം നമ്പർ കൃത്യമായി എടുക്കുന്നു
             df['Amount'] = pd.to_numeric(df.iloc[:, -1], errors='coerce').fillna(0)
-            return df[df['Amount'] > 0]
-    except: return pd.DataFrame()
+            return df
+    except:
+        return pd.DataFrame()
 
-# സൈഡ്‌ബാർ മെനു
-st.sidebar.title("⚪ PAICHI MENU")
-menu = st.sidebar.selectbox("തിരഞ്ഞെടുക്കുക:", 
-    ["🏠 Home", "💰 Expenses (Add Entry)", "📊 Smart Analytics & WhatsApp", "📸 AI Bill Scanner", "🎓 SSLC Marks", "🎓 Plus Two Marks", "⏰ Reminders"])
+menu = st.sidebar.selectbox("തിരഞ്ഞെടുക്കുക:", ["🏠 Home", "💰 Expenses (Add Entry)", "📊 Smart Analytics"])
 
-# --- 1. HOME ---
 if menu == "🏠 Home":
     st.title("🏠 Welcome Faisal!")
     st.write("പൈച്ചി ഫാമിലി ഹബ്ബിലേക്ക് സ്വാഗതം. ഡാറ്റ ചേർക്കാൻ Expenses പേജിൽ പോകുക.")
 
-# --- 2. EXPENSES (ക്ലീൻ എന്റർ മാത്രം) ---
 elif menu == "💰 Expenses (Add Entry)":
     st.title("💵 Add New Entry")
-    st.write("🎤 വോയ്‌സ് വഴി ചേർക്കാൻ മൈക്കിൽ അമർത്തുക:")
+    st.write("🎤 വോയ്‌സ് വഴി ചേർക്കാൻ താഴെ കാണുന്ന മൈക്കിൽ അമർത്തുക:")
+    
+    # വോയ്‌സ് ഇൻപുട്ട്
     v_in = speech_to_text(language='ml', start_prompt="സംസാരിക്കൂ...", key='voice_input')
-    st.markdown('<br>', unsafe_allow_html=True)
+    
     with st.container():
         st.markdown('<div style="background-color: rgba(255,255,255,0.2); padding: 30px; border-radius: 20px; border: 2px solid #000;">', unsafe_allow_html=True)
         with st.form("quick_add_form", clear_on_submit=True):
@@ -86,12 +74,13 @@ elif menu == "💰 Expenses (Add Entry)":
                         requests.post(FORM_URL_API, data=payload)
                         st.success(f"{item} വിജയകരമായി സേവ് ചെയ്തു!")
                     except:
-                        st.error("ലിങ്ക് ശരിയല്ല, ഒന്ന് കൂടി പരിശോധിക്കൂ!")
+                        st.error("സേവ് ചെയ്യാൻ പറ്റിയില്ല. ലിങ്ക് പരിശോധിക്കുക.")
         st.markdown('</div>', unsafe_allow_html=True)
 
-# --- 3. ANALYTICS (പാസ്‌വേഡ് സുരക്ഷ) ---
-elif menu == "📊 Smart Analytics & WhatsApp":
+elif menu == "📊 Smart Analytics":
+    # പാസ്‌വേഡ് സെക്ഷൻ
     if "is_unlocked" not in st.session_state: st.session_state["is_unlocked"] = False
+    
     if not st.session_state["is_unlocked"]:
         st.title("🔐 Secure Section")
         pwd = st.text_input("പാസ്‌വേഡ് നൽകുക", type="password")
@@ -101,43 +90,26 @@ elif menu == "📊 Smart Analytics & WhatsApp":
                 st.rerun()
             else: st.error("തെറ്റായ പാസ്‌വേഡ്!")
     else:
-        st.title("📊 History & Reports")
-        if st.sidebar.button("🔒 Lock Section"):
+        st.title("📊 Financial Report")
+        if st.button("🔒 Lock"):
             st.session_state["is_unlocked"] = False
             st.rerun()
+            
         df = load_data()
         if not df.empty:
             total = df['Amount'].sum()
-            st.markdown(f'<div class="total-box">Total Expense: ₹ {total:,.2f}</div>', unsafe_allow_html=True)
-            col_a, col_b = st.columns(2)
-            with col_a:
-                fig = px.pie(df, values='Amount', names=df.columns[2], hole=0.3)
+            st.markdown(f'<div class="total-box">ഈ മാസത്തെ ആകെ ചിലവ്: ₹ {total:,.2f}</div>', unsafe_allow_html=True)
+            
+            c1, c2 = st.columns(2)
+            with c1:
+                st.subheader("വിശകലനം")
+                fig = px.pie(df, values='Amount', names=df.columns[1] if len(df.columns) > 1 else None)
                 st.plotly_chart(fig, use_container_width=True)
-            with col_b:
-                st.table(df.iloc[:, [2, -1]].tail(20).iloc[::-1])
-            st.markdown("---")
-            wa_text = f"PAICHI HUB REPORT\nDate: {datetime.now().strftime('%d-%m-%Y')}\nTotal Expense: ₹{total}"
-            wa_url = f"https://wa.me/?text={requests.utils.quote(wa_text)}"
-            if st.button("📲 SEND TO WHATSAPP"):
-                st.markdown(f'<a href="{wa_url}" target="_blank" style="text-decoration:none;"><div style="background-color:#25D366; color:white; padding:15px; text-align:center; border-radius:10px; font-weight:bold;">CONFIRM ON WHATSAPP</div></a>', unsafe_allow_html=True)
-
-# --- 4. AI SCANNER & OTHERS ---
-elif menu == "📸 AI Bill Scanner":
-    st.title("📸 AI Smart Scan")
-    file = st.file_uploader("Upload Image", type=['jpg','png','jpeg'])
-    if file and st.button("SCAN NOW"):
-        reader = load_ai_reader()
-        if reader:
-            res = reader.readtext(np.array(Image.open(file)))
-            if res: st.success(f"Detected: {res[0][1]}")
-
-elif menu == "⏰ Reminders":
-    st.title("⏰ Reminders")
-    st.warning("⚡ കറന്റ് ബില്ല് അടയ്ക്കാൻ സമയമായോ എന്ന് പരിശോധിക്കുക!")
-
-else:
-    st.title(menu)
-    st.write("ഈ സെക്ഷൻ ഉടൻ അപ്‌ഡേറ്റ് ചെയ്യും...")
+            with c2:
+                st.subheader("ഹിസ്റ്ററി")
+                st.table(df.tail(10))
+        else:
+            st.info("ഷീറ്റിൽ ഡാറ്റയൊന്നുമില്ല.")
 
 st.sidebar.write("---")
 st.sidebar.write("Design by Faisal | PAICHI AI")
