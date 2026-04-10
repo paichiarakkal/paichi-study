@@ -12,7 +12,7 @@ FORM_URL_API = "https://docs.google.com/forms/d/e/1FAIpQLScHkSw0nkgNQSeRGocM85t4
 
 st.set_page_config(page_title="PAICHI AI PRO", layout="wide")
 
-# 2. Deep Dark AI Styling
+# 2. Deep Dark AI Design
 st.markdown("""
     <style>
     .stApp { background-color: #000000; color: #ffffff; }
@@ -51,18 +51,19 @@ def load_data():
         url = f"{CSV_URL}&cb={random.randint(1, 99999)}"
         df = pd.read_csv(url)
         if not df.empty:
+            # എപ്പോഴും അവസാനത്തെ കോളം തുകയായി എടുക്കുന്നു
             df['Amount'] = pd.to_numeric(df.iloc[:, -1], errors='coerce').fillna(0)
             return df
     except: return pd.DataFrame()
 
-# Sidebar മെനുവിൽ ഇപ്പോൾ WhatsApp ഉൾപ്പെടുത്തിയിട്ടുണ്ട്
+# Sidebar Setup
 st.sidebar.markdown("<h1 style='text-align: center;'>👾</h1>", unsafe_allow_html=True)
-menu = st.sidebar.selectbox("COMMANDS:", ["🏠 Dashboard", "💰 Add Entry", "📊 Intelligence", "💬 WhatsApp Logs", "⏰ Sync Settings"])
+menu = st.sidebar.selectbox("COMMANDS:", ["🏠 Dashboard", "💰 Add Entry", "📊 Intelligence", "💬 WhatsApp Tracking"])
 
 # --- 🏠 DASHBOARD ---
 if menu == "🏠 Dashboard":
     st.title("Welcome Faisal.")
-    st.markdown('<div class="glass-card"><h3>AI Core Active 🟢</h3><p>നിന്റെ എല്ലാ ഡാറ്റയും ഇപ്പോൾ കൃത്യമായി അപ്‌ഡേറ്റ് ചെയ്തിട്ടുണ്ട്. WhatsApp വിവരങ്ങൾ കാണാൻ മെനുവിൽ <b>WhatsApp Logs</b> നോക്കുക.</p></div>', unsafe_allow_html=True)
+    st.markdown('<div class="glass-card"><h3>AI Core Active 🟢</h3><p>സിസ്റ്റം ഇപ്പോൾ സ്മൂത്ത് ആയി വർക്ക് ചെയ്യുന്നു. പുതിയ ഡിസൈൻ ആസ്വദിക്കൂ!</p></div>', unsafe_allow_html=True)
 
 # --- 💰 ADD ENTRY ---
 elif menu == "💰 Add Entry":
@@ -71,7 +72,7 @@ elif menu == "💰 Add Entry":
     st.markdown('<div class="glass-card">', unsafe_allow_html=True)
     with st.form("input_form", clear_on_submit=True):
         item = st.text_input("Entry Name", value=v_in if v_in else "")
-        amt = st.number_input("Amount (₹)", min_value=0, value=None)
+        amt = st.number_input("Value (₹)", min_value=0, value=None)
         if st.form_submit_button("EXECUTE SYNC"):
             if item and amt:
                 payload = {"entry.1069832729": datetime.now().strftime("%Y-%m-%d"), "entry.1896057694": item, "entry.1570426033": str(amt)}
@@ -81,37 +82,35 @@ elif menu == "💰 Add Entry":
                 except: st.error("SYNC FAILED")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# --- 📊 INTELLIGENCE (ERROR FIXED) ---
+# --- 📊 INTELLIGENCE (ERROR RESOLVED) ---
 elif menu == "📊 Intelligence":
-    st.title("📊 Financial Analytics")
+    st.title("📊 Intelligence Report")
     df = load_data()
     if not df.empty:
         total = df['Amount'].sum()
         st.markdown(f'<div class="total-box">TOTAL: ₹ {total:,.2f}</div>', unsafe_allow_html=True)
         
-        # ചാർട്ടിലെ പിശക് ഇവിടെ പരിഹരിച്ചിട്ടുണ്ട്
+        # ചാർട്ടിലെ എറർ വരാതിരിക്കാൻ കളർ സെറ്റിംഗ്സ് ലളിതമാക്കി
         fig = px.pie(df, values='Amount', names=df.columns[1], hole=0.5, 
-                     color_discrete_sequence=px.colors.sequential.Gold_r)
+                     color_discrete_sequence=px.colors.qualitative.Pastel)
         fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', font_color="white")
         st.plotly_chart(fig, use_container_width=True)
-    else: st.warning("Data not found.")
+    else: st.warning("ക്ലൗഡിൽ വിവരങ്ങളൊന്നും കണ്ടില്ല.")
 
-# --- 💬 WHATSAPP LOGS (NEW SECTION) ---
-elif menu == "💬 WhatsApp Logs":
-    st.title("💬 WhatsApp Activity")
-    st.markdown('<div class="glass-card"><h3>WhatsApp Tracker Active</h3><p>നിന്റെ ഷീറ്റിലെ മെസേജുകളും നോട്ടിഫിക്കേഷനുകളും ഇവിടെ ലോഡ് ചെയ്യാം.</p></div>', unsafe_allow_html=True)
+# --- 💬 WHATSAPP TRACKING (NEW) ---
+elif menu == "💬 WhatsApp Tracking":
+    st.title("💬 WhatsApp Logs")
+    st.markdown('<div class="glass-card"><h3>WhatsApp Activity</h3><p>നിന്റെ ഗൂഗിൾ ഷീറ്റിൽ "WhatsApp" എന്ന് ടൈപ്പ് ചെയ്ത് നൽകുന്ന എൻട്രികൾ ഇവിടെ കാണാം.</p></div>', unsafe_allow_html=True)
     df = load_data()
     if not df.empty:
-        # WhatsApp എന്ന് പേരുള്ള എൻട്രികൾ മാത്രം കാണിക്കുന്നു
+        # WhatsApp എന്ന് പേരുള്ള വിവരങ്ങൾ മാത്രം ഫിൽട്ടർ ചെയ്യുന്നു
         wa_data = df[df.iloc[:, 1].str.contains('whatsapp', case=False, na=False)]
         if not wa_data.empty:
             st.dataframe(wa_data, use_container_width=True)
+            wa_total = wa_data['Amount'].sum()
+            st.info(f"WhatsApp വഴിയുള്ള ആകെ ചിലവ്: ₹ {wa_total}")
         else:
-            st.info("WhatsApp എൻട്രികളൊന്നും ഇപ്പോൾ ലഭ്യമല്ല.")
-
-else:
-    st.title(menu)
-    st.info("System Updating...")
+            st.info("WhatsApp വിവരങ്ങളൊന്നും ഇപ്പോൾ ലഭ്യമല്ല. 'Add Entry' ടാബിൽ 'WhatsApp' എന്ന് ചേർത്ത് നോക്കൂ.")
 
 st.sidebar.write("---")
-st.sidebar.write("PAICHI AI v6.0")
+st.sidebar.write("PAICHI AI v7.0 | Deep Dark")
