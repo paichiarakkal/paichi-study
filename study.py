@@ -18,7 +18,6 @@ def load_ai_reader():
 
 # 2. ലിങ്കുകൾ
 CSV_URL = f"https://docs.google.com/spreadsheets/d/e/2PACX-1vR2UqKgCAEEv42IC6vwe0D2g_pW7-XR2Qiv7_FwAZYFDTDLd7pOwKQ5yvClbwy88AZmD6Ar2AiFQ8Xu/pub?gid=1126266048&single=true&output=csv&x={random.randint(1,10000)}"
-FORM_URL_IFRAME = "https://forms.gle/R3wVocUKRJ3BLnyP7" 
 FORM_URL_API = "https://docs.google.com/forms/d/e/1FAIpQLScHkSw0nkgNQSeRGocM85t4bZCkWHQS6EUSDf-5dIts1gWZXw/formResponse"
 
 st.set_page_config(page_title="PAICHI AI Hub", layout="wide")
@@ -58,25 +57,27 @@ if menu == "🏠 Home":
     st.title("🏠 Welcome Faisal!")
     st.write("ഡാറ്റ ചേർക്കാൻ Expenses പേജിലും, ഹിസ്റ്ററി കാണാൻ Analytics പേജിലും പോകുക.")
 
-# --- 2. EXPENSES (ഇവിടെ ഷീറ്റോ കണക്കോ ഒന്നും കാണിക്കില്ല) ---
+# --- 2. EXPENSES (ഫോമും ഷീറ്റും പൂർണ്ണമായും ഒഴിവാക്കി) ---
 elif menu == "💰 Expenses (Add Entry)":
     st.title("💵 Add New Entry")
-    col1, col2 = st.columns(2)
-    with col1:
-        st.subheader("🎤 Voice Input")
-        v_in = speech_to_text(language='ml', start_prompt="സംസാരിക്കൂ...", key='voice')
+    st.write("🎤 വോയ്‌സ് വഴി ചേർക്കാൻ മൈക്കിൽ അമർത്തുക:")
+    
+    # വോയ്‌സ് ഇൻപുട്ട് സെക്ഷൻ
+    v_in = speech_to_text(language='ml', start_prompt="സംസാരിക്കൂ...", key='voice')
+    
+    # മാനുവൽ എന്റർ സെക്ഷൻ (ഇത് മാത്രമേ ഇപ്പോൾ ഇവിടെ കാണിക്കൂ)
+    with st.container():
+        st.markdown('<div style="background-color: rgba(255,255,255,0.2); padding: 20px; border-radius: 15px;">', unsafe_allow_html=True)
         with st.form("quick_add", clear_on_submit=True):
             item = st.text_input("Item Name", value=v_in if v_in else "")
             amt = st.number_input("Amount", min_value=0, value=None)
             if st.form_submit_button("SAVE"):
                 if item and amt:
                     requests.post(FORM_URL_API, data={"entry.1069832729": datetime.now().strftime("%Y-%m-%d"), "entry.1896057694": item, "entry.1570426033": str(amt)})
-                    st.success("Saved Successfully!")
-    with col2:
-        st.subheader("📝 Manual Form")
-        st.components.v1.iframe(FORM_URL_IFRAME, height=500)
+                    st.success("സേവ് ചെയ്തു!")
+        st.markdown('</div>', unsafe_allow_html=True)
 
-# --- 3. ANALYTICS (ഷീറ്റും ഹിസ്റ്ററിയും ഇവിടെ മാത്രം) ---
+# --- 3. ANALYTICS (പാസ്‌വേഡ് അടിച്ചാൽ എല്ലാം ഇവിടെ കാണാം) ---
 elif menu == "📊 Smart Analytics & WhatsApp":
     if "unlocked" not in st.session_state: st.session_state["unlocked"] = False
     
@@ -84,7 +85,7 @@ elif menu == "📊 Smart Analytics & WhatsApp":
         st.title("🔐 Secure Section")
         pwd = st.text_input("പാസ്‌വേഡ് നൽകുക", type="password")
         if st.button("UNLOCK"):
-            if pwd == "1234":
+            if pwd == "1234": # പാസ്‌വേഡ് ഇവിടെ മാറ്റാം
                 st.session_state["unlocked"] = True
                 st.rerun()
             else: st.error("തെറ്റായ പാസ്‌വേഡ്!")
@@ -97,22 +98,24 @@ elif menu == "📊 Smart Analytics & WhatsApp":
         df = load_data()
         if not df.empty:
             total = df['Amount'].sum()
-            st.markdown(f'<div class="total-box">Total Balance: ₹ {total:,.2f}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="total-box">Total Expense: ₹ {total:,.2f}</div>', unsafe_allow_html=True)
             c1, c2 = st.columns(2)
             with c1:
+                st.subheader("വിശകലനം")
                 st.plotly_chart(px.pie(df, values='Amount', names=df.columns[2]), use_container_width=True)
             with c2:
+                st.subheader("പഴയ വിവരങ്ങൾ")
                 st.table(df.iloc[:, [2, -1]].tail(20).iloc[::-1])
             
             st.markdown("---")
-            wa_url = f"https://wa.me/?text={requests.utils.quote(f'PAICHI REPORT: ₹{total}')}"
+            wa_url = f"https://wa.me/?text={requests.utils.quote(f'PAICHI REPORT: Total Expense is ₹{total}')}"
             if st.button("📲 SEND TO WHATSAPP"):
-                st.markdown(f'<a href="{wa_url}" target="_blank" style="text-decoration:none;"><div style="background-color:#25D366; color:white; padding:15px; text-align:center; border-radius:10px; font-weight:bold;">CONFIRM WHATSAPP</div></a>', unsafe_allow_html=True)
+                st.markdown(f'<a href="{wa_url}" target="_blank" style="text-decoration:none;"><div style="background-color:#25D366; color:white; padding:15px; text-align:center; border-radius:10px; font-weight:bold;">CONFIRM ON WHATSAPP</div></a>', unsafe_allow_html=True)
 
 # --- 4. AI SCANNER ---
 elif menu == "📸 AI Bill Scanner":
     st.title("📸 AI Scan")
-    file = st.file_uploader("Upload", type=['jpg','png','jpeg'])
+    file = st.file_uploader("Upload Bill", type=['jpg','png','jpeg'])
     if file and st.button("SCAN"):
         reader = load_ai_reader()
         if reader:
