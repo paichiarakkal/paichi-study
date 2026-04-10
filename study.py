@@ -6,30 +6,97 @@ import random
 import plotly.express as px
 from streamlit_mic_recorder import speech_to_text
 
-# 1. നിന്റെ പുതിയ ലിങ്കുകൾ (CSV & API)
-# ഷീറ്റ് ലിങ്ക്
+# 1. ലിങ്കുകൾ (നിന്റെ പുതിയ ലിങ്കുകൾ തന്നെ)
 CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR2UqKgCAEEv42IC6vwe0D2g_pW7-XR2Qiv7_FwAZYFDTDLd7pOwKQ5yvClbwy88AZmD6Ar2AiFQ8Xu/pub?output=csv"
-# ഫോം API ലിങ്ക്
 FORM_URL_API = "https://docs.google.com/forms/d/e/1FAIpQLScHkSw0nkgNQSeRGocM85t4bZCkWHQS6EUSDf-5dIts1gWZXw/formResponse"
 
-st.set_page_config(page_title="PAICHI Family Hub", layout="wide")
+st.set_page_config(page_title="PAICHI AI PREMIUM", layout="wide")
 
-# 2. ഡിസൈൻ സെറ്റിംഗ്സ് (Silver & Gold)
+# 2. അസ്സൽ AI ഡിസൈൻ സെറ്റിംഗ്സ് (Dark, Gold & Glass Effect)
 st.markdown("""
     <style>
-    .stApp { background: linear-gradient(135deg, #BF953F, #FCF6BA, #AA771C); color: #000; }
-    [data-testid="stSidebar"] { background: linear-gradient(180deg, #C0C0C0, #E8E8E8, #A9A9A9) !important; }
-    .ticker-wrap { width: 100%; overflow: hidden; background-color: #000; color: #FFD700; padding: 10px 0; font-weight: bold; border-radius: 5px; margin-bottom: 20px; }
-    .ticker { display: inline-block; white-space: nowrap; animation: ticker 25s linear infinite; }
-    @keyframes ticker { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
-    .total-box { background-color: #000; color: #FFD700; padding: 25px; border-radius: 15px; text-align: center; font-size: 32px; font-weight: bold; border: 4px solid #FFD700; }
-    h1, h2, h3, label, p { color: black !important; font-weight: bold !important; }
-    .stButton>button { background-color: #000 !important; color: #FFD700 !important; font-weight: bold; width: 100%; border: 2px solid #FFD700; height: 50px; border-radius: 10px; }
+    /* മെയിൻ ബാക്ക്ഗ്രൗണ്ട് */
+    .stApp {
+        background: radial-gradient(circle at top right, #1a1a1a, #000000);
+        color: #e0e0e0;
+    }
+    
+    /* സൈഡ്‌ബാർ */
+    [data-testid="stSidebar"] {
+        background-color: #111111 !important;
+        border-right: 2px solid #BF953F;
+    }
+
+    /* ഗ്ലാസ് മോർഫിസം ബോക്സ് */
+    .glass-card {
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(10px);
+        border-radius: 20px;
+        padding: 25px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        margin-bottom: 20px;
+    }
+
+    /* ടോട്ടൽ തുക കാണിക്കുന്ന ബോക്സ് */
+    .total-box {
+        background: linear-gradient(135deg, #BF953F 0%, #FCF6BA 50%, #B38728 100%);
+        color: #000 !important;
+        padding: 30px;
+        border-radius: 20px;
+        text-align: center;
+        font-size: 35px;
+        font-weight: 900;
+        box-shadow: 0 10px 20px rgba(191, 149, 63, 0.3);
+        margin: 20px 0;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+    }
+
+    /* ബട്ടൺ സ്റ്റൈൽ */
+    .stButton>button {
+        background: linear-gradient(90deg, #BF953F, #AA771C) !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 12px !important;
+        padding: 15px !important;
+        font-weight: bold !important;
+        transition: 0.3s all;
+        text-transform: uppercase;
+    }
+    .stButton>button:hover {
+        transform: scale(1.02);
+        box-shadow: 0 5px 15px rgba(191, 149, 63, 0.5);
+    }
+
+    /* ടിക്കർ ലൈൻ */
+    .ticker-wrap {
+        background: #BF953F;
+        color: #000;
+        padding: 8px;
+        font-weight: bold;
+        border-radius: 50px;
+        margin-bottom: 30px;
+        text-align: center;
+    }
+
+    /* ടെക്സ്റ്റ് കളറുകൾ */
+    h1, h2, h3, p, label {
+        color: #FCF6BA !important;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    
+    /* ഇൻപുട്ട് ഫീൽഡുകൾ */
+    .stTextInput>div>div>input, .stNumberInput>div>div>input {
+        background-color: #222 !important;
+        color: white !important;
+        border: 1px solid #BF953F !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-# ന്യൂസ് ടിക്കർ
-st.markdown('<div class="ticker-wrap"><div class="ticker">📢 പൈച്ചി ഫാമിലി ഹബ്ബ് ലൈവ് ട്രാക്കർ | വോയ്‌സ് വഴിയോ നേരിട്ടോ വിവരങ്ങൾ സുരക്ഷിതമായി ചേർക്കാം 📢</div></div>', unsafe_allow_html=True)
+# ടിക്കർ
+st.markdown('<div class="ticker-wrap">✨ PAICHI AI PREMIUM HUB | INTELLIGENT EXPENSE TRACKING ✨</div>', unsafe_allow_html=True)
 
 def load_data():
     try:
@@ -41,60 +108,62 @@ def load_data():
     except:
         return pd.DataFrame()
 
-# 3. സൈഡ്‌ബാർ മെനു (നീ ചോദിച്ച എല്ലാ സെക്ഷനും ഇതിലുണ്ട്)
-st.sidebar.title("⚪ PAICHI MENU")
-menu = st.sidebar.selectbox("തിരഞ്ഞെടുക്കുക:", 
-    ["🏠 Home", "💰 Expenses (Add Entry)", "📊 Smart Analytics", "🎓 SSLC Marks", "🎓 Plus Two Marks", "⏰ Reminders"])
+# സൈഡ്‌ബാർ
+st.sidebar.markdown("<h2 style='text-align:center;'>💎 PAICHI</h2>", unsafe_allow_html=True)
+menu = st.sidebar.selectbox("Navigation", 
+    ["🏠 Dashboard", "💰 Add Expense", "📊 Reports", "🎓 Academy", "⏰ Alerts"])
 
-# --- 🏠 HOME ---
-if menu == "🏠 Home":
-    st.title("🏠 Welcome Faisal!")
-    st.write("പൈച്ചി ഫാമിലി ഹബ്ബിലേക്ക് സ്വാഗതം. ഡാറ്റ ചേർക്കാൻ Expenses പേജിൽ പോകുക.")
+# --- 🏠 DASHBOARD ---
+if menu == "🏠 Dashboard":
+    st.title("Welcome back, Faisal!")
+    st.markdown("""
+    <div class="glass-card">
+    <h3>Hello! 👋</h3>
+    <p>നിന്റെ ചിലവുകൾ ട്രാക്ക് ചെയ്യാനും റിപ്പോർട്ടുകൾ കാണാനും ഈ AI ഡാഷ്‌ബോർഡ് സഹായിക്കും. 
+    തുടങ്ങാൻ സൈഡ്‌ബാറിൽ നിന്ന് <b>Add Expense</b> തിരഞ്ഞെടുക്കുക.</p>
+    </div>
+    """, unsafe_allow_html=True)
 
-# --- 💰 EXPENSES (ക്ലീൻ എന്റർ പേജ് - ഇവിടെ ഷീറ്റോ ഫോമോ കാണില്ല) ---
-elif menu == "💰 Expenses (Add Entry)":
-    st.title("💵 Add New Entry")
-    st.write("🎤 മൈക്കിൽ ക്ലിക്ക് ചെയ്ത് സംസാരിക്കൂ (അല്ലെങ്കിൽ താഴെ ടൈപ്പ് ചെയ്യുക):")
+# --- 💰 ADD EXPENSE (Premium Look) ---
+elif menu == "💰 Add Expense":
+    st.title("💎 Smart Entry")
     
-    # വോയ്‌സ് ഇൻപുട്ട്
-    v_in = speech_to_text(language='ml', start_prompt="സംസാരിക്കൂ...", key='voice')
+    st.write("🎤 വോയ്‌സ് വഴി ഡാറ്റ ചേർക്കാൻ താഴെ അമർത്തുക:")
+    v_in = speech_to_text(language='ml', start_prompt="Listening...", key='voice')
     
-    st.markdown('<br>', unsafe_allow_html=True)
-    with st.container():
-        st.markdown('<div style="background-color: rgba(255,255,255,0.2); padding: 30px; border-radius: 20px; border: 2px solid #000;">', unsafe_allow_html=True)
-        with st.form("quick_add_form", clear_on_submit=True):
-            item = st.text_input("സാധനത്തിന്റെ പേര് (Item Name)", value=v_in if v_in else "")
-            amt = st.number_input("തുക (Amount)", min_value=0, value=None, placeholder="0")
-            
-            if st.form_submit_button("SAVE TO CLOUD"):
-                if item and amt:
-                    # നിന്റെ പുതിയ ഗൂഗിൾ ഫോം എൻട്രി ഐഡികൾ
-                    payload = {
-                        "entry.1069832729": datetime.now().strftime("%Y-%m-%d"), 
-                        "entry.1896057694": item, 
-                        "entry.1570426033": str(amt)
-                    }
-                    try:
-                        requests.post(FORM_URL_API, data=payload)
-                        st.success(f"വിജയകരമായി സേവ് ചെയ്തു: {item}")
-                    except:
-                        st.error("ലിങ്ക് ശരിയല്ല, ഒന്ന് പരിശോധിക്കൂ!")
-        st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+    with st.form("premium_form", clear_on_submit=True):
+        item = st.text_input("Item Name", value=v_in if v_in else "", placeholder="ഉദാ: പെട്രോൾ")
+        amt = st.number_input("Amount (₹)", min_value=0, value=None)
+        
+        submit = st.form_submit_button("SECURE SAVE")
+        if submit:
+            if item and amt:
+                payload = {
+                    "entry.1069832729": datetime.now().strftime("%Y-%m-%d"), 
+                    "entry.1896057694": item, 
+                    "entry.1570426033": str(amt)
+                }
+                requests.post(FORM_URL_API, data=payload)
+                st.balloons()
+                st.success(f"Successfully added {item} to Cloud!")
+    st.markdown('</div>', unsafe_allow_html=True)
 
-# --- 📊 SMART ANALYTICS (പാസ്‌വേഡ് അടിച്ചാൽ മാത്രം കണക്കുകൾ കാണാം) ---
-elif menu == "📊 Smart Analytics":
+# --- 📊 REPORTS ---
+elif menu == "📊 Reports":
     if "unlocked" not in st.session_state: st.session_state["unlocked"] = False
     
     if not st.session_state["unlocked"]:
-        st.title("🔐 Secure Section")
-        pwd = st.text_input("പാസ്‌വേഡ് നൽകുക", type="password")
-        if st.button("UNLOCK"):
+        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+        pwd = st.text_input("Enter Access Key", type="password")
+        if st.button("AUTHENTICATE"):
             if pwd == "1234":
                 st.session_state["unlocked"] = True
                 st.rerun()
-            else: st.error("തെറ്റായ പാസ്‌വേഡ്!")
+            else: st.error("Access Denied!")
+        st.markdown('</div>', unsafe_allow_html=True)
     else:
-        st.title("📊 Financial Report")
+        st.title("📊 AI Analytics")
         if st.sidebar.button("🔒 Lock"):
             st.session_state["unlocked"] = False
             st.rerun()
@@ -102,28 +171,28 @@ elif menu == "📊 Smart Analytics":
         df = load_data()
         if not df.empty:
             total = df['Amount'].sum()
-            st.markdown(f'<div class="total-box">ഈ മാസത്തെ ആകെ ചിലവ്: ₹ {total:,.2f}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="total-box">TOTAL SPENT: ₹ {total:,.2f}</div>', unsafe_allow_html=True)
             
-            c1, c2 = st.columns(2)
-            with c1:
-                st.subheader("ചിലവ് വിശകലനം")
-                fig = px.pie(df, values='Amount', names=df.columns[1] if len(df.columns) > 1 else None)
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+                fig = px.pie(df, values='Amount', names=df.columns[1], hole=0.4, 
+                             color_discrete_sequence=px.colors.sequential.Gold_r)
+                fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="white")
                 st.plotly_chart(fig, use_container_width=True)
-            with c2:
-                st.subheader("കഴിഞ്ഞ 10 ചിലവുകൾ")
-                st.table(df.tail(10))
+                st.markdown('</div>', unsafe_allow_html=True)
+            with col2:
+                st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+                st.write("Recent Transactions")
+                st.dataframe(df.tail(10), use_container_width=True)
+                st.markdown('</div>', unsafe_allow_html=True)
         else:
-            st.info("ഡാറ്റയൊന്നുമില്ല.")
+            st.warning("No data found in cloud.")
 
-# --- 🎓 SSLC & PLUS TWO MARKS ---
-elif menu in ["🎓 SSLC Marks", "🎓 Plus Two Marks"]:
+# --- 🎓 ACADEMY & ALERTS ---
+elif menu in ["🎓 Academy", "⏰ Alerts"]:
     st.title(menu)
-    st.info("ഈ സെക്ഷനിൽ നിന്റെ മാർക്ക് ലിസ്റ്റുകൾ ഉടൻ അപ്‌ഡേറ്റ് ചെയ്യും.")
-
-# --- ⏰ REMINDERS ---
-elif menu == "⏰ Reminders":
-    st.title("⏰ Reminders")
-    st.warning("⚡ കറന്റ് ബില്ല് അടയ്ക്കാൻ സമയമായോ എന്ന് പരിശോധിക്കുക!")
+    st.write("This section is being synchronized...")
 
 st.sidebar.write("---")
-st.sidebar.write("Design by Faisal | PAICHI AI")
+st.sidebar.write("PAICHI AI Hub v4.0")
