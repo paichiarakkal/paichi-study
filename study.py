@@ -5,14 +5,13 @@ import requests
 from datetime import datetime
 import random
 
-# 1. നിന്റെ ലിങ്കുകൾ
+# 1. നിന്റെ ലിങ്കുകൾ (ഇത് മാറ്റേണ്ടതില്ല)
 CSV_URL = f"https://docs.google.com/spreadsheets/d/e/2PACX-1vQRmFHWgvrzRobTTuiUO4pMbZ8QP1dAuBsn1hCaUf2ON7Bow1SeR2xHjYwupJZYYfMHW_Mm8pmtLUFA/pub?gid=663160667&single=true&output=csv&x={random.randint(1,1000)}"
-# ഫോം ലിങ്ക് - ഇതിന്റെ അവസാനം formResponse എന്ന് തന്നെ ഉണ്ടെന്ന് ഉറപ്പാക്കുക
 FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSeF7QQUyWqBk_WZ127EMsvM33WtgpQPcJ6cQ5VDdulzLG7FhQ/formResponse"
 
-st.set_page_config(page_title="PAICHI Family Hub", layout="wide")
+st.set_page_config(page_title="Family Expense Tracker", layout="wide")
 
-# ഡിസൈൻ
+# ഗോൾഡൻ ഡിസൈൻ
 st.markdown("""
     <style>
     .stApp { background: linear-gradient(135deg, #BF953F, #FCF6BA, #AA771C); }
@@ -23,26 +22,28 @@ st.markdown("""
 
 st.title("💵 Family Expense Tracker")
 
-# ഡാറ്റ ഇൻപുട്ട്
+# ഡാറ്റ എൻട്രി ഫോം
 with st.expander("➕ പുതിയ ചെലവ് ചേർക്കുക", expanded=True):
     with st.form("my_form", clear_on_submit=True):
         col1, col2 = st.columns(2)
-        item_name = col1.text_input("Item Name (സാധനം)")
-        price_val = col2.number_input("Amount (തുക)", min_value=0)
+        item_input = col1.text_input("Item Name (സാധനം)")
+        price_input = col2.number_input("Amount (തുക)", min_value=0)
         
         if st.form_submit_button("Save to Google Sheet"):
-            if item_name and price_val:
+            if item_input and price_input:
                 today = datetime.now().strftime("%Y-%m-%d")
-                # പുതിയ ഐഡികൾ - ഇത് നിന്റെ ഫോമിൽ നിന്ന് എടുത്തതാണ്
+                
+                # നിന്റെ ഫോമിലെ ശരിക്കുള്ള ബോക്സുകളുടെ ഐഡികളാണ് ഇവ
                 payload = {
-                    "entry.2064560731": today,
-                    "entry.1014167909": item_name,
-                    "entry.362153839": str(price_val)
+                    "entry.2064560731": today,       # Date
+                    "entry.1014167909": item_input,  # Item
+                    "entry.362153839": str(price_input) # Amount
                 }
+                
                 try:
-                    # ഇതാണ് ഏറ്റവും സുരക്ഷിതമായ വഴി
-                    response = requests.post(FORM_URL, data=payload)
-                    st.success(f"{item_name} - ₹{price_val} സേവ് ചെയ്തു!")
+                    # വിവരങ്ങൾ ഫോം വഴി ഷീറ്റിലേക്ക് അയക്കുന്നു
+                    requests.post(FORM_URL, data=payload)
+                    st.success(f"സേവ് ചെയ്തു: {item_input}")
                     st.balloons()
                     st.rerun()
                 except:
@@ -50,15 +51,16 @@ with st.expander("➕ പുതിയ ചെലവ് ചേർക്കുക",
 
 st.write("---")
 
-# ഡാറ്റ പ്രദർശനം
+# ഷീറ്റിലെ വിവരങ്ങൾ കാണിക്കുന്നു
 try:
     df = pd.read_csv(CSV_URL)
     if not df.empty:
-        # കോളങ്ങൾക്ക് പേര് നൽകുന്നു
+        # നിന്റെ ഷീറ്റിലെ കോളം ക്രമം അനുസരിച്ച് പേര് നൽകുന്നു
         df.columns = ['Timestamp', 'Date', 'Item', 'Amount'][:len(df.columns)]
-        # ശൂന്യമായ വരികൾ കളയുന്നു
+        
+        # തുക നമ്പറാണെന്ന് ഉറപ്പാക്കി ബ്ലാങ്ക് വരികൾ ഒഴിവാക്കുന്നു
+        df['Amount'] = pd.to_numeric(df['Amount'], errors='coerce')
         df = df.dropna(subset=['Amount'])
-        df['Amount'] = pd.to_numeric(df['Amount'], errors='coerce').fillna(0)
         
         total = df['Amount'].sum()
         st.markdown(f'<div class="total-box">ആകെ ചെലവ്: ₹ {total:,.2f}</div>', unsafe_allow_html=True)
@@ -72,4 +74,4 @@ try:
             fig = px.pie(df, values='Amount', names='Item', hole=0.3)
             st.plotly_chart(fig, use_container_width=True)
 except:
-    st.info("ഡാറ്റ ലോഡ് ചെയ്യുന്നു...")
+    st.info("ഡാറ്റ ലോഡ് ചെയ്യുന്നു... ഒന്ന് റിഫ്രഷ് ചെയ്യുക.")
