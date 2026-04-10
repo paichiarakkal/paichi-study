@@ -1,4 +1,6 @@
-pandas
-plotly
-requests
 streamlit
+easyocr
+opencv-python-headless
+requests
+pandas
+Pillow
