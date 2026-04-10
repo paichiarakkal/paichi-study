@@ -5,7 +5,7 @@ import requests
 from datetime import datetime
 import random
 
-# 1. നിന്റെ ലിങ്കുകൾ (ഇത് മാറ്റേണ്ടതില്ല)
+# 1. ലിങ്കുകൾ (നിന്റെ പുതിയ ഫോം ലിങ്ക് അനുസരിച്ചുള്ളത്)
 CSV_URL = f"https://docs.google.com/spreadsheets/d/e/2PACX-1vQRmFHWgvrzRobTTuiUO4pMbZ8QP1dAuBsn1hCaUf2ON7Bow1SeR2xHjYwupJZYYfMHW_Mm8pmtLUFA/pub?gid=663160667&single=true&output=csv&x={random.randint(1,1000)}"
 FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSeF7QQUyWqBk_WZ127EMsvM33WtgpQPcJ6cQ5VDdulzLG7FhQ/formResponse"
 
@@ -22,7 +22,7 @@ st.markdown("""
 
 st.title("💵 Family Expense Tracker")
 
-# ഡാറ്റ എൻട്രി ഫോം
+# ഡാറ്റ ഇൻപുട്ട്
 with st.expander("➕ പുതിയ ചെലവ് ചേർക്കുക", expanded=True):
     with st.form("my_form", clear_on_submit=True):
         col1, col2 = st.columns(2)
@@ -33,7 +33,7 @@ with st.expander("➕ പുതിയ ചെലവ് ചേർക്കുക",
             if item_input and price_input:
                 today = datetime.now().strftime("%Y-%m-%d")
                 
-                # നിന്റെ ഫോമിലെ ശരിക്കുള്ള ബോക്സുകളുടെ ഐഡികളാണ് ഇവ
+                # നിന്റെ പുതിയ ലിങ്കിൽ നിന്നുള്ള കൃത്യമായ ഐഡികൾ:
                 payload = {
                     "entry.2064560731": today,       # Date
                     "entry.1014167909": item_input,  # Item
@@ -41,7 +41,7 @@ with st.expander("➕ പുതിയ ചെലവ് ചേർക്കുക",
                 }
                 
                 try:
-                    # വിവരങ്ങൾ ഫോം വഴി ഷീറ്റിലേക്ക് അയക്കുന്നു
+                    # ഗൂഗിൾ ഫോം വഴി ഡാറ്റ അയക്കുന്നു
                     requests.post(FORM_URL, data=payload)
                     st.success(f"സേവ് ചെയ്തു: {item_input}")
                     st.balloons()
@@ -51,16 +51,14 @@ with st.expander("➕ പുതിയ ചെലവ് ചേർക്കുക",
 
 st.write("---")
 
-# ഷീറ്റിലെ വിവരങ്ങൾ കാണിക്കുന്നു
+# പ്രദർശനം
 try:
     df = pd.read_csv(CSV_URL)
     if not df.empty:
-        # നിന്റെ ഷീറ്റിലെ കോളം ക്രമം അനുസരിച്ച് പേര് നൽകുന്നു
+        # കോളം പേരുകൾ സെറ്റ് ചെയ്യുന്നു
         df.columns = ['Timestamp', 'Date', 'Item', 'Amount'][:len(df.columns)]
-        
-        # തുക നമ്പറാണെന്ന് ഉറപ്പാക്കി ബ്ലാങ്ക് വരികൾ ഒഴിവാക്കുന്നു
         df['Amount'] = pd.to_numeric(df['Amount'], errors='coerce')
-        df = df.dropna(subset=['Amount'])
+        df = df.dropna(subset=['Amount']) # ശൂന്യമായവ ഒഴിവാക്കാൻ
         
         total = df['Amount'].sum()
         st.markdown(f'<div class="total-box">ആകെ ചെലവ്: ₹ {total:,.2f}</div>', unsafe_allow_html=True)
@@ -74,4 +72,4 @@ try:
             fig = px.pie(df, values='Amount', names='Item', hole=0.3)
             st.plotly_chart(fig, use_container_width=True)
 except:
-    st.info("ഡാറ്റ ലോഡ് ചെയ്യുന്നു... ഒന്ന് റിഫ്രഷ് ചെയ്യുക.")
+    st.info("ഡാറ്റ ലോഡ് ചെയ്യുന്നു...")
