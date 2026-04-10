@@ -18,7 +18,7 @@ def load_ai_reader():
 
 # 2. നിന്റെ ശരിയായ ലിങ്കുകൾ
 CSV_URL = f"https://docs.google.com/spreadsheets/d/e/2PACX-1vR2UqKgCAEEv42IC6vwe0D2g_pW7-XR2Qiv7_FwAZYFDTDLd7pOwKQ5yvClbwy88AZmD6Ar2AiFQ8Xu/pub?gid=1126266048&single=true&output=csv&x={random.randint(1,10000)}"
-FORM_URL_IFRAME = "https://forms.gle/R3wVocUKRJ3BLnyP7" # നിന്റെ ഗൂഗിൾ ഫോം ലിങ്ക്
+FORM_URL_IFRAME = "https://forms.gle/R3wVocUKRJ3BLnyP7" 
 FORM_URL_API = "https://docs.google.com/forms/d/e/1FAIpQLScHkSw0nkgNQSeRGocM85t4bZCkWHQS6EUSDf-5dIts1gWZXw/formResponse"
 
 st.set_page_config(page_title="PAICHI AI Super Hub", layout="wide")
@@ -38,7 +38,7 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # ന്യൂസ് ടിക്കർ
-st.markdown('<div class="ticker-wrap"><div class="ticker">📢 പൈച്ചി ഫാമിലി ഹബ്ബ് ലൈവ് ട്രാക്കർ | വോയ്‌സ് വഴിയോ ഫോം വഴിയോ വിവരങ്ങൾ ചേർക്കാം 📢</div></div>', unsafe_allow_html=True)
+st.markdown('<div class="ticker-wrap"><div class="ticker">📢 പൈച്ചി ഫാമിലി ഹബ്ബ് ലൈവ് ട്രാക്കർ | വിവരങ്ങൾ സെക്യൂർ ആയി സേവ് ചെയ്യാം 📢</div></div>', unsafe_allow_html=True)
 
 def load_data():
     try:
@@ -54,61 +54,67 @@ df = load_data()
 # സൈഡ്‌ബാർ മെനു
 st.sidebar.title("⚪ PAICHI MENU")
 menu = st.sidebar.selectbox("തിരഞ്ഞെടുക്കുക:", 
-    ["🏠 Home", "💰 Expenses (Add Entry)", "📊 Smart Analytics & WhatsApp", "📸 AI Bill Scanner", "🎓 SSLC Marks", "🎓 Plus Two Marks", "⏰ Reminders"])
+    ["🏠 Home", "💰 Expenses (Add Entry Only)", "📊 Smart Analytics & WhatsApp", "📸 AI Bill Scanner", "🎓 SSLC Marks", "🎓 Plus Two Marks", "⏰ Reminders"])
 
 # --- 1. HOME ---
 if menu == "🏠 Home":
     st.title("🏠 Welcome Faisal!")
-    st.write("പൈച്ചി ഫാമിലി ഹബ്ബിലേക്ക് സ്വാഗതം. നിനക്ക് ആവശ്യമുള്ള മെനു ഇടതുവശത്ത് നിന്ന് തിരഞ്ഞെടുക്കാം.")
+    st.write("പൈച്ചി ഫാമിലി ഹബ്ബിലേക്ക് സ്വാഗതം. വിവരങ്ങൾ ചേർക്കാൻ Expenses മെനുവിൽ പോകുക.")
 
-# --- 2. EXPENSES (Add Entry) ---
-elif menu == "💰 Expenses (Add Entry)":
+# --- 2. EXPENSES (Add Entry Only - NO SHEET DISPLAY) ---
+elif menu == "💰 Expenses (Add Entry Only)":
     st.title("💵 Add New Expense")
+    st.write("ഇവിടെ നീ നൽകുന്ന വിവരങ്ങൾ സെക്യൂർ ആയി സേവ് ചെയ്യപ്പെടും.")
+    
     col1, col2 = st.columns([1, 1])
     with col1:
-        st.subheader("🎤 Quick Voice Input")
+        st.subheader("🎤 Voice Input")
         voice_input = speech_to_text(language='ml', start_prompt="സാധനത്തിന്റെ പേര് പറയൂ...", key='voice')
-        with st.form("api_form", clear_on_submit=True):
+        with st.form("quick_add", clear_on_submit=True):
             item = st.text_input("Item Name", value=voice_input if voice_input else "")
             amt = st.number_input("Amount", min_value=0, value=None)
             if st.form_submit_button("QUICK SAVE"):
                 if item and amt:
                     requests.post(FORM_URL_API, data={"entry.1069832729": datetime.now().strftime("%Y-%m-%d"), "entry.1896057694": item, "entry.1570426033": str(amt)})
-                    st.success("സേവ് ചെയ്തു!")
+                    st.success("വിജയകരമായി സേവ് ചെയ്തു!")
     with col2:
-        st.subheader("📝 Google Form Way")
+        st.subheader("📝 Form Way")
         st.components.v1.iframe(FORM_URL_IFRAME, height=500)
 
-# --- 3. ANALYTICS (Password Protected) ---
+# --- 3. ANALYTICS & WHATSAPP (ALL DATA HERE) ---
 elif menu == "📊 Smart Analytics & WhatsApp":
     if "unlocked" not in st.session_state: st.session_state["unlocked"] = False
     
     if not st.session_state["unlocked"]:
         st.title("🔐 Secure Access")
-        pwd = st.text_input("പാസ്‌വേഡ് നൽകുക", type="password")
+        pwd = st.text_input("വിവരങ്ങൾ കാണാൻ പാസ്‌വേഡ് നൽകുക", type="password")
         if st.button("UNLOCK"):
             if pwd == "1234":
                 st.session_state["unlocked"] = True
                 st.rerun()
             else: st.error("തെറ്റായ പാസ്‌വേഡ്!")
     else:
-        st.title("📊 Expense History & Analytics")
-        if st.button("🔒 Lock"):
+        st.title("📊 Financial Report & History")
+        if st.button("🔒 Lock Data"):
             st.session_state["unlocked"] = False
             st.rerun()
         
         if not df.empty:
             total = df['Amount'].sum()
-            st.markdown(f'<div class="total-box">Total: ₹ {total:,.2f}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="total-box">ഈ മാസത്തെ ആകെ ചിലവ്: ₹ {total:,.2f}</div>', unsafe_allow_html=True)
+            
             c1, c2 = st.columns(2)
             with c1:
+                st.subheader("വിശകലനം (Graph)")
                 fig = px.pie(df, values='Amount', names=df.columns[2], hole=0.3)
                 st.plotly_chart(fig, use_container_width=True)
             with c2:
-                st.table(df.iloc[:, [2, -1]].tail(15).iloc[::-1])
+                st.subheader("📋 പഴയ വിവരങ്ങൾ (Sheet History)")
+                st.table(df.iloc[:, [2, -1]].tail(20).iloc[::-1])
             
             st.markdown("---")
-            wa_msg = f"PAICHI REPORT\nTotal: ₹{total}"
+            st.subheader("📲 WhatsApp Report")
+            wa_msg = f"PAICHI REPORT\nDate: {datetime.now().strftime('%d-%m-%Y')}\nTotal: ₹{total}"
             wa_url = f"https://wa.me/?text={requests.utils.quote(wa_msg)}"
             if st.button("📲 SEND TO WHATSAPP"):
                 st.markdown(f'<a href="{wa_url}" target="_blank" style="text-decoration:none;"><div style="background-color:#25D366; color:white; padding:15px; text-align:center; border-radius:10px; font-weight:bold;">CONFIRM ON WHATSAPP</div></a>', unsafe_allow_html=True)
@@ -133,7 +139,7 @@ elif menu == "⏰ Reminders":
 
 else:
     st.title(menu)
-    st.write("വിവരങ്ങൾ ഉടൻ അപ്‌ഡേറ്റ് ചെയ്യും...")
+    st.write("വിവരങ്ങൾ ഉടൻ ലഭ്യമാകും...")
 
 st.sidebar.write("---")
-st.sidebar.write("PAICHI AI Hub - Faisal")
+st.sidebar.write("PAICHI Secure AI - Faisal")
