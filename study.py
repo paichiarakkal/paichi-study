@@ -6,14 +6,17 @@ import random
 from PIL import Image
 import numpy as np
 
-# 1. AI ലൈബ്രറി ലോഡ് ചെയ്യുന്നു (Error ഒഴിവാക്കാൻ പ്രത്യേക സെറ്റിംഗ്സ്)
+# 1. AI ലൈബ്രറി ലോഡ് ചെയ്യുന്നു
 @st.cache_resource
 def load_ai_reader():
     import easyocr
     return easyocr.Reader(['en'])
 
 # 2. നിന്റെ ലിങ്കുകൾ
+# ഷീറ്റ് 1 (Expenses): gid=1126266048
+# ഷീറ്റ് 2 (News): gid=0 (സാധാരണ ആദ്യ ഷീറ്റ് 0 ആയിരിക്കും, അല്ലെങ്കിൽ നിന്റെ ഷീറ്റിന്റെ gid ലിങ്കിൽ നിന്ന് നോക്കി മാറ്റുക)
 CSV_URL = f"https://docs.google.com/spreadsheets/d/e/2PACX-1vR2UqKgCAEEv42IC6vwe0D2g_pW7-XR2Qiv7_FwAZYFDTDLd7pOwKQ5yvClbwy88AZmD6Ar2AiFQ8Xu/pub?gid=1126266048&single=true&output=csv&x={random.randint(1,10000)}"
+NEWS_URL = f"https://docs.google.com/spreadsheets/d/e/2PACX-1vR2UqKgCAEEv42IC6vwe0D2g_pW7-XR2Qiv7_FwAZYFDTDLd7pOwKQ5yvClbwy88AZmD6Ar2AiFQ8Xu/pub?gid=0&single=true&output=csv&x={random.randint(1,10000)}"
 FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLScHkSw0nkgNQSeRGocM85t4bZCkWHQS6EUSDf-5dIts1gWZXw/formResponse"
 
 st.set_page_config(page_title="PAICHI AI Family Hub", layout="wide")
@@ -23,8 +26,8 @@ st.markdown("""
     <style>
     .stApp { background: linear-gradient(135deg, #BF953F, #FCF6BA, #AA771C); color: #000; }
     [data-testid="stSidebar"] { background: linear-gradient(180deg, #C0C0C0, #E8E8E8, #A9A9A9) !important; }
-    .ticker-wrap { width: 100%; overflow: hidden; background-color: #000; color: #FFD700; padding: 10px 0; font-weight: bold; border-radius: 5px; margin-bottom: 20px; }
-    .ticker { display: inline-block; white-space: nowrap; animation: ticker 25s linear infinite; }
+    .ticker-wrap { width: 100%; overflow: hidden; background-color: #000; color: #FFD700; padding: 10px 0; font-weight: bold; border-radius: 5px; margin-bottom: 20px; border: 2px solid #FFD700; }
+    .ticker { display: inline-block; white-space: nowrap; animation: ticker 20s linear infinite; font-size: 18px; }
     @keyframes ticker { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
     .total-box { background-color: #000; color: #FFD700; padding: 25px; border-radius: 15px; text-align: center; font-size: 35px; font-weight: bold; border: 4px solid #FFD700; margin-top: 20px; }
     h1, h2, h3, label, p { color: black !important; font-weight: bold !important; }
@@ -32,8 +35,18 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# ന്യൂസ് ടിക്കർ
-st.markdown('<div class="ticker-wrap"><div class="ticker">📢 പൈച്ചി ഫാമിലി AI ഹബ്ബ് ലൈവ് | ബില്ലുകൾ സ്കാൻ ചെയ്യാനും തുക ട്രാക്ക് ചെയ്യാനും സാധിക്കും 📢</div></div>', unsafe_allow_html=True)
+# വാർത്ത ഷീറ്റിൽ നിന്ന് ലോഡ് ചെയ്യുന്നു
+def load_news():
+    try:
+        news_df = pd.read_csv(NEWS_URL)
+        return news_df.columns[0] # ആദ്യത്തെ സെല്ലിലെ വരി എടുക്കുന്നു
+    except:
+        return "📢 പൈച്ചി ഫാമിലി അസിസ്റ്റന്റ് ലോഡ് ആയിരിക്കുന്നു..."
+
+current_news = load_news()
+
+# ഡൈനാമിക് ന്യൂസ് ടിക്കർ
+st.markdown(f'<div class="ticker-wrap"><div class="ticker">📢 {current_news} 📢</div></div>', unsafe_allow_html=True)
 
 # സൈഡ്‌ബാർ മെനു
 st.sidebar.title("⚪ PAICHI MENU")
@@ -56,7 +69,7 @@ def load_data():
 
 if menu == "🏠 Home":
     st.title("🏠 PAICHI Family Hub")
-    st.write(f"സ്വാഗതം ഫൈസൽ! നിന്റെ പേഴ്സണൽ AI അസിസ്റ്റന്റ് റെഡിയാണ്.")
+    st.write(f"സ്വാഗതം ഫൈസൽ! നിന്റെ സ്മാർട്ട് ന്യൂസ് ടിക്കർ ഇപ്പോൾ ഷീറ്റുമായി കണക്ട് ചെയ്തിട്ടുണ്ട്.")
 
 elif menu == "💰 Expenses (Add & View)":
     st.title("💵 Expense Management")
@@ -110,10 +123,6 @@ elif menu == "📸 AI Bill Scanner":
                                 st.success("സേവ് ചെയ്തു!")
                     else: st.warning("തുക കണ്ടെത്താനായില്ല.")
             except Exception as e: st.error(f"AI Error: {e}")
-
-elif menu == "⏰ Reminders":
-    st.title("⏰ Reminders")
-    st.warning("⚡ കറന്റ് ബില്ല് അടയ്ക്കാൻ സമയമായോ എന്ന് പരിശോധിക്കുക!")
 
 else:
     st.title(menu)
