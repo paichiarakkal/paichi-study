@@ -14,7 +14,7 @@ st.set_page_config(page_title="PAICHI Family Hub", layout="wide")
 
 if 'lang' not in st.session_state: st.session_state.lang = "ML"
 
-# ഡിസൈൻ
+# ഡിസൈൻ സെറ്റിംഗ്സ്
 st.markdown(f"""
     <style>
     .stApp {{ background: linear-gradient(135deg, #BF953F, #FCF6BA, #AA771C); color: #000; }}
@@ -31,7 +31,6 @@ def load_data():
         url = f"{CSV_URL}&ref={random.randint(1, 999999)}"
         df = pd.read_csv(url)
         df.columns = df.columns.str.strip()
-        # Item കോളം കേസ് സെൻസിറ്റീവ് ആവാതിരിക്കാൻ
         for c in df.columns:
             if c.lower() == 'item': df.rename(columns={c: 'Item'}, inplace=True)
         if 'Date' in df.columns: df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
@@ -40,61 +39,48 @@ def load_data():
         return df
     except: return None
 
-# Sidebar
+# Sidebar - ഭാഷയും പേജുകളും
 st.sidebar.title("⚪ PAICHI AI")
 st.session_state.lang = st.sidebar.radio("Language:", ["ML", "EN"], horizontal=True)
+
 L = {
-    "ML": {"dash": "🏠 ഡാഷ്‌ബോർഡ്", "add": "💰 എൻട്രി", "bal": "ബാക്കി തുക", "inc": "വരുമാനം", "exp": "ചിലവ്"},
-    "EN": {"dash": "🏠 Dashboard", "add": "💰 Add Entry", "bal": "Balance", "inc": "Income", "exp": "Expense"}
+    "ML": {"dash": "🏠 ഡാഷ്‌ബോർഡ്", "add": "💰 പുതിയ എൻട്രി", "search": "🔍 തിരയുക", "rep": "📊 റിപ്പോർട്ടുകൾ", "bal": "ബാക്കി തുക", "inc": "വരുമാനം", "exp": "ചിലവ്"},
+    "EN": {"dash": "🏠 Dashboard", "add": "💰 New Entry", "search": "🔍 Search", "rep": "📊 Reports", "bal": "Balance", "inc": "Income", "exp": "Expense"}
 }[st.session_state.lang]
 
-menu = st.sidebar.selectbox("Menu:", [L["dash"], L["add"]])
+# ഓരോ ഫീച്ചറും ഓരോ പേജായി സൈഡ്ബാറിൽ വരുന്നു
+page = st.sidebar.radio("Menu:", [L["dash"], L["add"], L["search"], L["rep"]])
+
 df = load_data()
 
-if menu == L["dash"]:
+# --- പേജ് 1: ഡാഷ്‌ബോർഡ് ---
+if page == L["dash"]:
     st.title(L["dash"])
-    if df is not None and not df.empty:
-        # കണക്കുകൾ
-        income = df['Credit'].sum()
-        expense = df['Debit'].sum() + df['Amount'].sum()
-        st.markdown(f'<div class="balance-box">{L["bal"]}: ₹ {income-expense:,.2f}</div>', unsafe_allow_html=True)
+    if df is not None:
+        inc = df['Credit'].sum()
+        deb = df['Debit'].sum() + df['Amount'].sum()
+        st.markdown(f'<div class="balance-box">{L["bal"]}: ₹ {inc-deb:,.2f}</div>', unsafe_allow_html=True)
         
         c1, c2 = st.columns(2)
-        with c1: st.markdown(f'<div class="metric-box">{L["inc"]}: ₹ {income:,.2f}</div>', unsafe_allow_html=True)
-        with c2: st.markdown(f'<div class="metric-box">{L["exp"]}: ₹ {expense:,.2f}</div>', unsafe_allow_html=True)
-
-        # പൈ ചാർട്ട് - എറർ ഫിക്സ് ചെയ്തത്
-        st.write("---")
-        st.subheader("Expense Distribution (Pie Chart)")
-        exp_df = df.copy()
-        exp_df['Total_Exp'] = exp_df['Debit'] + exp_df['Amount']
-        exp_df = exp_df[exp_df['Total_Exp'] > 0]
+        with c1: st.markdown(f'<div class="metric-box">{L["inc"]}: ₹ {inc:,.2f}</div>', unsafe_allow_html=True)
+        with c2: st.markdown(f'<div class="metric-box">{L["exp"]}: ₹ {deb:,.2f}</div>', unsafe_allow_html=True)
         
-        if not exp_df.empty and 'Item' in exp_df.columns:
-            summary = exp_df.groupby('Item')['Total_Exp'].sum().reset_index()
-            # കളർ മാറ്റം: സപ്പോർട്ട് ചെയ്യുന്ന 'Sunset' സ്കീം ഉപയോഗിച്ചു
-            fig = px.pie(summary, values='Total_Exp', names='Item', hole=0.3,
-                         color_discrete_sequence=px.colors.sequential.Sunset)
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.info("ഡാറ്റ ലഭ്യമല്ല.")
-
-        # സമീപകാല വിവരങ്ങൾ
         st.write("---")
-        st.subheader("Recent Entries")
-        for _, row in df.tail(5).iloc[::-1].iterrows():
+        st.subheader("Recent Activity 📋")
+        for _, row in df.tail(10).iloc[::-1].iterrows():
             val = row['Credit'] if row['Credit'] > 0 else (row['Debit'] + row['Amount'])
-            label = "🟢" if row['Credit'] > 0 else "🔴"
-            st.markdown(f'<div class="log-card">{label} {row["Item"]}: ₹ {val}</div>', unsafe_allow_html=True)
+            color = "🟢" if row['Credit'] > 0 else "🔴"
+            st.markdown(f'<div class="log-card">{color} {row["Item"]}: ₹ {val}</div>', unsafe_allow_html=True)
 
-elif menu == L["add"]:
+# --- പേജ് 2: പുതിയ എൻട്രി ---
+elif page == L["add"]:
     st.title(L["add"])
-    v_text = speech_to_text(language='ml' if st.session_state.lang=="ML" else 'en', key='v_input')
-    with st.form("entry_form", clear_on_submit=True):
+    v_text = speech_to_text(language='ml' if st.session_state.lang=="ML" else 'en', key='page_voice')
+    with st.form("add_form", clear_on_submit=True):
         item = st.text_input("Item", value=v_text if v_text else "")
         amt = st.number_input("Amount", min_value=0)
         t_type = st.radio("Type:", ["Debit", "Credit"], horizontal=True)
-        if st.form_submit_button("SAVE"):
+        if st.form_submit_button("SAVE TO CLOUD"):
             if item and amt:
                 payload = {
                     "entry.1044099436": datetime.now().strftime("%Y-%m-%d"), 
@@ -105,3 +91,27 @@ elif menu == L["add"]:
                 requests.post(FORM_URL_API, data=payload)
                 st.success("സേവ് ചെയ്തു! ✅")
                 st.cache_data.clear()
+
+# --- പേജ് 3: സെർച്ച് ---
+elif page == L["search"]:
+    st.title(L["search"])
+    q = st.text_input("ഐറ്റം പേര് ടൈപ്പ് ചെയ്യുക...")
+    if df is not None and q:
+        res = df[df['Item'].str.contains(q, case=False, na=False)]
+        st.dataframe(res, use_container_width=True)
+
+# --- പേജ് 4: റിപ്പോർട്ടുകൾ ---
+elif page == L["rep"]:
+    st.title(L["rep"])
+    if df is not None:
+        exp_df = df.copy()
+        exp_df['Total_Exp'] = exp_df['Debit'] + exp_df['Amount']
+        exp_df = exp_df[exp_df['Total_Exp'] > 0]
+        
+        if not exp_df.empty:
+            summary = exp_df.groupby('Item')['Total_Exp'].sum().reset_index()
+            fig = px.pie(summary, values='Total_Exp', names='Item', hole=0.3, 
+                         color_discrete_sequence=px.colors.sequential.Sunset)
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("ഡാറ്റ ലഭ്യമല്ല.")
