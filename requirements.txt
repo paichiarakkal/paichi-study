@@ -7,3 +7,6 @@ Pillow
 numpy
 plotly
 streamlit-mic-recorder
+openpyxl
+xlsxwriter
+kaleido
