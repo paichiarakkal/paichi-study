@@ -12,7 +12,17 @@ CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR2UqKgCAEEv42IC6vwe0
 FORM_URL_API = "https://docs.google.com/forms/d/e/1FAIpQLScHkSw0nkgNQSeRGocM85t4bZCkWHQS6EUSDf-5dIts1gWZXw/formResponse"
 MY_NUMBER = "918714752210"
 
-st.set_page_config(page_title="PAICHI ATOMIC V34", layout="wide", initial_sidebar_state="collapsed")
+# --- 🧠 ATOMIC NAV LOGIC (സൈഡ്‌ബാർ തനിയെ പോകാൻ) ---
+# initial_sidebar_state="collapsed" പൈഡ്രോയിഡിൽ സൈഡ്‌ബാർ വേഗത്തിൽ മാറ്റാൻ സഹായിക്കും
+st.set_page_config(page_title="PAICHI ATOMIC V35", layout="wide", initial_sidebar_state="collapsed")
+
+if 'page' not in st.session_state:
+    st.session_state.page = "🏠 Dashboard"
+
+def nav_to(page_name):
+    st.session_state.page = page_name
+    # Pydroid-ൽ ബട്ടൺ അമർത്തുമ്പോൾ റീലോഡ് ആയി സൈഡ്‌ബാർ അടയാൻ സഹായിക്കുന്നു
+    st.rerun()
 
 # --- 🌗 PREMIUM GOLD CSS ---
 st.markdown("""
@@ -23,18 +33,17 @@ st.markdown("""
     [data-testid="stSidebar"] {
         background: #0f172a !important;
         border-right: 2px solid #ffd700;
-        min-width: 300px !important;
     }
     
-    /* സൈഡ്ബാറിലെ ബട്ടണുകൾ മനോഹരമാക്കാൻ */
+    /* സൈഡ്ബാറിലെ ഗോൾഡൻ ബട്ടണുകൾ */
     .stSidebar [data-testid="stButton"] button {
         background: transparent !important;
         color: #ffd700 !important;
         border: 1px solid #ffd700 !important;
         border-radius: 10px !important;
-        height: 50px !important;
-        margin-bottom: 10px !important;
-        transition: 0.3s;
+        height: 55px !important;
+        margin-bottom: 12px !important;
+        font-weight: bold !important;
     }
     
     .stSidebar [data-testid="stButton"] button:hover {
@@ -47,34 +56,24 @@ st.markdown("""
         border-radius: 20px;
         padding: 25px;
         border: 1px solid #ffd700;
-        box-shadow: 0 0 15px rgba(255, 215, 0, 0.2);
     }
     </style>
     """, unsafe_allow_html=True)
-
-# --- 🧠 ATOMIC NAV LOGIC ---
-if 'page' not in st.session_state:
-    st.session_state.page = "🏠 Dashboard"
-
-# ബട്ടൺ അമർത്തിയാൽ പേജ് മാറ്റാനുള്ള ഫങ്ക്ഷൻ
-def set_page(name):
-    st.session_state.page = name
-    # തനിയെ സൈഡ്ബാർ ക്ലോസ് ചെയ്യാൻ സഹായിക്കുന്ന ലോജിക് ഇതിലുണ്ട്
 
 # --- 🏰 SIDEBAR MENU ---
 with st.sidebar:
     st.markdown("<h1 style='text-align: center; color: #ffd700;'>✨ PAICHI ✨</h1>", unsafe_allow_html=True)
     st.write("")
     
-    if st.button("🏠 DASHBOARD", use_container_width=True): set_page("🏠 Dashboard")
-    if st.button("🌙 PEACE MODE", use_container_width=True): set_page("🌙 Peace Mode")
-    if st.button("💰 TRANSACTIONS", use_container_width=True): set_page("💰 Transactions")
-    if st.button("📊 REPORTS", use_container_width=True): set_page("📊 Reports")
-    if st.button("🔴 DEBT TRACKER", use_container_width=True): set_page("🔴 Debt Tracker")
-    if st.button("✅ TO-DO LIST", use_container_width=True): set_page("✅ To-Do List")
+    if st.button("🏠 DASHBOARD", key="btn1", use_container_width=True): nav_to("🏠 Dashboard")
+    if st.button("🌙 PEACE MODE", key="btn2", use_container_width=True): nav_to("🌙 Peace Mode")
+    if st.button("💰 TRANSACTIONS", key="btn3", use_container_width=True): nav_to("💰 Transactions")
+    if st.button("📊 REPORTS", key="btn4", use_container_width=True): nav_to("📊 Reports")
+    if st.button("🔴 DEBT TRACKER", key="btn5", use_container_width=True): nav_to("🔴 Debt Tracker")
+    if st.button("✅ TO-DO LIST", key="btn6", use_container_width=True): nav_to("✅ To-Do List")
     
     st.write("---")
-    st.caption("PAICHI AI ATOMIC v34.0")
+    st.caption("PAICHI AI V35.0")
 
 # --- 🏠 DASHBOARD ---
 if st.session_state.page == "🏠 Dashboard":
@@ -87,14 +86,16 @@ if st.session_state.page == "🏠 Dashboard":
 
     st.markdown(f'''
         <div class="glass-card">
-            <p style="color: #ffd700; margin: 0;">Total Spent</p>
-            <h1 style="color: #ffffff; margin: 0; font-size: 45px;">₹ {total:,.2f}</h1>
+            <p style="color: #ffd700; margin: 0;">System Active 🟢</p>
+            <h1 style="color: #ffffff; margin: 0; font-size: 40px;">₹ {total:,.2f}</h1>
         </div>
     ''', unsafe_allow_html=True)
+    st.write("")
+    st.info("മെനു കാണാൻ ഇടതുവശത്തെ '>' ചിഹ്നത്തിൽ ക്ലിക്ക് ചെയ്യുക.")
 
 # --- 🌙 PEACE MODE ---
 elif st.session_state.page == "🌙 Peace Mode":
-    st.title("Morning Peace 🌙")
+    st.title("Neural Greeting 🌙")
     msg = "🔵🔴🟢🟡🔵🔴🟢🟡\n*ASSALAMU ALAIKUM*\n━━━━━━━━━━━━━━\n🔵🔴🟢🟡🔵🔴🟢🟡"
     wa_url = f"https://wa.me/{MY_NUMBER}?text={urllib.parse.quote(msg)}"
     st.markdown(f'''
@@ -115,8 +116,8 @@ elif st.session_state.page == "💰 Transactions":
         amt = st.number_input("Amount", min_value=0)
         if st.form_submit_button("SAVE"):
             requests.post(FORM_URL_API, data={"entry.1069832729": datetime.now().strftime("%Y-%m-%d"), "entry.1896057694": item, "entry.1570426033": str(amt)})
-            st.success("സേവ് ചെയ്തു!")
+            st.success("Cloud-ലേക്ക് അയച്ചു!")
 
 else:
     st.header(st.session_state.page)
-    st.info("ഈ സെക്ഷൻ റെഡിയായി വരുന്നു...")
+    st.info("System Online 🟢")
