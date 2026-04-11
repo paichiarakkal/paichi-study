@@ -11,31 +11,19 @@ FORM_URL_API = "https://docs.google.com/forms/d/e/1FAIpQLScHkSw0nkgNQSeRGocM85t4
 
 st.set_page_config(page_title="PAICHI MINI", layout="wide", initial_sidebar_state="collapsed")
 
-# --- 🌗 UI DESIGN ---
+# --- 🌗 CSS FOR GRID & ICONS ---
 st.markdown("""
     <style>
     [data-testid="collapsedControl"], section[data-testid="stSidebar"] { display: none; }
     .stApp { background: #000000; color: #ffffff; }
     
-    /* 📱 FORCE COLUMNS SIDE-BY-SIDE ON MOBILE */
-    [data-testid="column"] {
-        width: 33% !important;
-        flex: 1 1 33% !important;
-        min-width: 33% !important;
-    }
-
-    .stButton > button {
-        background: #1a1a1a !important;
-        color: #ffd700 !important;
-        border: 2px solid #333 !important;
-        border-radius: 50% !important; 
-        height: 70px !important;
-        width: 70px !important;
-        margin: 5px auto !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        font-size: 22px !important;
+    /* മൊബൈലിലും വരിവരിയായി വരാൻ നിർബന്ധിക്കുന്ന ഗ്രിഡ് സിസ്റ്റം */
+    .icon-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 20px;
+        text-align: center;
+        padding: 20px;
     }
     
     .status-card {
@@ -44,12 +32,30 @@ st.markdown("""
         border-radius: 20px;
         border: 1px solid #ffd700;
         text-align: center;
-        margin-bottom: 20px;
+        margin: 10px auto 30px auto;
+        width: 90%;
+    }
+    
+    /* ബട്ടണുകൾ റൗണ്ട് ആക്കാൻ */
+    .stButton > button {
+        background: #1a1a1a !important;
+        color: #ffd700 !important;
+        border: 2px solid #333 !important;
+        border-radius: 50% !important; 
+        height: 75px !important;
+        width: 75px !important;
+        margin: 0 auto !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        font-size: 25px !important;
     }
     </style>
     """, unsafe_allow_html=True)
 
-if 'page' not in st.session_state: st.session_state.page = "🏠 HOME"
+if 'page' not in st.session_state:
+    st.session_state.page = "🏠 HOME"
+
 def nav(p):
     st.session_state.page = p
     st.rerun()
@@ -65,21 +71,44 @@ if st.session_state.page == "🏠 HOME":
 
     st.markdown(f'<div class="status-card"><h2 style="color: #fff; margin:0;">₹ {total:,.2f}</h2></div>', unsafe_allow_html=True)
 
-    # കൃത്യമായി 3 കോളങ്ങൾ വരാൻ
-    row1 = st.columns(3)
-    with row1[0]: st.button("💰", on_click=nav, args=("ADD",), key="btn1")
-    with row1[1]: st.button("📊", on_click=nav, args=("DATA",), key="btn2")
-    with row1[2]: st.button("🌙", on_click=nav, args=("PEACE",), key="btn3")
+    # ഓരോ കോളത്തിലും ഓരോ ബട്ടൺ വെക്കുന്നു
+    c1, c2, c3 = st.columns(3)
+    with c1: st.button("💰", on_click=nav, args=("ADD",), key="btn1")
+    with c2: st.button("📊", on_click=nav, args=("DATA",), key="btn2")
+    with c3: st.button("🌙", on_click=nav, args=("PEACE",), key="btn3")
+
+    st.write("") # വരികൾക്കിടയിൽ ചെറിയ വിടവ്
+
+    c4, c5, c6 = st.columns(3)
+    with c4: st.button("🔴", on_click=nav, args=("DEBTS",), key="btn4")
+    with c5: st.button("📝", on_click=nav, args=("TASKS",), key="btn5")
+    with c6: st.button("🛒", on_click=nav, args=("LIST",), key="btn6")
 
     st.write("")
 
-    row2 = st.columns(3)
-    with row2[0]: st.button("🔴", on_click=nav, args=("DEBTS",), key="btn4")
-    with row2[1]: st.button("📝", on_click=nav, args=("TASKS",), key="btn5")
-    with row2[2]: st.button("🛒", on_click=nav, args=("LIST",), key="btn6")
+    c7, c8, c9 = st.columns(3)
+    with c7: st.button("⚙️", on_click=nav, args=("SET",), key="btn7")
+    with c8: st.button("🔄", on_click=st.rerun, key="btn8")
+    with c9: st.button("📞", on_click=nav, args=("PEACE",), key="btn9")
 
+# --- 📥 ADD PAGE ---
 elif st.session_state.page == "ADD":
     if st.button("🔙 BACK"): nav("🏠 HOME")
-    # ... ബാക്കി കോഡ് ...
+    st.markdown("<h3 style='color: #ffd700;'>📥 Entry</h3>", unsafe_allow_html=True)
+    v_text = speech_to_text(language='ml', start_prompt="സംസാരിക്കൂ...", key='voice')
+    with st.form("entry"):
+        item = st.text_input("Item", value=v_text if v_text else "")
+        amt = st.number_input("Amount", min_value=0)
+        if st.form_submit_button("SAVE"):
+            requests.post(FORM_URL_API, data={"entry.1069832729": datetime.now().strftime("%Y-%m-%d"), "entry.1896057694": item, "entry.1570426033": str(amt)})
+            st.success("Synced! ✅")
 
-st.markdown("<p style='text-align: center; color: #333; font-size: 10px;'>PAICHI MINI v43.0</p>", unsafe_allow_html=True)
+# --- 📊 DATA PAGE ---
+elif st.session_state.page == "DATA":
+    if st.button("🔙 BACK"): nav("🏠 HOME")
+    try:
+        df = pd.read_csv(f"{CSV_URL}&ref={random.randint(1,999)}")
+        st.dataframe(df, use_container_width=True)
+    except: st.error("Error!")
+
+st.markdown("<p style='text-align: center; color: #333; font-size: 10px; margin-top: 50px;'>PAICHI MINI v43.0</p>", unsafe_allow_html=True)
