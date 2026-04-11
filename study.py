@@ -8,26 +8,25 @@ from streamlit_mic_recorder import speech_to_text
 import urllib.parse
 import io
 
-# 1. കോൺഫിഗറേഷൻ
+# 1. ലിങ്കുകൾ
 CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRccfZch3jSdHqrScpqsR_j3FSd70NbELC1j6_nPi-MQXdrhVr3BPcKoI1nub4mQql727pQRPWYk9C-/pub?gid=1583146028&single=true&output=csv"
 FORM_URL_API = "https://docs.google.com/forms/d/e/1FAIpQLSfLySolQSiRXV0wELNPhUBlKJh77RnJKWc2-uqAM0TPNG3Q5A/formResponse"
 
-st.set_page_config(page_title="PAICHI Ultimate Hub v25.1", layout="wide")
+st.set_page_config(page_title="PAICHI Ultimate Hub v25.2", layout="wide")
 
-# --- ഓട്ടോമാറ്റിക് ലോഗിൻ സിസ്റ്റം ---
+# ഓട്ടോ ലോഗിൻ
 query_params = st.query_params
 url_user = query_params.get("user", "Guest") 
 
 if 'lang' not in st.session_state: st.session_state.lang = "ML"
 
-# ഡിസൈൻ സെറ്റിംഗ്സ് (നിങ്ങളുടെ പഴയ ഡിസൈൻ തന്നെ)
+# ഡിസൈൻ
 st.markdown(f"""
     <style>
     .stApp {{ background: linear-gradient(135deg, #BF953F, #FCF6BA, #AA771C); color: #000; }}
     .balance-box {{ background: #000; color: #00FF00; padding: 25px; border-radius: 15px; text-align: center; font-size: 35px; font-weight: bold; border: 3px solid #FFD700; margin-bottom: 20px; }}
     .metric-box {{ background: #000; color: #FFD700; padding: 15px; border-radius: 12px; text-align: center; border: 1px solid #FFD700; }}
-    .log-card {{ background: rgba(0,0,0,0.1); padding: 12px; border-radius: 10px; border-left: 5px solid #000; margin-bottom: 8px; font-weight: bold; color: black; }}
-    .whatsapp-btn {{ background-color: #25D366; color: white !important; padding: 10px 20px; text-decoration: none; border-radius: 10px; font-weight: bold; display: inline-block; margin-top: 10px; }}
+    .whatsapp-btn {{ background-color: #25D366; color: white !important; padding: 12px 25px; text-decoration: none; border-radius: 10px; font-weight: bold; display: inline-block; margin-top: 15px; border: 2px solid white; }}
     h1, h2, h3, label, p {{ color: black !important; font-weight: bold !important; }}
     </style>
     """, unsafe_allow_html=True)
@@ -49,7 +48,7 @@ def load_data():
 # Sidebar
 st.sidebar.title("⚪ PAICHI PRO AI")
 st.sidebar.markdown(f"**👤 ലോഗിൻ: {url_user}**")
-st.session_state.lang = st.sidebar.radio("ഭാഷ (Language):", ["ML", "EN"], horizontal=True)
+st.session_state.lang = st.sidebar.radio("ഭാഷ:", ["ML", "EN"], horizontal=True)
 
 L = {
     "ML": {"dash": "🏠 ഡാഷ്‌ബോർഡ്", "add": "💰 എൻട്രി", "debt": "🤝 കടം", "rep": "📊 റിപ്പോർട്ട്", "set": "⚙️ ബജറ്റ്"},
@@ -77,7 +76,6 @@ if page == L["dash"]:
 # --- പേജ് 2: എൻട്രി + വാട്സാപ്പ് ഷെയറിംഗ് ---
 elif page == L["add"]:
     st.title(L["add"])
-    st.info(f"ലോഗിൻ: {url_user}")
     v_text = speech_to_text(language='ml' if st.session_state.lang=="ML" else 'en', key='voice_input')
     with st.form("main_form"):
         item = st.text_input("Item", value=v_text if v_text else "")
@@ -96,7 +94,7 @@ elif page == L["add"]:
                 requests.post(FORM_URL_API, data=payload)
                 st.success("സേവ് ചെയ്തു! ✅")
                 
-                # WhatsApp ഷെയറിംഗ് ലിങ്ക്
+                # WhatsApp Link
                 msg = f"*Finance Update*\n👤: {url_user}\n📦: {item}\n💰: ₹{amt}\n📝: {t_type}"
                 w_url = f"https://wa.me/?text={urllib.parse.quote(msg)}"
                 st.markdown(f'<a href="{w_url}" target="_blank" class="whatsapp-btn">📲 Share to WhatsApp</a>', unsafe_allow_html=True)
@@ -109,7 +107,7 @@ elif page == L["debt"]:
         p_name = st.text_input("ആളുടെ പേര്")
         d_amt = st.number_input("തുക", min_value=0)
         d_type = st.selectbox("വിഭാഗം", ["കടം വാങ്ങി", "കടം കൊടുത്തു"])
-        if st.form_submit_button("രേഖപ്പെടുത്തുക"):
+        if st.form_submit_button("Add Debt"):
             label = f"🤝 കടം: {p_name} ({d_type}) - {url_user}"
             payload = {
                 "entry.1044099436": datetime.now().strftime("%Y-%m-%d"), 
@@ -120,26 +118,17 @@ elif page == L["debt"]:
             requests.post(FORM_URL_API, data=payload)
             st.success("രേഖപ്പെടുത്തി! ✅")
 
-# --- പേജ് 4: റിപ്പോർട്ടുകൾ (എറർ ഫിക്സ് ചെയ്തത്) ---
+# --- പേജ് 4: റിപ്പോർട്ടുകൾ (എറർ ഫ്രീ) ---
 elif page == L["rep"]:
     st.title(L["rep"])
     if df is not None:
-        # Pie Chart (Gold_r ഒഴിവാക്കി Sunset ഉപയോഗിച്ചു)
         sum_df = df.groupby('Item').agg({'Debit': 'sum', 'Amount': 'sum'}).sum(axis=1).reset_index(name='Total')
         sum_df = sum_df[sum_df['Total'] > 0]
+        # Sunset palette ഉപയോഗിച്ചു (Error ഒഴിവാക്കാൻ)
         fig = px.pie(sum_df, values='Total', names='Item', hole=0.3, color_discrete_sequence=px.colors.sequential.Sunset)
         st.plotly_chart(fig, use_container_width=True)
-        
-        # Weekly Summary
-        if 'Date' in df.columns:
-            df['Week'] = df['Date'].dt.isocalendar().week
-            weekly = df.groupby('Week').agg({'Debit': 'sum', 'Amount': 'sum', 'Credit': 'sum'}).reset_index()
-            st.write("ആഴ്ച തിരിച്ചുള്ള കണക്ക്:")
-            st.dataframe(weekly, use_container_width=True)
-            
-        # Download (CSV ആയി - എറർ ഒഴിവാക്കാൻ)
-        csv = df.to_csv(index=False).encode('utf-8')
-        st.download_button("📥 Download CSV Report", data=csv, file_name="report.csv", mime="text/csv")
+        # CSV ഡൗൺലോഡ് (Excel എറർ ഒഴിവാക്കാൻ)
+        st.download_button("📥 Download CSV", data=df.to_csv(index=False).encode('utf-8'), file_name="report.csv")
 
 # --- പേജ് 5: ബജറ്റ് സെറ്റിംഗ്സ് ---
 elif page == L["set"]:
