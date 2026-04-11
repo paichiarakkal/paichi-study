@@ -76,7 +76,7 @@ if st.session_state.page == "🏠 HOME":
         </div>
     ''', unsafe_allow_html=True)
 
-    # --- 📱 ICON GRID LAYOUT (വരിവരിയായി മാത്രം) ---
+    # --- 📱 ICON GRID LAYOUT (വരിവരിയായി) ---
     
     # വരി 1
     c1, c2, c3 = st.columns(3)
@@ -119,7 +119,7 @@ elif st.session_state.page == "DATA":
     try:
         df = pd.read_csv(f"{CSV_URL}&ref={random.randint(1,999)}")
         st.dataframe(df, use_container_width=True)
-    except: st.error("Error!")
+    except: st.error("Error loading data!")
 
 else:
     st.title(st.session_state.page)
