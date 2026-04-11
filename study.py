@@ -11,13 +11,13 @@ FORM_URL_API = "https://docs.google.com/forms/d/e/1FAIpQLScHkSw0nkgNQSeRGocM85t4
 
 st.set_page_config(page_title="PAICHI MINI", layout="wide", initial_sidebar_state="collapsed")
 
-# --- 🌗 MOBILE OPTIMIZED UI DESIGN ---
+# --- 🌗 മൊബൈൽ സ്ക്രീനിന് വേണ്ടിയുള്ള ഡിസൈൻ ---
 st.markdown("""
     <style>
     [data-testid="collapsedControl"], section[data-testid="stSidebar"] { display: none; }
     .stApp { background: #000000; color: #ffffff; }
     
-    /* 📱 മൊബൈലിലും 3 കോളങ്ങൾ വരിവരിയായി വരാൻ നിർബന്ധിക്കുന്ന കോഡ് */
+    /* 📱 ഫോൺ നേരെ പിടിച്ചാലും 3 കോളങ്ങൾ വരിവരിയായി വരാൻ നിർബന്ധിക്കുന്ന കോഡ് */
     [data-testid="column"] {
         width: 33.33% !important;
         flex: 1 1 33.33% !important;
@@ -30,7 +30,7 @@ st.markdown("""
         padding-right: 0.5rem !important;
     }
 
-    /* ബട്ടണുകൾ റൗണ്ട് ആക്കാൻ */
+    /* ഐക്കൺ ബട്ടണുകൾ ഡിസൈൻ */
     .stButton > button {
         background: #1a1a1a !important;
         color: #ffd700 !important;
@@ -75,15 +75,15 @@ if st.session_state.page == "🏠 HOME":
 
     st.markdown(f'<div class="status-card"><h2 style="color: #fff; margin:0;">₹ {total:,.2f}</h2></div>', unsafe_allow_html=True)
 
-    # ഒന്നാമത്തെ വരി
+    # ഒന്നാമത്തെ വരി (3 ഐക്കണുകൾ)
     c1, c2, c3 = st.columns(3)
     with c1: st.button("💰", on_click=nav, args=("ADD",), key="btn1")
     with c2: st.button("📊", on_click=nav, args=("DATA",), key="btn2")
     with c3: st.button("🌙", on_click=nav, args=("PEACE",), key="btn3")
 
-    st.write("") # വിടവ്
+    st.write("") # ചെറിയ ഗ്യാപ്പ്
 
-    # രണ്ടാമത്തെ വരി
+    # രണ്ടാമത്തെ വരി (3 ഐക്കണുകൾ)
     c4, c5, c6 = st.columns(3)
     with c4: st.button("🔴", on_click=nav, args=("DEBTS",), key="btn4")
     with c5: st.button("📝", on_click=nav, args=("TASKS",), key="btn5")
@@ -91,7 +91,7 @@ if st.session_state.page == "🏠 HOME":
 
     st.write("")
 
-    # മൂന്നാമത്തെ വരി
+    # മൂന്നാമത്തെ വരി (3 ഐക്കണുകൾ)
     c7, c8, c9 = st.columns(3)
     with c7: st.button("⚙️", on_click=nav, args=("SET",), key="btn7")
     with c8: st.button("🔄", on_click=st.rerun, key="btn8")
@@ -115,6 +115,6 @@ elif st.session_state.page == "DATA":
     try:
         df = pd.read_csv(f"{CSV_URL}&ref={random.randint(1,999)}")
         st.dataframe(df, use_container_width=True)
-    except: st.error("Error!")
+    except: st.error("Error loading data!")
 
 st.markdown("<p style='text-align: center; color: #333; font-size: 10px; margin-top: 50px;'>PAICHI MINI v43.0</p>", unsafe_allow_html=True)
