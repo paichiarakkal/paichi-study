@@ -12,72 +12,82 @@ CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR2UqKgCAEEv42IC6vwe0
 FORM_URL_API = "https://docs.google.com/forms/d/e/1FAIpQLScHkSw0nkgNQSeRGocM85t4bZCkWHQS6EUSDf-5dIts1gWZXw/formResponse"
 MY_NUMBER = "918714752210"
 
-# --- 🧠 ATOMIC NAV LOGIC (സൈഡ്‌ബാർ തനിയെ പോകാൻ) ---
-# initial_sidebar_state="collapsed" പൈഡ്രോയിഡിൽ സൈഡ്‌ബാർ വേഗത്തിൽ മാറ്റാൻ സഹായിക്കും
-st.set_page_config(page_title="PAICHI ATOMIC V35", layout="wide", initial_sidebar_state="collapsed")
+# സൈഡ്‌ബാർ പൂർണ്ണമായും ഹൈഡ് ചെയ്യുന്നു
+st.set_page_config(page_title="PAICHI V36", layout="wide", initial_sidebar_state="collapsed")
 
-if 'page' not in st.session_state:
-    st.session_state.page = "🏠 Dashboard"
-
-def nav_to(page_name):
-    st.session_state.page = page_name
-    # Pydroid-ൽ ബട്ടൺ അമർത്തുമ്പോൾ റീലോഡ് ആയി സൈഡ്‌ബാർ അടയാൻ സഹായിക്കുന്നു
-    st.rerun()
-
-# --- 🌗 PREMIUM GOLD CSS ---
+# --- 🌗 PREMIUM GOLDEN UI (NO SIDEBAR) ---
 st.markdown("""
     <style>
+    /* സൈഡ്‌ബാർ ബട്ടൺ കാണാതിരിക്കാൻ */
+    [data-testid="collapsedControl"] { display: none; }
+    
     .stApp { background: #020617; color: #f8fafc; }
     
-    /* Sidebar Golden Style */
-    [data-testid="stSidebar"] {
-        background: #0f172a !important;
-        border-right: 2px solid #ffd700;
+    /* മുകളിലെ മെനു ബാർ */
+    .nav-container {
+        display: flex;
+        overflow-x: auto;
+        gap: 10px;
+        padding: 10px;
+        background: #0f172a;
+        border-bottom: 2px solid #ffd700;
+        margin-bottom: 20px;
+        position: sticky;
+        top: 0;
+        z-index: 999;
     }
     
-    /* സൈഡ്ബാറിലെ ഗോൾഡൻ ബട്ടണുകൾ */
-    .stSidebar [data-testid="stButton"] button {
-        background: transparent !important;
-        color: #ffd700 !important;
-        border: 1px solid #ffd700 !important;
-        border-radius: 10px !important;
-        height: 55px !important;
-        margin-bottom: 12px !important;
-        font-weight: bold !important;
-    }
-    
-    .stSidebar [data-testid="stButton"] button:hover {
-        background: #ffd700 !important;
-        color: black !important;
-    }
-
     .glass-card {
         background: #1e293b;
         border-radius: 20px;
         padding: 25px;
         border: 1px solid #ffd700;
     }
+
+    /* ബട്ടൺ സ്റ്റൈൽ */
+    .stButton>button {
+        border-radius: 12px !important;
+        font-weight: bold !important;
+        border: 1px solid #ffd700 !important;
+        background: transparent !important;
+        color: #ffd700 !important;
+        min-width: 120px;
+    }
+    
+    .stButton>button:active, .stButton>button:focus {
+        background: #ffd700 !important;
+        color: black !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 🏰 SIDEBAR MENU ---
-with st.sidebar:
-    st.markdown("<h1 style='text-align: center; color: #ffd700;'>✨ PAICHI ✨</h1>", unsafe_allow_html=True)
-    st.write("")
-    
-    if st.button("🏠 DASHBOARD", key="btn1", use_container_width=True): nav_to("🏠 Dashboard")
-    if st.button("🌙 PEACE MODE", key="btn2", use_container_width=True): nav_to("🌙 Peace Mode")
-    if st.button("💰 TRANSACTIONS", key="btn3", use_container_width=True): nav_to("💰 Transactions")
-    if st.button("📊 REPORTS", key="btn4", use_container_width=True): nav_to("📊 Reports")
-    if st.button("🔴 DEBT TRACKER", key="btn5", use_container_width=True): nav_to("🔴 Debt Tracker")
-    if st.button("✅ TO-DO LIST", key="btn6", use_container_width=True): nav_to("✅ To-Do List")
-    
-    st.write("---")
-    st.caption("PAICHI AI V35.0")
+# --- 🧠 NAVIGATION LOGIC ---
+if 'page' not in st.session_state:
+    st.session_state.page = "🏠 Dashboard"
+
+# മുകളിലെ മെനു സെക്ഷൻ
+st.markdown("<h2 style='text-align: center; color: #ffd700; margin-bottom: 5px;'>✨ PAICHI AI ✨</h2>", unsafe_allow_html=True)
+
+# ഒരു വരിയിൽ മെനു ബട്ടണുകൾ നൽകുന്നു
+col_nav = st.columns(6)
+with col_nav[0]: 
+    if st.button("HOME"): st.session_state.page = "🏠 Dashboard"; st.rerun()
+with col_nav[1]: 
+    if st.button("PEACE"): st.session_state.page = "🌙 Peace Mode"; st.rerun()
+with col_nav[2]: 
+    if st.button("ADD"): st.session_state.page = "💰 Transactions"; st.rerun()
+with col_nav[3]: 
+    if st.button("REPORTS"): st.session_state.page = "📊 Reports"; st.rerun()
+with col_nav[4]: 
+    if st.button("DEBTS"): st.session_state.page = "🔴 Debt Tracker"; st.rerun()
+with col_nav[5]: 
+    if st.button("TASKS"): st.session_state.page = "✅ To-Do List"; st.rerun()
+
+st.markdown("---")
 
 # --- 🏠 DASHBOARD ---
 if st.session_state.page == "🏠 Dashboard":
-    st.title("Golden Dashboard 💹")
+    st.title("Main Board 💹")
     try:
         df = pd.read_csv(f"{CSV_URL}&ref={random.randint(1,999)}")
         df['Amount'] = pd.to_numeric(df.iloc[:, -1], errors='coerce').fillna(0)
@@ -86,12 +96,10 @@ if st.session_state.page == "🏠 Dashboard":
 
     st.markdown(f'''
         <div class="glass-card">
-            <p style="color: #ffd700; margin: 0;">System Active 🟢</p>
-            <h1 style="color: #ffffff; margin: 0; font-size: 40px;">₹ {total:,.2f}</h1>
+            <p style="color: #ffd700; margin: 0; font-size: 18px;">Total Spent</p>
+            <h1 style="color: #ffffff; margin: 0; font-size: 45px;">₹ {total:,.2f}</h1>
         </div>
     ''', unsafe_allow_html=True)
-    st.write("")
-    st.info("മെനു കാണാൻ ഇടതുവശത്തെ '>' ചിഹ്നത്തിൽ ക്ലിക്ക് ചെയ്യുക.")
 
 # --- 🌙 PEACE MODE ---
 elif st.session_state.page == "🌙 Peace Mode":
@@ -99,25 +107,27 @@ elif st.session_state.page == "🌙 Peace Mode":
     msg = "🔵🔴🟢🟡🔵🔴🟢🟡\n*ASSALAMU ALAIKUM*\n━━━━━━━━━━━━━━\n🔵🔴🟢🟡🔵🔴🟢🟡"
     wa_url = f"https://wa.me/{MY_NUMBER}?text={urllib.parse.quote(msg)}"
     st.markdown(f'''
-        <div style="background: #1e293b; padding: 40px; border-radius: 25px; text-align: center; border: 2px solid #ffd700;">
+        <div style="background: #1e293b; padding: 50px; border-radius: 25px; text-align: center; border: 2px solid #ffd700;">
             <h1 style="color: #ffd700 !important;">Assalamu Alaikum</h1><br>
             <a href="{wa_url}" target="_blank">
-                <button style="background: #ffd700; color: black; padding: 15px 40px; border-radius: 12px; font-weight: bold; cursor: pointer; border: none;">SEND MESSAGE 🚀</button>
+                <button style="background: #ffd700; color: black; padding: 15px 40px; border-radius: 12px; font-weight: bold; cursor: pointer; border: none; font-size: 18px;">SEND 🚀</button>
             </a>
         </div>
     ''', unsafe_allow_html=True)
 
 # --- 💰 TRANSACTIONS ---
 elif st.session_state.page == "💰 Transactions":
-    st.title("Add Transaction 📥")
+    st.title("Add Entry 📥")
     v_text = speech_to_text(language='ml', start_prompt="സംസാരിക്കൂ...", key='v_in')
     with st.form("entry"):
         item = st.text_input("Item", value=v_text if v_text else "")
         amt = st.number_input("Amount", min_value=0)
         if st.form_submit_button("SAVE"):
             requests.post(FORM_URL_API, data={"entry.1069832729": datetime.now().strftime("%Y-%m-%d"), "entry.1896057694": item, "entry.1570426033": str(amt)})
-            st.success("Cloud-ലേക്ക് അയച്ചു!")
+            st.success("സേവ് ചെയ്തു!")
 
 else:
-    st.header(st.session_state.page)
-    st.info("System Online 🟢")
+    st.title(st.session_state.page)
+    st.info("ഈ സെക്ഷൻ റെഡിയാണ് 🟢")
+
+st.markdown("<br><p style='text-align: center; color: gray;'>PAICHI AI v36.0 | Golden No-Sidebar Edition</p>", unsafe_allow_html=True)
