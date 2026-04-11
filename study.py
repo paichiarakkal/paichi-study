@@ -12,7 +12,7 @@ import io
 CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRccfZch3jSdHqrScpqsR_j3FSd70NbELC1j6_nPi-MQXdrhVr3BPcKoI1nub4mQql727pQRPWYk9C-/pub?gid=1583146028&single=true&output=csv"
 FORM_URL_API = "https://docs.google.com/forms/d/e/1FAIpQLSfLySolQSiRXV0wELNPhUBlKJh77RnJKWc2-uqAM0TPNG3Q5A/formResponse"
 
-st.set_page_config(page_title="PAICHI Ultimate Hub v25", layout="wide")
+st.set_page_config(page_title="PAICHI Ultimate Hub v25.1", layout="wide")
 
 # --- ഓട്ടോമാറ്റിക് ലോഗിൻ സിസ്റ്റം ---
 query_params = st.query_params
@@ -20,7 +20,7 @@ url_user = query_params.get("user", "Guest")
 
 if 'lang' not in st.session_state: st.session_state.lang = "ML"
 
-# ഡിസൈൻ സെറ്റിംഗ്സ്
+# ഡിസൈൻ സെറ്റിംഗ്സ് (നിങ്ങളുടെ പഴയ ഡിസൈൻ തന്നെ)
 st.markdown(f"""
     <style>
     .stApp {{ background: linear-gradient(135deg, #BF953F, #FCF6BA, #AA771C); color: #000; }}
@@ -96,7 +96,7 @@ elif page == L["add"]:
                 requests.post(FORM_URL_API, data=payload)
                 st.success("സേവ് ചെയ്തു! ✅")
                 
-                # WhatsApp ഷെയറിംഗ് ബട്ടൺ
+                # WhatsApp ഷെയറിംഗ് ലിങ്ക്
                 msg = f"*Finance Update*\n👤: {url_user}\n📦: {item}\n💰: ₹{amt}\n📝: {t_type}"
                 w_url = f"https://wa.me/?text={urllib.parse.quote(msg)}"
                 st.markdown(f'<a href="{w_url}" target="_blank" class="whatsapp-btn">📲 Share to WhatsApp</a>', unsafe_allow_html=True)
@@ -120,11 +120,11 @@ elif page == L["debt"]:
             requests.post(FORM_URL_API, data=payload)
             st.success("രേഖപ്പെടുത്തി! ✅")
 
-# --- പേജ് 4: റിപ്പോർട്ടുകൾ (Weekly + CSV) ---
+# --- പേജ് 4: റിപ്പോർട്ടുകൾ (എറർ ഫിക്സ് ചെയ്തത്) ---
 elif page == L["rep"]:
     st.title(L["rep"])
     if df is not None:
-        # Pie Chart
+        # Pie Chart (Gold_r ഒഴിവാക്കി Sunset ഉപയോഗിച്ചു)
         sum_df = df.groupby('Item').agg({'Debit': 'sum', 'Amount': 'sum'}).sum(axis=1).reset_index(name='Total')
         sum_df = sum_df[sum_df['Total'] > 0]
         fig = px.pie(sum_df, values='Total', names='Item', hole=0.3, color_discrete_sequence=px.colors.sequential.Sunset)
@@ -137,14 +137,14 @@ elif page == L["rep"]:
             st.write("ആഴ്ച തിരിച്ചുള്ള കണക്ക്:")
             st.dataframe(weekly, use_container_width=True)
             
-        # Download Button
+        # Download (CSV ആയി - എറർ ഒഴിവാക്കാൻ)
         csv = df.to_csv(index=False).encode('utf-8')
-        st.download_button("📥 Download CSV Report", data=csv, file_name="family_finance.csv", mime="text/csv")
+        st.download_button("📥 Download CSV Report", data=csv, file_name="report.csv", mime="text/csv")
 
 # --- പേജ് 5: ബജറ്റ് സെറ്റിംഗ്സ് ---
 elif page == L["set"]:
     st.title(L["set"])
-    new_limit = st.number_input("മാസ ബജറ്റ് പരിധി സെറ്റ് ചെയ്യുക:", value=st.session_state.get('b_limit', 10000))
+    new_limit = st.number_input("മാസ ബജറ്റ് പരിധി:", value=st.session_state.get('b_limit', 10000))
     if st.button("Update"):
         st.session_state.b_limit = new_limit
         st.success("ബജറ്റ് അപ്‌ഡേറ്റ് ചെയ്തു!")
