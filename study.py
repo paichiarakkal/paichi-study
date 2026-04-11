@@ -1,13 +1,13 @@
 import streamlit as st
 import pandas as pd
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta
 import random
 import plotly.express as px
 from streamlit_mic_recorder import speech_to_text
 import io
 
-# 1. ലിങ്കുകൾ
+# 1. കോൺഫിഗറേഷൻ
 CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRccfZch3jSdHqrScpqsR_j3FSd70NbELC1j6_nPi-MQXdrhVr3BPcKoI1nub4mQql727pQRPWYk9C-/pub?gid=1583146028&single=true&output=csv"
 FORM_URL_API = "https://docs.google.com/forms/d/e/1FAIpQLSfLySolQSiRXV0wELNPhUBlKJh77RnJKWc2-uqAM0TPNG3Q5A/formResponse"
 
@@ -15,7 +15,7 @@ st.set_page_config(page_title="PAICHI Ultimate Hub", layout="wide")
 
 if 'lang' not in st.session_state: st.session_state.lang = "ML"
 
-# ഡിസൈൻ
+# സ്റ്റൈലിംഗ്
 st.markdown(f"""
     <style>
     .stApp {{ background: linear-gradient(135deg, #BF953F, #FCF6BA, #AA771C); color: #000; }}
@@ -34,19 +34,20 @@ def load_data():
         df.columns = df.columns.str.strip()
         for c in df.columns:
             if c.lower() == 'item': df.rename(columns={c: 'Item'}, inplace=True)
-        if 'Date' in df.columns: df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+        if 'Date' in df.columns: 
+            df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
         for col in ['Amount', 'Debit', 'Credit']:
             if col in df.columns: df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
         return df
     except: return None
 
-# Sidebar
+# Sidebar മെനു
 st.sidebar.title("⚪ PAICHI PRO AI")
 st.session_state.lang = st.sidebar.radio("Language:", ["ML", "EN"], horizontal=True)
 
 L = {
-    "ML": {"dash": "🏠 ഡാഷ്‌ബോർഡ്", "add": "💰 എൻട്രി", "debt": "🤝 കടം (Debt)", "rep": "📊 റിപ്പോർട്ട്", "set": "⚙️ ബജറ്റ്", "user": "👤 അംഗങ്ങൾ"},
-    "EN": {"dash": "🏠 Dashboard", "add": "💰 Entry", "debt": "🤝 Debt Tracker", "rep": "📊 Reports", "set": "⚙️ Budget", "user": "👤 Users"}
+    "ML": {"dash": "🏠 ഡാഷ്‌ബോർഡ്", "add": "💰 എൻട്രി", "debt": "🤝 കടം", "rep": "📊 റിപ്പോർട്ട്", "set": "⚙️ ബജറ്റ്"},
+    "EN": {"dash": "🏠 Dashboard", "add": "💰 Entry", "debt": "🤝 Debt", "rep": "📊 Reports", "set": "⚙️ Budget"}
 }[st.session_state.lang]
 
 page = st.sidebar.radio("Menu:", [L["dash"], L["add"], L["debt"], L["rep"], L["set"]])
@@ -60,7 +61,6 @@ if page == L["dash"]:
         deb = df['Debit'].sum() + df['Amount'].sum()
         st.markdown(f'<div class="balance-box">ബാക്കി: ₹ {inc-deb:,.2f}</div>', unsafe_allow_html=True)
         
-        # ബജറ്റ് അലേർട്ട്
         limit = st.session_state.get('b_limit', 10000)
         if deb > limit: st.error(f"⚠️ ബജറ്റ് പരിധി (₹{limit}) കവിഞ്ഞു!")
 
@@ -68,10 +68,10 @@ if page == L["dash"]:
         with c1: st.markdown(f'<div class="metric-box">വരുമാനം: ₹ {inc:,.2f}</div>', unsafe_allow_html=True)
         with c2: st.markdown(f'<div class="metric-box">ചിലവ്: ₹ {deb:,.2f}</div>', unsafe_allow_html=True)
 
-# --- പേജ് 2: പുതിയ എൻട്രി (Multi-User Support) ---
+# --- പേജ് 2: എൻട്രി (മൾട്ടി-യൂസർ) ---
 elif page == L["add"]:
     st.title(L["add"])
-    users = ["ഫൈസൽ", "ഉമ്മ", "ഉപ്പ", "അനിയൻ"] # യൂസർ ലിസ്റ്റ്
+    users = ["ഫൈസൽ", "ഉമ്മ", "ഉപ്പ", "അനിയൻ"]
     v_text = speech_to_text(language='ml' if st.session_state.lang=="ML" else 'en', key='v_p')
     with st.form("pro_entry"):
         u_name = st.selectbox("ആരാണ് ചിലവാക്കിയത്?", users)
@@ -80,7 +80,6 @@ elif page == L["add"]:
         t_type = st.radio("Type", ["Debit", "Credit"], horizontal=True)
         if st.form_submit_button("SAVE"):
             if item and amt:
-                # യൂസർ പേര് കൂടി ഐറ്റത്തോടൊപ്പം ചേർക്കുന്നു
                 full_item = f"[{u_name}] {item}"
                 payload = {
                     "entry.1044099436": datetime.now().strftime("%Y-%m-%d"), 
@@ -92,15 +91,14 @@ elif page == L["add"]:
                 st.success("സേവ് ചെയ്തു! ✅")
                 st.cache_data.clear()
 
-# --- പേജ് 3: കടം ട്രാക്കർ (Debt Tracker) ---
+# --- പേജ് 3: കടം ട്രാക്കർ ---
 elif page == L["debt"]:
     st.title(L["debt"])
-    st.info("കടം നൽകിയതും വാങ്ങിയതും ഇവിടെ രേഖപ്പെടുത്താം")
     with st.form("debt_form"):
         p_name = st.text_input("ആളുടെ പേര്")
         d_amt = st.number_input("തുക", min_value=0)
-        d_type = st.selectbox("വിഭാഗം", ["കടം വാങ്ങി (I Borrowed)", "കടം കൊടുത്തു (I Lent)"])
-        if st.form_submit_button("ADD DEBT"):
+        d_type = st.selectbox("വിഭാഗം", ["കടം വാങ്ങി (Borrowed)", "കടം കൊടുത്തു (Lent)"])
+        if st.form_submit_button("ADD"):
             label = f"🤝 DEBT: {p_name} ({d_type})"
             payload = {
                 "entry.1044099436": datetime.now().strftime("%Y-%m-%d"), 
@@ -111,25 +109,32 @@ elif page == L["debt"]:
             requests.post(FORM_URL_API, data=payload)
             st.success("രേഖപ്പെടുത്തി! ✅")
 
-# --- പേജ് 4: റിപ്പോർട്ടുകൾ & ഡൗൺലോഡ് ---
+# --- പേജ് 4: റിപ്പോർട്ടുകൾ (ആഴ്ച തിരിച്ചുള്ള കണക്ക് ഉൾപ്പെടെ) ---
 elif page == L["rep"]:
     st.title(L["rep"])
     if df is not None:
-        # പൈ ചാർട്ട്
+        # 1. പൈ ചാർട്ട്
         sum_df = df.groupby('Item').agg({'Debit': 'sum', 'Amount': 'sum'}).sum(axis=1).reset_index(name='Total')
         sum_df = sum_df[sum_df['Total'] > 0]
         fig = px.pie(sum_df, values='Total', names='Item', hole=0.3, color_discrete_sequence=px.colors.sequential.Sunset)
         st.plotly_chart(fig, use_container_width=True)
         
-        # Excel ഡൗൺലോഡ്
-        towrite = io.BytesIO()
-        df.to_excel(towrite, index=False, header=True)
-        st.download_button("📥 Download Excel Report", data=towrite.getvalue(), file_name="family_finance.xlsx")
+        # 2. ആഴ്ച തിരിച്ചുള്ള കണക്ക്
+        st.subheader("Weekly Summary 📅")
+        if 'Date' in df.columns:
+            df['Week'] = df['Date'].dt.isocalendar().week
+            weekly = df.groupby('Week').agg({'Debit': 'sum', 'Amount': 'sum', 'Credit': 'sum'}).reset_index()
+            weekly['Expense'] = weekly['Debit'] + weekly['Amount']
+            st.dataframe(weekly[['Week', 'Expense', 'Credit']], use_container_width=True)
+
+        # 3. CSV ഡൗൺലോഡ്
+        csv_data = df.to_csv(index=False).encode('utf-8')
+        st.download_button("📥 Download Data (CSV)", data=csv_data, file_name="finance_report.csv", mime="text/csv")
 
 # --- പേജ് 5: ബജറ്റ് സെറ്റിംഗ്സ് ---
 elif page == L["set"]:
     st.title(L["set"])
     new_limit = st.number_input("മാസ ബജറ്റ് സെറ്റ് ചെയ്യുക:", value=st.session_state.get('b_limit', 10000))
-    if st.button("Update Limit"):
+    if st.button("Update"):
         st.session_state.b_limit = new_limit
-        st.success(f"പുതിയ ബജറ്റ് ₹{new_limit} ആയി സെറ്റ് ചെയ്തു!")
+        st.success("അപ്‌ഡേറ്റ് ചെയ്തു!")
