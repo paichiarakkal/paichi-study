@@ -5,13 +5,13 @@ from datetime import datetime
 import random
 from streamlit_mic_recorder import speech_to_text
 
-# 1. നിങ്ങളുടെ കൃത്യമായ ലിങ്കുകൾ
+# 1. ലിങ്കുകൾ ഉറപ്പുവരുത്തുക
 CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRccfZch3jSdHqrScpqsR_j3FSd70NbELC1j6_nPi-MQXdrhVr3BPcKoI1nub4mQql727pQRPWYk9C-/pub?gid=1583146028&single=true&output=csv"
 FORM_URL_API = "https://docs.google.com/forms/d/e/1FAIpQLSfLySolQSiRXV0wELNPhUBlKJh77RnJKWc2-uqAM0TPNG3Q5A/formResponse"
 
 st.set_page_config(page_title="PAICHI Family Hub", layout="wide")
 
-# ഡിസൈൻ (Gold & Black Theme)
+# ഡിസൈൻ (Gold & Black)
 st.markdown("""
     <style>
     .stApp { background: linear-gradient(135deg, #BF953F, #FCF6BA, #AA771C); color: #000; }
@@ -27,7 +27,9 @@ def load_data():
     try:
         url = f"{CSV_URL}&ref={random.randint(1, 999999)}"
         df = pd.read_csv(url)
-        # സംഖ്യകളാക്കി മാറ്റുന്നു
+        # കോളങ്ങളിലെ അനാവശ്യ സ്പേസ് കളയുന്നു
+        df.columns = df.columns.str.strip()
+        # സംഖ്യകളാക്കുന്നു
         for col in ['Amount', 'Debit', 'Credit']:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
@@ -41,10 +43,12 @@ if menu == "🏠 Dashboard":
     st.title("Family Hub Dashboard")
     df = load_data()
     if df is not None and not df.empty:
-        # ഷീറ്റിലെ വിവരങ്ങൾ പ്രകാരം കണക്ക് കൂട്ടുന്നു
-        income = df['Credit'].sum()
-        # പഴയ Amount കോളവും പുതിയ Debit കോളവും കൂട്ടി ചിലവ് കാണിക്കുന്നു
-        expense = df['Debit'].sum() + df['Amount'].sum() 
+        # KeyError ഒഴിവാക്കാൻ കോളമുണ്ടോ എന്ന് പരിശോധിക്കുന്നു
+        income = df['Credit'].sum() if 'Credit' in df.columns else 0
+        
+        deb_sum = df['Debit'].sum() if 'Debit' in df.columns else 0
+        amt_sum = df['Amount'].sum() if 'Amount' in df.columns else 0
+        expense = deb_sum + amt_sum
         
         balance = income - expense
         
@@ -55,10 +59,12 @@ if menu == "🏠 Dashboard":
         if st.button("🔄 REFRESH"):
             st.cache_data.clear()
             st.rerun()
+    else:
+        st.info("ഡാറ്റ ലോഡ് ചെയ്യാൻ കഴിഞ്ഞില്ല. ഷീറ്റിൽ വിവരങ്ങൾ ഉണ്ടെന്ന് ഉറപ്പുവരുത്തുക.")
 
 elif menu == "💰 Add Entry":
     st.title("Smart Data Input")
-    v_in = speech_to_text(language='ml', key='voice_v175')
+    v_in = speech_to_text(language='ml', key='voice_input_v176')
     
     with st.form("entry_form", clear_on_submit=True):
         item = st.text_input("ഐറ്റം")
@@ -67,7 +73,7 @@ elif menu == "💰 Add Entry":
         
         if st.form_submit_button("SAVE TO CLOUD"):
             if item and amt:
-                # നിങ്ങൾ അയച്ച ലിങ്കിലെ കൃത്യമായ ഐഡികൾ ഉപയോഗിക്കുന്നു
+                # നിങ്ങളുടെ പുതിയ ലിങ്കിലെ വെരിഫൈഡ് ഐഡികൾ
                 payload = {
                     "entry.1044099436": datetime.now().strftime("%Y-%m-%d"), 
                     "entry.2013476337": item,
@@ -85,4 +91,4 @@ elif menu == "💬 Logs":
     if df is not None: st.dataframe(df, use_container_width=True)
 
 st.sidebar.write("---")
-st.sidebar.write("PAICHI v17.5 | Verified ID")
+st.sidebar.write("PAICHI v17.6 | Error Fixed")
