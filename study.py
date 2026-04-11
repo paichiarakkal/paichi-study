@@ -34,7 +34,6 @@ def load_data():
         # Item കോളം കേസ് സെൻസിറ്റീവ് ആവാതിരിക്കാൻ
         for c in df.columns:
             if c.lower() == 'item': df.rename(columns={c: 'Item'}, inplace=True)
-        
         if 'Date' in df.columns: df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
         for col in ['Amount', 'Debit', 'Credit']:
             if col in df.columns: df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
@@ -55,7 +54,7 @@ df = load_data()
 if menu == L["dash"]:
     st.title(L["dash"])
     if df is not None and not df.empty:
-        # തുക കണക്കാക്കൽ
+        # കണക്കുകൾ
         income = df['Credit'].sum()
         expense = df['Debit'].sum() + df['Amount'].sum()
         st.markdown(f'<div class="balance-box">{L["bal"]}: ₹ {income-expense:,.2f}</div>', unsafe_allow_html=True)
@@ -64,24 +63,23 @@ if menu == L["dash"]:
         with c1: st.markdown(f'<div class="metric-box">{L["inc"]}: ₹ {income:,.2f}</div>', unsafe_allow_html=True)
         with c2: st.markdown(f'<div class="metric-box">{L["exp"]}: ₹ {expense:,.2f}</div>', unsafe_allow_html=True)
 
-        # പൈ ചാർട്ട് - എറർ ഫിക്സ്
+        # പൈ ചാർട്ട് - എറർ ഫിക്സ് ചെയ്തത്
         st.write("---")
-        st.subheader("Pie Chart")
+        st.subheader("Expense Distribution (Pie Chart)")
         exp_df = df.copy()
-        # തുകയുള്ള കോളങ്ങൾ മാത്രം എടുക്കുന്നു
         exp_df['Total_Exp'] = exp_df['Debit'] + exp_df['Amount']
         exp_df = exp_df[exp_df['Total_Exp'] > 0]
         
         if not exp_df.empty and 'Item' in exp_df.columns:
-            #reset_index ഉപയോഗിച്ച് കോളങ്ങൾ വ്യക്തമാക്കുന്നു
             summary = exp_df.groupby('Item')['Total_Exp'].sum().reset_index()
-            fig = px.pie(summary, values='Total_Exp', names='Item', hole=0.3, 
-                         color_discrete_sequence=px.colors.sequential.Gold_r)
+            # കളർ മാറ്റം: സപ്പോർട്ട് ചെയ്യുന്ന 'Sunset' സ്കീം ഉപയോഗിച്ചു
+            fig = px.pie(summary, values='Total_Exp', names='Item', hole=0.3,
+                         color_discrete_sequence=px.colors.sequential.Sunset)
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("ഡാറ്റ ലഭ്യമല്ല.")
 
-        # സമീപകാല ചരിത്രം
+        # സമീപകാല വിവരങ്ങൾ
         st.write("---")
         st.subheader("Recent Entries")
         for _, row in df.tail(5).iloc[::-1].iterrows():
