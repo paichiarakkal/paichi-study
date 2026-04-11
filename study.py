@@ -6,17 +6,16 @@ import random
 import plotly.express as px
 from streamlit_mic_recorder import speech_to_text
 
-# 1. ലിങ്കുകൾ
+# 1. Links
 CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR2UqKgCAEEv42IC6vwe0D2g_pW7-XR2Qiv7_FwAZYFDTDLd7pOwKQ5yvClbwy88AZmD6Ar2AiFQ8Xu/pub?output=csv"
 FORM_URL_API = "https://docs.google.com/forms/d/e/1FAIpQLScHkSw0nkgNQSeRGocM85t4bZCkWHQS6EUSDf-5dIts1gWZXw/formResponse"
 
 st.set_page_config(page_title="PAICHI AI PRO", layout="wide")
 
-# 2. Design Settings
+# 2. Styling
 st.markdown("""
     <style>
     .stApp { background: linear-gradient(135deg, #e2e8f0 0%, #f1f5f9 100%); color: #1e293b; }
-    [data-testid="stSidebar"] { background-color: #f8fafc !important; }
     .glass-card { background: rgba(255, 255, 255, 0.8); border-radius: 15px; padding: 20px; border: 1px solid #cbd5e1; margin-bottom: 15px; }
     .total-box { 
         background: linear-gradient(135deg, #facc15 0%, #eab308 100%); 
@@ -55,12 +54,13 @@ def process_voice(text):
         else: item_parts.append(word)
     return " ".join(item_parts), amt
 
-# Sidebar Menu
+# --- Sidebar ---
 st.sidebar.markdown("<h2 style='text-align: center;'>🤖 PAICHI AI</h2>", unsafe_allow_html=True)
+# മെനു ഓപ്ഷനുകൾ കൃത്യമായി നൽകുന്നു
 menu = st.sidebar.selectbox("COMMANDS:", 
     ["🏠 Dashboard", "💰 Add Entry", "📊 Intelligence", "🔴 Debt Tracker", "✅ To-Do List", "💬 Logs"])
 
-# --- 🏠 DASHBOARD ---
+# --- 🏠 Dashboard ---
 if menu == "🏠 Dashboard":
     st.markdown('<div class="page-logo">🏠</div>', unsafe_allow_html=True)
     st.title("Welcome, Faisal.")
@@ -70,13 +70,12 @@ if menu == "🏠 Dashboard":
         st.markdown(f'<div class="total-box">TOTAL SPENT: ₹ {total:,.2f}</div>', unsafe_allow_html=True)
     st.markdown('<div class="glass-card"><h3>Neural Core Active 🟢</h3><p>സിസ്റ്റം സജ്ജമാണ്.</p></div>', unsafe_allow_html=True)
 
-# --- 💰 ADD ENTRY ---
+# --- 💰 Add Entry ---
 elif menu == "💰 Add Entry":
     st.markdown('<div class="page-logo">📥</div>', unsafe_allow_html=True)
     st.title("Data Input")
     v_in = speech_to_text(language='ml', start_prompt="സംസാരിക്കൂ...", key='voice')
     auto_item, auto_amt = process_voice(v_in) if v_in else ("", None)
-
     with st.form("input_form", clear_on_submit=True):
         item = st.text_input("ഐറ്റം പേര്", value=auto_item)
         amt = st.number_input("തുക (₹)", min_value=0, value=auto_amt if auto_amt else 0)
@@ -85,15 +84,16 @@ elif menu == "💰 Add Entry":
                 requests.post(FORM_URL_API, data={"entry.1069832729": datetime.now().strftime("%Y-%m-%d"), "entry.1896057694": item, "entry.1570426033": str(amt)})
                 st.success("സേവ് ചെയ്തു! ✅")
 
-# --- 📊 INTELLIGENCE ---
+# --- 📊 Intelligence ---
 elif menu == "📊 Intelligence":
     st.markdown('<div class="page-logo">📊</div>', unsafe_allow_html=True)
     st.title("Analysis")
     df = load_data()
     if not df.empty:
         st.plotly_chart(px.pie(df, values='Amount', names='Item', hole=0.5), use_container_width=True)
+    else: st.warning("ഡാറ്റ ലഭ്യമല്ല. ഒന്ന് കൂടി റീഫ്രഷ് ചെയ്യൂ.")
 
-# --- 🔴 DEBT TRACKER ---
+# --- 🔴 Debt Tracker ---
 elif menu == "🔴 Debt Tracker":
     st.markdown('<div class="page-logo">🔴</div>', unsafe_allow_html=True)
     st.title("Debt Monitoring")
@@ -104,30 +104,27 @@ elif menu == "🔴 Debt Tracker":
             requests.post(FORM_URL_API, data={"entry.1069832729": "DEBT", "entry.1896057694": p, "entry.1570426033": str(a)})
             st.success("Saved!")
 
-# --- ✅ TO-DO LIST (ഇവിടെയാണ് മാറ്റം വരുത്തിയത്) ---
+# --- ✅ To-Do List ---
 elif menu == "✅ To-Do List":
     st.markdown('<div class="page-logo">✅</div>', unsafe_allow_html=True)
     st.title("Tasks for Today")
     if 'tasks' not in st.session_state: st.session_state.tasks = []
-    
-    with st.form("todo_form", clear_on_submit=True):
-        t = st.text_input("പുതിയ ടാസ്ക് ചേർക്കുക:")
-        if st.form_submit_button("Add Task"):
+    with st.form("todo"):
+        t = st.text_input("ടാസ്ക് ചേർക്കുക:")
+        if st.form_submit_button("ADD"):
             if t: st.session_state.tasks.append(t); st.rerun()
-            
     for i, task in enumerate(st.session_state.tasks):
-        c1, c2 = st.columns([0.85, 0.15])
-        c1.markdown(f'<div class="glass-card" style="padding:10px;">🔹 {task}</div>', unsafe_allow_html=True)
-        if c2.button("X", key=f"t_{i}"):
-            st.session_state.tasks.pop(i); st.rerun()
+        st.markdown(f'<div class="glass-card">🔹 {task}</div>', unsafe_allow_html=True)
 
-# --- 💬 LOGS ---
+# --- 💬 Logs ---
 elif menu == "💬 Logs":
     st.markdown('<div class="page-logo">💬</div>', unsafe_allow_html=True)
     st.title("History")
+    if st.button("🔄 Refresh Data"): st.rerun() # ഹിസ്റ്ററി കാണാൻ റിഫ്രഷ് ബട്ടൺ
     df = load_data()
     if not df.empty:
         st.dataframe(df, use_container_width=True)
+    else: st.info("വിവരങ്ങൾ ലോഡ് ആകുന്നു... ഇല്ലെങ്കിൽ Refresh ബട്ടൺ അമർത്തൂ.")
 
 st.sidebar.write("---")
-st.sidebar.write("PAICHI v15.4 PRO | 2026")
+st.sidebar.write("PAICHI v15.5 PRO | 2026")
