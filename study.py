@@ -4,9 +4,8 @@ import requests
 from datetime import datetime
 import random
 import plotly.express as px
-from streamlit_mic_recorder import speech_to_text
 
-# 1. ലിങ്കുകൾ
+# 1. നിങ്ങളുടെ ലിങ്കുകൾ
 CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRccfZch3jSdHqrScpqsR_j3FSd70NbELC1j6_nPi-MQXdrhVr3BPcKoI1nub4mQql727pQRPWYk9C-/pub?gid=1583146028&single=true&output=csv"
 FORM_URL_API = "https://docs.google.com/forms/d/e/1FAIpQLSfLySolQSiRXV0wELNPhUBlKJh77RnJKWc2-uqAM0TPNG3Q5A/formResponse"
 
@@ -26,11 +25,18 @@ def load_data():
     try:
         url = f"{CSV_URL}&ref={random.randint(1, 999999)}"
         df = pd.read_csv(url)
+        # കോളങ്ങളുടെ പേരുകൾ ക്ലീൻ ചെയ്യുന്നു
         df.columns = df.columns.str.strip()
-        # തീയതി ശരിയാക്കുന്നു
+        
+        # 'Item' കോളം ഇല്ലെങ്കിൽ അത് നിർമ്മിക്കുന്നു (Error ഒഴിവാക്കാൻ)
+        if 'Item' not in df.columns:
+            for col in df.columns:
+                if col.lower() == 'item':
+                    df.rename(columns={col: 'Item'}, inplace=True)
+        
         if 'Date' in df.columns:
             df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
-        # സംഖ്യകളാക്കുന്നു
+        
         for col in ['Amount', 'Debit', 'Credit']:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
@@ -45,42 +51,40 @@ if menu == "🏠 Dashboard":
     df = load_data()
     
     if df is not None and not df.empty:
-        # അടിസ്ഥാന കണക്കുകൾ
-        total_income = df['Credit'].sum()
-        total_expense = df['Debit'].sum() + df['Amount'].sum()
-        balance = total_income - total_expense
+        # ബാലൻസ് കണക്കാക്കുന്നു
+        inc = df['Credit'].sum() if 'Credit' in df.columns else 0
+        deb = (df['Debit'].sum() if 'Debit' in df.columns else 0) + (df['Amount'].sum() if 'Amount' in df.columns else 0)
+        balance = inc - deb
         
-        st.markdown(f'<div class="balance-box">നിലവിലെ ബാലൻസ്: ₹ {balance:,.2f}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="balance-box">ബാക്കി തുക: ₹ {balance:,.2f}</div>', unsafe_allow_html=True)
         
         col1, col2 = st.columns(2)
         
-        # 📊 Pie Chart: ചിലവുകൾ തരംതിരിച്ച് (Item-wise Expense)
         with col1:
             st.subheader("ചിലവുകൾ - ഐറ്റം തിരിച്ച്")
-            # ചിലവുകൾ ഉള്ള വരികൾ മാത്രം എടുക്കുന്നു
-            expense_df = df[df['Debit'] + df['Amount'] > 0].copy()
-            expense_df['Total_Exp'] = expense_df['Debit'] + expense_df['Amount']
+            # ചിലവുകൾ മാത്രം ഫിൽട്ടർ ചെയ്യുന്നു
+            exp_df = df.copy()
+            exp_df['Total_Exp'] = exp_df['Debit'] + exp_df['Amount']
+            exp_df = exp_df[exp_df['Total_Exp'] > 0]
             
-            if not expense_df.empty:
-                fig_pie = px.pie(expense_df, values='Total_Exp', names='Item', 
-                                 hole=0.4, color_discrete_sequence=px.colors.sequential.Gold_r)
+            if not exp_df.empty and 'Item' in exp_df.columns:
+                # ഓരോ ഐറ്റത്തിനും ആകെ എത്ര ചിലവായി എന്ന് നോക്കുന്നു
+                summary = exp_df.groupby('Item')['Total_Exp'].sum().reset_index()
+                fig_pie = px.pie(summary, values='Total_Exp', names='Item', hole=0.4)
                 st.plotly_chart(fig_pie, use_container_width=True)
             else:
-                st.write("ചിലവുകൾ ഒന്നും രേഖപ്പെടുത്തിയിട്ടില്ല.")
+                st.info("വിവരങ്ങൾ ലഭ്യമല്ല")
 
-        # 📈 Monthly Trend: മാസ വരുമാനവും ചിലവും
         with col2:
             st.subheader("പ്രതിമാസ ട്രെൻഡ്")
             if 'Date' in df.columns and not df['Date'].isnull().all():
                 df['Month'] = df['Date'].dt.strftime('%b %Y')
-                monthly_data = df.groupby('Month').agg({'Credit': 'sum', 'Debit': 'sum', 'Amount': 'sum'}).reset_index()
-                monthly_data['Total_Expense'] = monthly_data['Debit'] + monthly_data['Amount']
-                
-                fig_trend = px.bar(monthly_data, x='Month', y=['Credit', 'Total_Expense'],
-                                   barmode='group', color_discrete_map={'Credit': '#00FF00', 'Total_Expense': '#FF0000'})
-                st.plotly_chart(fig_trend, use_container_width=True)
+                monthly = df.groupby('Month').agg({'Credit':'sum', 'Debit':'sum', 'Amount':'sum'}).reset_index()
+                monthly['Expense'] = monthly['Debit'] + monthly['Amount']
+                fig_bar = px.bar(monthly, x='Month', y=['Credit', 'Expense'], barmode='group')
+                st.plotly_chart(fig_bar, use_container_width=True)
             else:
-                st.write("ട്രെൻഡ് കാണിക്കാൻ മതിയായ ഡാറ്റയില്ല.")
+                st.info("ഡേറ്റ കുറവാണ്")
 
         if st.button("🔄 REFRESH"):
             st.cache_data.clear()
@@ -89,20 +93,19 @@ if menu == "🏠 Dashboard":
 elif menu == "💰 Add Entry":
     st.title("Data Entry")
     with st.form("entry_form", clear_on_submit=True):
-        item = st.text_input("ഐറ്റം പേര് (ഉദാ: ഭക്ഷണം, പെട്രോൾ)")
-        amt = st.number_input("തുക (₹)", min_value=0)
-        type_entry = st.radio("തരം:", ["Debit", "Credit"], horizontal=True)
-        
+        item = st.text_input("ഐറ്റം")
+        amt = st.number_input("തുക", min_value=0)
+        type_e = st.radio("തരം:", ["Debit", "Credit"], horizontal=True)
         if st.form_submit_button("SAVE"):
             if item and amt:
                 payload = {
                     "entry.1044099436": datetime.now().strftime("%Y-%m-%d"), 
                     "entry.2013476337": item,
-                    "entry.1460982454": str(amt) if type_entry == "Debit" else "0",
-                    "entry.1221658767": str(amt) if type_entry == "Credit" else "0"
+                    "entry.1460982454": str(amt) if type_e == "Debit" else "0",
+                    "entry.1221658767": str(amt) if type_e == "Credit" else "0"
                 }
                 requests.post(FORM_URL_API, data=payload)
-                st.success(f"{item} സേവ് ചെയ്തു! ✅")
+                st.success("സേവ് ചെയ്തു! ✅")
                 st.cache_data.clear()
 
 elif menu == "💬 Logs":
