@@ -19,20 +19,20 @@ st.markdown("""
     [data-testid="collapsedControl"], section[data-testid="stSidebar"] { display: none; }
     .stApp { background: #000000; color: #ffffff; }
     
-    /* ബട്ടണുകൾ റൗണ്ട് ആക്കാനും കൃത്യമായി വശങ്ങളിൽ വരാനും */
+    /* ഐക്കണുകൾ വട്ടത്തിൽ വരിവരിയായി വരാൻ */
     .stButton > button {
         background: #1a1a1a !important;
         color: #ffd700 !important;
         border: 2px solid #333 !important;
         border-radius: 50% !important; 
-        height: 80px !important;
-        width: 80px !important;
-        margin: 0 auto !important;
+        height: 70px !important;
+        width: 70px !important;
+        margin: 10px auto !important;
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
-        font-size: 25px !important;
-        box-shadow: 0 4px 15px rgba(255, 215, 0, 0.1);
+        font-size: 24px !important;
+        box-shadow: 0 4px 10px rgba(255, 215, 0, 0.1);
     }
     
     .stButton > button:active {
@@ -46,7 +46,7 @@ st.markdown("""
         border-radius: 25px;
         border: 1px solid #ffd700;
         text-align: center;
-        margin-bottom: 40px;
+        margin-bottom: 30px;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -61,7 +61,7 @@ def nav(p):
 
 # --- 🏠 HOME SCREEN ---
 if st.session_state.page == "🏠 HOME":
-    st.markdown("<h2 style='text-align: center; color: #ffd700; margin-bottom: 20px;'>PAICHI OS</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center; color: #ffd700;'>PAICHI OS</h2>", unsafe_allow_html=True)
     
     try:
         df = pd.read_csv(f"{CSV_URL}&ref={random.randint(1,999)}")
@@ -71,39 +71,39 @@ if st.session_state.page == "🏠 HOME":
 
     st.markdown(f'''
         <div class="status-card">
-            <p style="color: #555; font-size: 12px; margin:0;">TOTAL SPENT</p>
-            <h1 style="color: #fff; margin:0;">₹ {total:,.2f}</h1>
+            <p style="color: #555; font-size: 11px; margin:0;">TOTAL SPENT</p>
+            <h2 style="color: #fff; margin:0;">₹ {total:,.2f}</h2>
         </div>
     ''', unsafe_allow_html=True)
 
-    # --- 📱 ICON GRID LAYOUT ( പേരുകൾ ഇല്ലാതെ ) ---
+    # --- 📱 ICON GRID LAYOUT (വരിവരിയായി) ---
     
     # വരി 1
     c1, c2, c3 = st.columns(3)
-    with c1: st.button("💰", on_click=nav, args=("ADD",), key="btn1")
-    with c2: st.button("📊", on_click=nav, args=("DATA",), key="btn2")
-    with c3: st.button("🌙", on_click=nav, args=("PEACE",), key="btn3")
+    with c1: st.button("💰", on_click=nav, args=("ADD",), key="home_add")
+    with c2: st.button("📊", on_click=nav, args=("DATA",), key="home_data")
+    with c3: st.button("🌙", on_click=nav, args=("PEACE",), key="home_peace")
 
-    st.write("---") # നേർത്ത വര (വേണമെങ്കിൽ ഒഴിവാക്കാം)
+    st.write("") # വരികൾക്കിടയിൽ ചെറിയ വിടവ്
 
     # വരി 2
     c4, c5, c6 = st.columns(3)
-    with c4: st.button("🔴", on_click=nav, args=("DEBTS",), key="btn4")
-    with c5: st.button("📝", on_click=nav, args=("TASKS",), key="btn5")
-    with c6: st.button("🛒", on_click=nav, args=("LIST",), key="btn6")
+    with c4: st.button("🔴", on_click=nav, args=("DEBTS",), key="home_debts")
+    with c5: st.button("📝", on_click=nav, args=("TASKS",), key="home_tasks")
+    with c6: st.button("🛒", on_click=nav, args=("LIST",), key="home_list")
 
-    st.write("---")
+    st.write("")
 
     # വരി 3
     c7, c8, c9 = st.columns(3)
-    with c7: st.button("⚙️", on_click=nav, args=("SET",), key="btn7")
-    with c8: st.button("🔄", on_click=st.rerun, key="btn8")
-    with c9: st.button("📞", on_click=nav, args=("PEACE",), key="btn9")
+    with c7: st.button("⚙️", on_click=nav, args=("SET",), key="home_set")
+    with c8: st.button("🔄", on_click=st.rerun, key="home_sync")
+    with c9: st.button("📞", on_click=nav, args=("PEACE",), key="home_sos")
 
 # --- 💰 ADD PAGE ---
 elif st.session_state.page == "ADD":
     st.markdown("<h3 style='color: #ffd700;'>📥 Entry</h3>", unsafe_allow_html=True)
-    if st.button("🔙 BACK"): nav("🏠 HOME")
+    if st.button("🔙 BACK", key="back_add"): nav("🏠 HOME")
     v_text = speech_to_text(language='ml', start_prompt="സംസാരിക്കൂ...", key='voice')
     with st.form("entry"):
         item = st.text_input("Item", value=v_text if v_text else "")
@@ -112,8 +112,23 @@ elif st.session_state.page == "ADD":
             requests.post(FORM_URL_API, data={"entry.1069832729": datetime.now().strftime("%Y-%m-%d"), "entry.1896057694": item, "entry.1570426033": str(amt)})
             st.success("Synced! ✅")
 
+# --- 📊 DATA PAGE ---
+elif st.session_state.page == "DATA":
+    st.markdown("<h3 style='color: #ffd700;'>📊 Data View</h3>", unsafe_allow_html=True)
+    if st.button("🔙 BACK", key="back_data"): nav("🏠 HOME")
+    try:
+        df = pd.read_csv(f"{CSV_URL}&ref={random.randint(1,999)}")
+        st.dataframe(df, use_container_width=True)
+    except: st.error("Data loading failed.")
+
+# --- 🌙 PEACE PAGE ---
+elif st.session_state.page == "PEACE":
+    st.markdown("<h3 style='color: #ffd700;'>🌙 Peace Mode</h3>", unsafe_allow_html=True)
+    if st.button("🔙 BACK", key="back_peace"): nav("🏠 HOME")
+    st.write("ഈ ഭാഗം ഉടൻ വരും...")
+
 else:
     st.title(st.session_state.page)
-    if st.button("🔙 BACK"): nav("🏠 HOME")
+    if st.button("🔙 BACK", key="back_gen"): nav("🏠 HOME")
 
 st.markdown("<p style='text-align: center; color: #333; font-size: 10px; margin-top: 50px;'>PAICHI MINI v43.0</p>", unsafe_allow_html=True)
