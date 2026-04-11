@@ -12,112 +12,100 @@ CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR2UqKgCAEEv42IC6vwe0
 FORM_URL_API = "https://docs.google.com/forms/d/e/1FAIpQLScHkSw0nkgNQSeRGocM85t4bZCkWHQS6EUSDf-5dIts1gWZXw/formResponse"
 MY_NUMBER = "918714752210"
 
-# --- 🌗 DARK/LIGHT MODE LOGIC ---
-if 'theme' not in st.session_state:
-    st.session_state.theme = 'dark'
+# --- 🧠 AI CATEGORIZATION LOGIC ---
+def get_category(item):
+    food_items = ['tea', 'coffee', 'food', 'biriyani', 'snacks', 'ചായ', 'ഭക്ഷണം', 'കടി']
+    travel_items = ['petrol', 'diesel', 'bus', 'taxi', 'auto', 'പെട്രോൾ', 'യാത്ര']
+    item_lower = item.lower()
+    if any(x in item_lower for x in food_items): return "🍔 Food"
+    elif any(x in item_lower for x in travel_items): return "🚗 Travel"
+    else: return "📦 Others"
 
-def toggle_theme():
-    st.session_state.theme = 'light' if st.session_state.theme == 'dark' else 'dark'
+# --- 🌗 THEME SETUP ---
+if 'theme' not in st.session_state: st.session_state.theme = 'dark'
+bg, txt, card = ("#020617", "#f8fafc", "#1e293b") if st.session_state.theme == 'dark' else ("#f8fafc", "#020617", "#ffffff")
 
-# UI Colors based on theme
-if st.session_state.theme == 'dark':
-    bg_color, text_color, card_bg = "#020617", "#f8fafc", "#1e293b"
-else:
-    bg_color, text_color, card_bg = "#f8fafc", "#020617", "#ffffff"
-
-st.set_page_config(page_title="PAICHI AI ULTIMATE", layout="wide")
-
-st.markdown(f"""
-    <style>
-    .stApp {{ background: {bg_color}; color: {text_color}; }}
-    .glass-card {{ background: {card_bg}; border-radius: 20px; padding: 25px; border: 1px solid #38bdf8; margin-bottom: 20px; color: {text_color}; }}
-    .peace-card {{ background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%); border-radius: 25px; padding: 30px; text-align: center; color: white; }}
-    .stButton>button {{ border-radius: 12px !important; font-weight: bold; width: 100%; height: 50px; }}
-    </style>
-    """, unsafe_allow_html=True)
+st.set_page_config(page_title="PAICHI AI V26", layout="wide")
+st.markdown(f"<style>.stApp {{ background: {bg}; color: {txt}; }} .glass-card {{ background: {card}; border-radius: 20px; padding: 20px; border: 1px solid #38bdf8; margin-bottom: 15px; }} .stButton>button {{ border-radius: 12px; font-weight: bold; width: 100%; }}</style>", unsafe_allow_html=True)
 
 # Sidebar
 st.sidebar.title("🤖 PAICHI AI")
 if st.sidebar.button("🌗 Switch Theme"):
-    toggle_theme()
+    st.session_state.theme = 'light' if st.session_state.theme == 'dark' else 'dark'
     st.rerun()
 
 menu = st.sidebar.selectbox("MENU:", ["🏠 Dashboard", "🌙 Peace Mode", "💰 Add Entry", "📊 Intelligence", "🔴 Debt Tracker", "✅ To-Do List", "💬 Logs"])
 
-# --- 🏠 DASHBOARD ---
+# --- 🏠 DASHBOARD (With Smart Reminders) ---
 if menu == "🏠 Dashboard":
     st.title(f"Ready, Faisal.")
-    st.markdown(f'<div class="glass-card"><h3>Neural Link: {st.session_state.theme.upper()} MODE</h3><p>വോയിസ് കമാൻഡുകളും ഫോട്ടോ ഫീച്ചറും ഇപ്പോൾ ലഭ്യമാണ്.</p></div>', unsafe_allow_html=True)
+    # Smart Reminder Logic
+    if 'tasks' in st.session_state and st.session_state.tasks:
+        st.markdown(f'<div style="background: rgba(250, 204, 21, 0.2); padding: 15px; border-radius: 15px; border: 1px solid #facc15; margin-bottom: 20px;">⚠️ <b>Smart Reminder:</b> നിനക്ക് ഇന്ന് {len(st.session_state.tasks)} കാര്യങ്ങൾ ചെയ്യാനുണ്ട്!</div>', unsafe_allow_html=True)
+    
+    st.markdown('<div class="glass-card"><h3>System Active 🟢</h3><p>AI Categorization & Smart Reminders ഇപ്പോൾ വർക്കിംഗ്‌ ആണ്.</p></div>', unsafe_allow_html=True)
 
 # --- 🌙 PEACE MODE ---
 elif menu == "🌙 Peace Mode":
     st.title("Neural Greeting 🌙")
-    st.markdown('<div class="peace-card"><h1>Assalamu Alaikum</h1></div>', unsafe_allow_html=True)
-    msg_body = "🔵🔴🟢🟡🔵🔴🟢🟡\n*ASSALAMU ALAIKUM*\n━━━━━━━━━━━━━━\n🔵🔴🟢🟡🔵🔴🟢🟡"
-    wa_url = f"https://wa.me/{MY_NUMBER}?text={urllib.parse.quote(msg_body)}"
-    st.markdown(f'<a href="{wa_url}" target="_blank"><button style="background:#2dd4bf; color:black; border:none; padding:15px; border-radius:12px; cursor:pointer;">SEND 🚀</button></a>', unsafe_allow_html=True)
+    msg = "🔵🔴🟢🟡🔵🔴🟢🟡\n*ASSALAMU ALAIKUM*\n━━━━━━━━━━━━━━\n🔵🔴🟢🟡🔵🔴🟢🟡"
+    wa_url = f"https://wa.me/{MY_NUMBER}?text={urllib.parse.quote(msg)}"
+    st.markdown(f'<div style="background: linear-gradient(135deg, #0ea5e9, #2563eb); padding: 40px; border-radius: 25px; text-align: center; color: white;"><h1>Assalamu Alaikum</h1><br><a href="{wa_url}" target="_blank"><button style="background:#facc15; border:none; padding:15px; border-radius:10px; font-weight:bold; cursor:pointer;">SEND TO WHATSAPP 🚀</button></a></div>', unsafe_allow_html=True)
 
-# --- 💰 ADD ENTRY (Voice & Photo Features) ---
+# --- 💰 ADD ENTRY (Smart AI Ingestion) ---
 elif menu == "💰 Add Entry":
     st.title("📥 Smart Input")
-    
-    # Voice Input
-    st.write("🎙️ **Voice Command:**")
-    v_text = speech_to_text(language='ml', start_prompt="സംസാരിക്കൂ...", key='v_input')
+    v_text = speech_to_text(language='ml', start_prompt="സംസാരിക്കൂ...", key='v_in')
     
     st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-    with st.form("entry_form"):
+    with st.form("smart_form"):
         item = st.text_input("Item Name", value=v_text if v_text else "")
         amt = st.number_input("Amount (₹)", min_value=0, value=None)
+        uploaded_file = st.file_uploader("📸 Receipt (Optional)", type=['jpg','png'])
         
-        # Photo Receipt Feature
-        st.write("📸 **Photo Receipt:**")
-        uploaded_file = st.file_uploader("ബില്ലിന്റെ ഫോട്ടോ എടുക്കുക/അപ്‌ലോഡ് ചെയ്യുക", type=['jpg', 'png', 'jpeg'])
-        
-        if st.form_submit_button("SAVE EVERYTHING"):
+        if st.form_submit_button("SAVE TO CLOUD"):
             if item and amt:
-                payload = {"entry.1069832729": datetime.now().strftime("%Y-%m-%d"), "entry.1896057694": item, "entry.1570426033": str(amt)}
+                cat = get_category(item)
+                payload = {"entry.1069832729": datetime.now().strftime("%Y-%m-%d"), "entry.1896057694": f"{item} ({cat})", "entry.1570426033": str(amt)}
                 requests.post(FORM_URL_API, data=payload)
-                st.success(f"'{item}' സേവ് ചെയ്തു!")
-                if uploaded_file: st.info("ഫോട്ടോ പ്രോസസ്സ് ചെയ്തു (Local Only)")
+                st.success(f"സേവ് ചെയ്തു! Category: {cat}")
     st.markdown('</div>', unsafe_allow_html=True)
 
 # --- 📊 INTELLIGENCE ---
 elif menu == "📊 Intelligence":
     st.title("📊 Analysis")
-    def load_data():
-        try:
-            df = pd.read_csv(f"{CSV_URL}&ref={random.randint(1,999)}")
-            df['Amount'] = pd.to_numeric(df.iloc[:, -1], errors='coerce').fillna(0)
-            return df
-        except: return pd.DataFrame()
-    
-    df = load_data()
-    if not df.empty:
+    try:
+        df = pd.read_csv(f"{CSV_URL}&ref={random.randint(1,999)}")
+        df['Amount'] = pd.to_numeric(df.iloc[:, -1], errors='coerce').fillna(0)
         st.metric("Total Expenses", f"₹{df['Amount'].sum():,.2f}")
         fig = px.pie(df, values='Amount', names=df.columns[1], hole=0.4, template="plotly_dark" if st.session_state.theme == 'dark' else "plotly_white")
         st.plotly_chart(fig, use_container_width=True)
+    except: st.error("ഡാറ്റ ലോഡ് ചെയ്യാൻ കഴിഞ്ഞില്ല.")
 
-# --- 🔴 DEBT & ✅ TO-DO (Simple Versions) ---
+# --- 🔴 DEBT & ✅ TO-DO ---
 elif menu == "🔴 Debt Tracker":
     st.title("🔴 Debts")
     if 'debts' not in st.session_state: st.session_state.debts = []
-    d_name = st.text_input("Name")
-    d_amt = st.number_input("Amount")
-    if st.button("Add"): st.session_state.debts.append({"Name": d_name, "Amount": d_amt})
+    p = st.text_input("Name"); a = st.number_input("Amount")
+    if st.button("Add"): st.session_state.debts.append({"Name": p, "Amount": a})
     st.table(pd.DataFrame(st.session_state.debts))
 
 elif menu == "✅ To-Do List":
     st.title("✅ Tasks")
     if 'tasks' not in st.session_state: st.session_state.tasks = []
-    new_t = st.text_input("New Task")
-    if st.button("Add Task"): st.session_state.tasks.append(new_t); st.rerun()
-    for t in st.session_state.tasks: st.write(f"🔹 {t}")
+    t = st.text_input("New Task")
+    if st.button("Add Task"): st.session_state.tasks.append(t); st.rerun()
+    for i, task in enumerate(st.session_state.tasks):
+        c1, c2 = st.columns([0.9, 0.1])
+        c1.write(f"🔹 {task}")
+        if c2.button("X", key=f"del_{i}"): st.session_state.tasks.pop(i); st.rerun()
 
 elif menu == "💬 Logs":
     st.title("💬 History")
-    df = pd.read_csv(CSV_URL)
-    st.dataframe(df, use_container_width=True)
+    try:
+        df = pd.read_csv(CSV_URL)
+        st.dataframe(df, use_container_width=True)
+    except: st.write("No logs found.")
 
-st.sidebar.write(f"---")
-st.sidebar.write(f"PAICHI AI v25.0 | {st.session_state.theme.upper()}")
+st.sidebar.write("---")
+st.sidebar.write("PAICHI AI v26.0")
