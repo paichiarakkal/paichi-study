@@ -7,33 +7,22 @@ import plotly.express as px
 import urllib.parse
 from streamlit_mic_recorder import speech_to_text
 
-# 1. സെറ്റിംഗ്സ് & ലിങ്കുകൾ
+# 1. Links & Settings
 CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR2UqKgCAEEv42IC6vwe0D2g_pW7-XR2Qiv7_FwAZYFDTDLd7pOwKQ5yvClbwy88AZmD6Ar2AiFQ8Xu/pub?output=csv"
 FORM_URL_API = "https://docs.google.com/forms/d/e/1FAIpQLScHkSw0nkgNQSeRGocM85t4bZCkWHQS6EUSDf-5dIts1gWZXw/formResponse"
 
-# മെസ്സേജ് അയക്കേണ്ട നമ്പർ
 MY_NUMBER = "918714752210"
 
-st.set_page_config(page_title="PAICHI AI V23", layout="wide")
+st.set_page_config(page_title="PAICHI AI V24", layout="wide")
 
-# 2. Premium Dark UI Design
+# 2. Design
 st.markdown("""
     <style>
     .stApp { background: #020617; color: #f8fafc; }
     [data-testid="stSidebar"] { background: #0f172a !important; border-right: 1px solid #1e293b; }
-    .glass-card { 
-        background: #1e293b; border-radius: 20px; padding: 25px; 
-        border: 1px solid #38bdf8; margin-bottom: 20px;
-    }
-    .peace-card {
-        background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
-        border-radius: 25px; padding: 40px; text-align: center;
-        box-shadow: 0 0 30px rgba(14, 165, 233, 0.4); margin-bottom: 25px;
-    }
-    .stButton>button { 
-        background: #3b82f6 !important; color: white !important; 
-        border-radius: 12px !important; font-weight: bold; width: 100%; height: 50px;
-    }
+    .glass-card { background: #1e293b; border-radius: 20px; padding: 25px; border: 1px solid #38bdf8; margin-bottom: 20px; }
+    .peace-card { background: linear-gradient(135deg, #2dd4bf 0%, #3b82f6 100%); border-radius: 25px; padding: 40px; text-align: center; margin-bottom: 25px; }
+    .stButton>button { background: #3b82f6 !important; color: white !important; border-radius: 12px !important; font-weight: bold; width: 100%; height: 50px; }
     h1, h2, h3 { color: #2dd4bf !important; }
     </style>
     """, unsafe_allow_html=True)
@@ -47,11 +36,9 @@ def load_data():
             return df
     except: return pd.DataFrame()
 
-# സമയം അനുസരിച്ച് മെനു സെറ്റ് ചെയ്യുന്നു (രാവിലെ 4-5 പീസ്‌ മോഡ്)
 now = datetime.now()
 default_menu = "🌙 Peace Mode" if (4 <= now.hour < 5) else "🏠 Dashboard"
 
-# Sidebar
 st.sidebar.title("🤖 PAICHI AI")
 menu = st.sidebar.selectbox("COMMANDS:", 
     ["🏠 Dashboard", "🌙 Peace Mode", "💰 Add Entry", "📊 Intelligence", "🔴 Debt Tracker", "✅ To-Do List", "💬 Logs"],
@@ -60,20 +47,18 @@ menu = st.sidebar.selectbox("COMMANDS:",
 # --- 🌙 PEACE MODE ---
 if menu == "🌙 Peace Mode":
     st.title("Neural Greeting 🌙")
-    st.markdown('<div class="peace-card"><h1 style="color:white !important; font-size:40px;">Assalamu Alaikum</h1><p style="color:white; opacity:0.8;">ഒരു ക്ലിക്കിൽ സന്ദേശം അയക്കാം</p></div>', unsafe_allow_html=True)
+    st.markdown('<div class="peace-card"><h1 style="color:white !important; font-size:40px;">Assalamu Alaikum</h1></div>', unsafe_allow_html=True)
     
-    # ഫൈസൽ ചോദിച്ചതുപോലെ വൃത്തിയുള്ള AI ലുക്ക് മെസ്സേജ്
+    # Nī chōdhicha color full format
     msg_body = """
-✨ *ASSALAMU ALAIKUM* ✨
-━━━━━━━━━━━━━━━━━━━
-🤖 *PAICHI AI GREETINGS*
-━━━━━━━━━━━━━━━━━━━
-Have a blessed morning!
-🚀 _Neural Mode Active_
+🔵🔴🟢🟡🔵🔴🟢🟡
+*ASSALAMU ALAIKUM*
+━━━━━━━━━━━━━━
+🔵🔴🟢🟡🔵🔴🟢🟡
     """
     
     wa_url = f"https://wa.me/{MY_NUMBER}?text={urllib.parse.quote(msg_body)}"
-    st.markdown(f'<a href="{wa_url}" target="_blank"><button style="background:#2dd4bf; color:#000; padding:15px; border-radius:12px; width:100%; font-weight:bold; cursor:pointer; border:none;">SEND GREETING 🚀</button></a>', unsafe_allow_html=True)
+    st.markdown(f'<a href="{wa_url}" target="_blank"><button>SEND MESSAGE 🚀</button></a>', unsafe_allow_html=True)
 
 # --- 💰 ADD ENTRY ---
 elif menu == "💰 Add Entry":
@@ -87,16 +72,15 @@ elif menu == "💰 Add Entry":
             if item and amt:
                 payload = {"entry.1069832729": datetime.now().strftime("%Y-%m-%d"), "entry.1896057694": item, "entry.1570426033": str(amt)}
                 requests.post(FORM_URL_API, data=payload)
-                st.success("സേവ് ചെയ്തു!")
+                st.success("Saved!")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# --- മറ്റുള്ളവ (Reports, Debt, To-Do, Logs) ---
 elif menu == "📊 Intelligence":
     st.title("📊 Analysis")
     df = load_data()
     if not df.empty:
         total = df['Amount'].sum()
-        st.markdown(f'<div class="glass-card" style="text-align:center; font-size:25px; color:#2dd4bf;">TOTAL Spent: ₹ {total:,.2f}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="glass-card" style="text-align:center; font-size:25px; color:#2dd4bf;">TOTAL: ₹ {total:,.2f}</div>', unsafe_allow_html=True)
         fig = px.pie(df, values='Amount', names=df.columns[1], hole=0.5)
         st.plotly_chart(fig, use_container_width=True)
 
@@ -123,4 +107,4 @@ elif menu == "💬 Logs":
     if not df.empty: st.dataframe(df, use_container_width=True)
 
 st.sidebar.write("---")
-st.sidebar.write("PAICHI AI v23.0")
+st.sidebar.write("PAICHI AI v24.0")
