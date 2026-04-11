@@ -12,92 +12,98 @@ CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR2UqKgCAEEv42IC6vwe0
 FORM_URL_API = "https://docs.google.com/forms/d/e/1FAIpQLScHkSw0nkgNQSeRGocM85t4bZCkWHQS6EUSDf-5dIts1gWZXw/formResponse"
 MY_NUMBER = "918714752210"
 
-st.set_page_config(page_title="PAICHI PRO ACCOUNTANT", layout="wide")
+st.set_page_config(page_title="PAICHI PRO V30", layout="wide")
 
-# --- 🧠 AI LOGIC & THEME ---
-if 'theme' not in st.session_state: st.session_state.theme = 'dark'
-bg, txt, card = ("#020617", "#f8fafc", "#1e293b") if st.session_state.theme == 'dark' else ("#f8fafc", "#020617", "#ffffff")
+# --- 🧠 NAVIGATION ---
+if 'page' not in st.session_state:
+    st.session_state.page = "🏠 Dashboard"
 
-st.markdown(f"<style>.stApp {{ background: {bg}; color: {txt}; }} .glass-card {{ background: {card}; border-radius: 15px; padding: 20px; border: 1px solid #38bdf8; margin-bottom: 10px; }}</style>", unsafe_allow_html=True)
+# --- 🌗 PREMIUM DARK UI ---
+st.markdown("""
+    <style>
+    .stApp { background: #020617; color: #f8fafc; }
+    [data-testid="stSidebar"] { background: #0f172a !important; padding-top: 20px; }
+    .stRadio > div { gap: 15px; } /* സൈഡ്ബാറിലെ ഓപ്ഷനുകൾ തമ്മിൽ ഗ്യാപ്പ് വരാൻ */
+    label[data-testid="stWidgetLabel"] { font-size: 20px !important; color: #38bdf8 !important; }
+    .glass-card { background: #1e293b; border-radius: 20px; padding: 25px; border: 1px solid #38bdf8; }
+    </style>
+    """, unsafe_allow_html=True)
 
-def load_data():
+# Sidebar Menu
+st.sidebar.markdown("<h1 style='text-align: center; color: #38bdf8;'>🤖 PAICHI</h1>", unsafe_allow_html=True)
+menu_options = ["🏠 Dashboard", "🌙 Peace Mode", "💰 Transactions", "📊 Reports", "🔴 Debt Tracker", "✅ To-Do List"]
+st.session_state.page = st.sidebar.radio("CHOOSE ACTION:", menu_options, index=menu_options.index(st.session_state.page))
+
+# --- 🏠 DASHBOARD ---
+if st.session_state.page == "🏠 Dashboard":
+    st.title("Financial Overview 💹")
+    
+    # കണക്കുകൾ ലോഡ് ചെയ്യുന്നു
     try:
         df = pd.read_csv(f"{CSV_URL}&ref={random.randint(1,999)}")
         df['Amount'] = pd.to_numeric(df.iloc[:, -1], errors='coerce').fillna(0)
-        return df
-    except: return pd.DataFrame()
+        total_spent = df['Amount'].sum()
+    except:
+        total_spent = 0
 
-# Sidebar
-st.sidebar.title("🤖 PAICHI AI PRO")
-menu = st.sidebar.selectbox("MENU:", ["🏠 Dashboard", "🌙 Peace Mode", "💰 Transactions", "📊 Reports", "🔴 Debt Tracker", "✅ To-Do List"])
-
-# --- 🏠 DASHBOARD (Balance & Budget) ---
-if menu == "🏠 Dashboard":
-    st.title("Financial Overview 💹")
-    df = load_data()
+    st.markdown(f'''
+        <div class="glass-card">
+            <p style="color: #94a3b8; margin: 0;">Total Spent This Month</p>
+            <h1 style="color: #2dd4bf; margin: 0; font-size: 45px;">₹ {total_spent:,.2f}</h1>
+        </div>
+    ''', unsafe_allow_html=True)
     
-    # കണക്കുകൾ
-    total_spent = df['Amount'].sum() if not df.empty else 0
-    monthly_budget = 15000  # നിനക്ക് ഇഷ്ടമുള്ള ബജറ്റ് ഇവിടെ നൽകാം
-    balance = monthly_budget - total_spent
-
-    col1, col2, col3 = st.columns(3)
-    col1.metric("ആകെ ചിലവ്", f"₹{total_spent:,.2f}")
-    col2.metric("ബജറ്റ്", f"₹{monthly_budget:,.2f}")
-    col3.metric("ബാക്കി", f"₹{balance:,.2f}", delta_color="normal")
-
-    if balance < 1000:
-        st.warning("⚠️ ബജറ്റ് തീരാറായി! സൂക്ഷിച്ചു ചിലവാക്കുക.")
-
-    st.markdown('<div class="glass-card"><h3>Smart Notifications</h3><p>ഇന്ന് ചെയ്യാനുള്ള കാര്യങ്ങൾ ടാസ്ക് ലിസ്റ്റിൽ പരിശോധിക്കുക.</p></div>', unsafe_allow_html=True)
+    st.write("")
+    st.info("ഇടതുവശത്തെ മെനു ഉപയോഗിച്ച് മറ്റ് സെക്ഷനുകളിലേക്ക് പോകാം.")
 
 # --- 🌙 PEACE MODE ---
-elif menu == "🌙 Peace Mode":
+elif st.session_state.page == "🌙 Peace Mode":
+    st.title("Neural Greeting 🌙")
     msg = "🔵🔴🟢🟡🔵🔴🟢🟡\n*ASSALAMU ALAIKUM*\n━━━━━━━━━━━━━━\n🔵🔴🟢🟡🔵🔴🟢🟡"
     wa_url = f"https://wa.me/{MY_NUMBER}?text={urllib.parse.quote(msg)}"
-    st.markdown(f'<div style="background:linear-gradient(to right, #00c6ff, #0072ff); padding:50px; border-radius:20px; text-align:center;"><h1 style="color:white;">Assalamu Alaikum</h1><br><a href="{wa_url}" target="_blank"><button style="padding:15px 30px; border-radius:10px; border:none; background:white; font-weight:bold; cursor:pointer;">SEND WHATSAPP 🚀</button></a></div>', unsafe_allow_html=True)
+    
+    st.markdown(f'''
+        <div style="background: linear-gradient(135deg, #0ea5e9, #2563eb); padding: 50px; border-radius: 25px; text-align: center;">
+            <h1 style="color: white !important;">Assalamu Alaikum</h1>
+            <p style="color: white; opacity: 0.8;">സന്ദേശം അയക്കാൻ താഴെ ക്ലിക്ക് ചെയ്യുക</p>
+            <br>
+            <a href="{wa_url}" target="_blank">
+                <button style="background: #facc15; border: none; padding: 15px 40px; border-radius: 12px; font-weight: bold; cursor: pointer; font-size: 18px;">SEND 🚀</button>
+            </a>
+        </div>
+    ''', unsafe_allow_html=True)
 
-# --- 💰 TRANSACTIONS (Income & Expense) ---
-elif menu == "💰 Transactions":
-    st.title("📥 Add Transaction")
-    t_type = st.radio("Type:", ["Expense (ചിലവ്)", "Income (വരവ്)"], horizontal=True)
+# --- 💰 TRANSACTIONS ---
+elif st.session_state.page == "💰 Transactions":
+    st.title("Add Transaction 📥")
     v_text = speech_to_text(language='ml', start_prompt="സംസാരിക്കൂ...", key='v_in')
     
-    with st.form("trans_form"):
-        item = st.text_input("Item/Source", value=v_text if v_text else "")
+    with st.form("entry_form"):
+        item = st.text_input("Item Name", value=v_text if v_text else "")
         amt = st.number_input("Amount", min_value=0)
-        if st.form_submit_button("SAVE TRANSACTION"):
+        if st.form_submit_button("SAVE TO CLOUD"):
             if item and amt:
-                final_item = f"[{t_type}] {item}"
-                payload = {"entry.1069832729": datetime.now().strftime("%Y-%m-%d"), "entry.1896057694": final_item, "entry.1570426033": str(amt)}
-                requests.post(FORM_URL_API, data=payload)
-                st.success(f"{item} സേവ് ചെയ്തു!")
+                requests.post(FORM_URL_API, data={"entry.1069832729": datetime.now().strftime("%Y-%m-%d"), "entry.1896057694": item, "entry.1570426033": str(amt)})
+                st.success("സേവ് ചെയ്തു!")
 
 # --- 📊 REPORTS ---
-elif menu == "📊 Reports":
-    st.title("📊 Financial Analysis")
-    df = load_data()
-    if not df.empty:
-        fig = px.bar(df, x=df.columns[0], y='Amount', color=df.columns[1], title="Daily Expenses")
-        st.plotly_chart(fig, use_container_width=True)
+elif st.session_state.page == "📊 Reports":
+    st.title("Reports 📊")
+    try:
+        df = pd.read_csv(CSV_URL)
+        st.plotly_chart(px.pie(df, values=df.columns[-1], names=df.columns[1], hole=0.4))
         st.dataframe(df, use_container_width=True)
+    except:
+        st.error("ഡാറ്റ ലഭ്യമല്ല.")
 
-# --- 🔴 DEBT & ✅ TO-DO ---
-elif menu == "🔴 Debt Tracker":
-    st.title("🔴 Debt Monitoring")
-    if 'debts' not in st.session_state: st.session_state.debts = []
-    with st.form("debt"):
-        n = st.text_input("പേര്"); a = st.number_input("തുക")
-        if st.form_submit_button("Add"): st.session_state.debts.append({"Name":n, "Amt":a})
-    st.table(pd.DataFrame(st.session_state.debts))
+# --- 🔴 DEBT & ✅ TO-DO (ഇവയും സൈഡ്ബാർ വഴി ആക്സസ് ചെയ്യാം) ---
+elif st.session_state.page == "🔴 Debt Tracker":
+    st.title("Debt Monitoring 🔴")
+    st.info("കടങ്ങൾ ഇവിടെ രേഖപ്പെടുത്താം.")
 
-elif menu == "✅ To-Do List":
-    st.title("✅ Tasks")
-    if 'tasks' not in st.session_state: st.session_state.tasks = []
-    t = st.text_input("New Task")
-    if st.button("Add"): st.session_state.tasks.append(t); st.rerun()
-    for i, task in enumerate(st.session_state.tasks):
-        st.write(f"🔹 {task}")
+elif st.session_state.page == "✅ To-Do List":
+    st.title("Tasks 📝")
+    st.info("ചെയ്യേണ്ട കാര്യങ്ങൾ ഇവിടെ രേഖപ്പെടുത്താം.")
 
 st.sidebar.write("---")
-st.sidebar.write("PAICHI PRO v27.0")
+st.sidebar.caption(f"PAICHI AI PRO v30.0 | {datetime.now().strftime('%Y')}")
