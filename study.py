@@ -12,35 +12,37 @@ FORM_URL_API = "https://docs.google.com/forms/d/e/1FAIpQLScHkSw0nkgNQSeRGocM85t4
 
 st.set_page_config(page_title="PAICHI AI NEURAL", layout="wide")
 
-# 2. Premium AI Design (Lighter Dark & Silver Blue)
+# 2. Modern Lighter AI Design (Steel Grey & Gold)
 st.markdown("""
     <style>
     .stApp {
-        background: radial-gradient(circle at 50% 50%, #1e293b 0%, #0f172a 100%);
-        color: #f8fafc;
+        background: linear-gradient(135deg, #e2e8f0 0%, #f1f5f9 100%);
+        color: #1e293b;
     }
     [data-testid="stSidebar"] {
-        background: #0f172a !important;
-        border-right: 1px solid #334155;
+        background-color: #f8fafc !important;
+        border-right: 1px solid #cbd5e1;
     }
     .glass-card {
-        background: rgba(255, 255, 255, 0.05);
-        backdrop-filter: blur(15px);
-        border-radius: 20px;
-        padding: 25px;
-        border: 1px solid rgba(148, 163, 184, 0.2);
-        margin-bottom: 20px;
+        background: rgba(255, 255, 255, 0.8);
+        backdrop-filter: blur(10px);
+        border-radius: 15px;
+        padding: 20px;
+        border: 1px solid #cbd5e1;
+        margin-bottom: 15px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
     }
     .total-box {
-        background: linear-gradient(135deg, #e2e8f0 0%, #94a3b8 50%, #cbd5e1 100%);
-        color: #0f172a !important;
+        background: linear-gradient(135deg, #facc15 0%, #eab308 100%);
+        color: #000 !important;
         padding: 30px;
-        border-radius: 20px;
+        border-radius: 15px;
         text-align: center;
         font-size: 35px;
-        font-weight: 900;
-        border: 1px solid #ffffff;
+        font-weight: 800;
+        box-shadow: 0 10px 15px rgba(234, 179, 8, 0.2);
     }
+    h1, h2, h3 { color: #0f172a !important; font-family: 'Inter', sans-serif; }
     .stButton>button {
         background: linear-gradient(90deg, #facc15, #eab308) !important;
         color: #000 !important;
@@ -49,7 +51,6 @@ st.markdown("""
         border: none !important;
         height: 45px;
     }
-    h1, h2, h3 { color: #fde047 !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -62,44 +63,44 @@ def load_data():
             return df
     except: return pd.DataFrame()
 
-# Sidebar
-st.sidebar.title("🤖 PAICHI AI")
+# Sidebar Menu
+st.sidebar.markdown("<h2 style='text-align: center;'>🤖 PAICHI AI</h2>", unsafe_allow_html=True)
 menu = st.sidebar.selectbox("COMMANDS:", 
-    ["🏠 Home", "📥 Add Entry", "📊 Intelligence", "🔴 Debt Tracker", "✅ To-Do List", "💬 WhatsApp Logs"])
+    ["🏠 Dashboard", "💰 Add Entry", "📊 Intelligence", "🔴 Debt Tracker", "✅ To-Do List", "💬 WhatsApp Logs"])
 
-# --- 🏠 HOME ---
-if menu == "🏠 Home":
-    st.title(f"Ready to Work, Faisal.")
-    st.markdown('<div class="glass-card"><h3>Neural Core Active 🟢</h3><p>സിസ്റ്റം ഇപ്പോൾ ഓൺലൈൻ ആണ്. നിനക്ക് ആവശ്യമുള്ള സെക്ഷൻ സൈഡ്‌ബാർ മെനുവിൽ നിന്നും തിരഞ്ഞെടുക്കാം.</p></div>', unsafe_allow_html=True)
+# --- 🏠 DASHBOARD ---
+if menu == "🏠 Dashboard":
+    st.title("Welcome, Faisal.")
+    st.markdown('<div class="glass-card"><h3>Neural Core Active 🟢</h3><p>സിസ്റ്റം സജ്ജമാണ്. ഡാറ്റ നൽകാൻ <b>Add Entry</b> ഉപയോഗിക്കുക.</p></div>', unsafe_allow_html=True)
 
-# --- 📥 ADD ENTRY ---
-elif menu == "📥 Add Entry":
+# --- 💰 ADD ENTRY ---
+elif menu == "💰 Add Entry":
     st.title("📥 Data Input")
-    v_in = speech_to_text(language='ml', start_prompt="Listening...", key='voice')
+    v_in = speech_to_text(language='ml', start_prompt="സംസാരിക്കൂ...", key='voice')
     st.markdown('<div class="glass-card">', unsafe_allow_html=True)
     with st.form("input_form", clear_on_submit=True):
-        item = st.text_input("സാധനത്തിന്റെ പേര്", value=v_in if v_in else "")
+        item = st.text_input("ഐറ്റം പേര്", value=v_in if v_in else "", placeholder="ഉദാ: Food")
         amt = st.number_input("തുക (₹)", min_value=0, value=None)
-        if st.form_submit_button("SYNC TO CLOUD"):
+        if st.form_submit_button("SAVE TO CLOUD"):
             if item and amt:
                 payload = {"entry.1069832729": datetime.now().strftime("%Y-%m-%d"), "entry.1896057694": item, "entry.1570426033": str(amt)}
                 try:
                     requests.post(FORM_URL_API, data=payload)
-                    st.success("വിജയകരമായി സേവ് ചെയ്തു!")
-                except: st.error("കണക്ഷൻ എറർ!")
+                    st.success("സേവ് ചെയ്തു!")
+                except: st.error("Error connecting to Cloud")
     st.markdown('</div>', unsafe_allow_html=True)
 
 # --- 📊 INTELLIGENCE ---
 elif menu == "📊 Intelligence":
-    st.title("📊 Intelligence Report")
+    st.title("📊 Intelligence Analysis")
     df = load_data()
     if not df.empty:
         total = df['Amount'].sum()
-        st.markdown(f'<div class="total-box">NET EXPENSE: ₹ {total:,.2f}</div>', unsafe_allow_html=True)
-        fig = px.pie(df, values='Amount', names=df.columns[1], hole=0.5)
-        fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', font_color="white")
+        st.markdown(f'<div class="total-box">TOTAL SPENT: ₹ {total:,.2f}</div>', unsafe_allow_html=True)
+        fig = px.pie(df, values='Amount', names=df.columns[1], hole=0.5, color_discrete_sequence=px.colors.qualitative.Safe)
+        fig.update_layout(paper_bgcolor='rgba(0,0,0,0)')
         st.plotly_chart(fig, use_container_width=True)
-    else: st.info("ഡാറ്റ ലഭ്യമല്ല.")
+    else: st.warning("Data not found.")
 
 # --- 🔴 DEBT TRACKER ---
 elif menu == "🔴 Debt Tracker":
@@ -107,37 +108,39 @@ elif menu == "🔴 Debt Tracker":
     if 'debts' not in st.session_state: st.session_state.debts = []
     with st.form("debt_form", clear_on_submit=True):
         p = st.text_input("ആർക്കാണ് പണം നൽകാനുള്ളത്?")
-        a = st.number_input("എത്ര രൂപ?", min_value=0)
+        a = st.number_input("തുക", min_value=0)
         if st.form_submit_button("Add Debt"):
             if p and a: st.session_state.debts.append({"Person": p, "Amount": a})
     if st.session_state.debts:
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
         st.table(pd.DataFrame(st.session_state.debts))
-        if st.button("Clear All"): st.session_state.debts = []; st.rerun()
+        if st.button("Clear List"): st.session_state.debts = []; st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
 # --- ✅ TO-DO LIST ---
 elif menu == "✅ To-Do List":
-    st.title("✅ Today's Tasks")
+    st.title("✅ Tasks for Today")
     if 'tasks' not in st.session_state: st.session_state.tasks = []
-    t = st.text_input("ചെയ്യേണ്ട കാര്യം ടൈപ്പ് ചെയ്യുക:")
+    t = st.text_input("പുതിയ ടാസ്ക് ചേർക്കുക:")
     if st.button("Add Task"):
         if t: st.session_state.tasks.append(t); st.rerun()
     for i, task in enumerate(st.session_state.tasks):
-        col1, col2 = st.columns([0.8, 0.2])
-        col1.markdown(f'<div class="glass-card">🔹 {task}</div>', unsafe_allow_html=True)
-        if col2.button("Done", key=f"t_{i}"):
+        c1, c2 = st.columns([0.85, 0.15])
+        c1.markdown(f'<div class="glass-card" style="padding:10px;">🔹 {task}</div>', unsafe_allow_html=True)
+        if c2.button("X", key=f"t_{i}"):
             st.session_state.tasks.pop(i); st.rerun()
 
-# --- 💬 WHATSAPP LOGS ---
+# --- 💬 WHATSAPP LOGS (Updated: All entries show here) ---
 elif menu == "💬 WhatsApp Logs":
-    st.title("💬 WhatsApp Tracker")
+    st.title("💬 Expense Tracker")
     df = load_data()
     if not df.empty:
-        wa = df[df.iloc[:, 1].str.contains('WhatsApp|whatsapp|WA', case=False, na=False)]
-        if not wa.empty:
-            st.dataframe(wa, use_container_width=True)
-        else: st.info("WhatsApp എൻട്രികൾ ഒന്നുമില്ല.")
+        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+        st.dataframe(df, use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+        wa_total = df['Amount'].sum()
+        st.markdown(f'<div class="total-box" style="font-size:25px; padding:20px;">ആകെ ചിലവ്: ₹ {wa_total:,.2f}</div>', unsafe_allow_html=True)
+    else: st.info("വിവരങ്ങൾ ഒന്നും ലഭ്യമല്ല.")
 
 st.sidebar.write("---")
-st.sidebar.write("PAICHI AI v13.0 | 2026")
+st.sidebar.write("PAICHI AI v14.0 | 2026")
