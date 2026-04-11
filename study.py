@@ -11,14 +11,19 @@ import io
 CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRccfZch3jSdHqrScpqsR_j3FSd70NbELC1j6_nPi-MQXdrhVr3BPcKoI1nub4mQql727pQRPWYk9C-/pub?gid=1583146028&single=true&output=csv"
 FORM_URL_API = "https://docs.google.com/forms/d/e/1FAIpQLSfLySolQSiRXV0wELNPhUBlKJh77RnJKWc2-uqAM0TPNG3Q5A/formResponse"
 
-st.set_page_config(page_title="PAICHI Ultimate Hub", layout="wide")
+st.set_page_config(page_title="PAICHI Smart Family Hub", layout="wide")
+
+# --- ഓട്ടോമാറ്റിക് ലോഗിൻ സിസ്റ്റം ---
+query_params = st.query_params
+url_user = query_params.get("user", "Guest") 
 
 if 'lang' not in st.session_state: st.session_state.lang = "ML"
 
-# സ്റ്റൈലിംഗ്
+# ഡിസൈൻ
 st.markdown(f"""
     <style>
     .stApp {{ background: linear-gradient(135deg, #BF953F, #FCF6BA, #AA771C); color: #000; }}
+    .user-tag {{ background: #000; color: #FFD700; padding: 5px 15px; border-radius: 20px; font-size: 14px; font-weight: bold; border: 1px solid #FFD700; float: right; }}
     .balance-box {{ background: #000; color: #00FF00; padding: 25px; border-radius: 15px; text-align: center; font-size: 35px; font-weight: bold; border: 3px solid #FFD700; margin-bottom: 20px; }}
     .metric-box {{ background: #000; color: #FFD700; padding: 15px; border-radius: 12px; text-align: center; border: 1px solid #FFD700; }}
     .log-card {{ background: rgba(0,0,0,0.1); padding: 12px; border-radius: 10px; border-left: 5px solid #000; margin-bottom: 8px; font-weight: bold; color: black; }}
@@ -41,8 +46,9 @@ def load_data():
         return df
     except: return None
 
-# Sidebar മെനു
-st.sidebar.title("⚪ PAICHI PRO AI")
+# Sidebar
+st.sidebar.title("⚪ PAICHI SMART")
+st.sidebar.markdown(f"**👤 User: {url_user}**")
 st.session_state.lang = st.sidebar.radio("Language:", ["ML", "EN"], horizontal=True)
 
 L = {
@@ -55,6 +61,7 @@ df = load_data()
 
 # --- പേജ് 1: ഡാഷ്‌ബോർഡ് ---
 if page == L["dash"]:
+    st.markdown(f'<div class="user-tag">👤 Login: {url_user}</div>', unsafe_allow_html=True)
     st.title(L["dash"])
     if df is not None:
         inc = df['Credit'].sum()
@@ -68,19 +75,19 @@ if page == L["dash"]:
         with c1: st.markdown(f'<div class="metric-box">വരുമാനം: ₹ {inc:,.2f}</div>', unsafe_allow_html=True)
         with c2: st.markdown(f'<div class="metric-box">ചിലവ്: ₹ {deb:,.2f}</div>', unsafe_allow_html=True)
 
-# --- പേജ് 2: എൻട്രി (മൾട്ടി-യൂസർ) ---
+# --- പേജ് 2: എൻട്രി (Automatic User Tagging) ---
 elif page == L["add"]:
     st.title(L["add"])
-    users = ["ഫൈസൽ", "ഉമ്മ", "ഉപ്പ", "അനിയൻ"]
-    v_text = speech_to_text(language='ml' if st.session_state.lang=="ML" else 'en', key='v_p')
-    with st.form("pro_entry"):
-        u_name = st.selectbox("ആരാണ് ചിലവാക്കിയത്?", users)
+    st.write(f"ലോഗിൻ ചെയ്തിരിക്കുന്നത്: **{url_user}**")
+    v_text = speech_to_text(language='ml' if st.session_state.lang=="ML" else 'en', key='voice_input')
+    with st.form("smart_entry_form"):
         item = st.text_input("Item", value=v_text if v_text else "")
         amt = st.number_input("Amount", min_value=0)
         t_type = st.radio("Type", ["Debit", "Credit"], horizontal=True)
         if st.form_submit_button("SAVE"):
             if item and amt:
-                full_item = f"[{u_name}] {item}"
+                # യൂസർ ടാഗ് ഓട്ടോമാറ്റിക് ആയി ചേർക്കുന്നു
+                full_item = f"[{url_user}] {item}"
                 payload = {
                     "entry.1044099436": datetime.now().strftime("%Y-%m-%d"), 
                     "entry.2013476337": full_item,
@@ -88,7 +95,7 @@ elif page == L["add"]:
                     "entry.1221658767": str(amt) if t_type == "Credit" else "0"
                 }
                 requests.post(FORM_URL_API, data=payload)
-                st.success("സേവ് ചെയ്തു! ✅")
+                st.success(f"{url_user}-ന്റെ പേരിൽ സേവ് ചെയ്തു! ✅")
                 st.cache_data.clear()
 
 # --- പേജ് 3: കടം ട്രാക്കർ ---
@@ -99,7 +106,7 @@ elif page == L["debt"]:
         d_amt = st.number_input("തുക", min_value=0)
         d_type = st.selectbox("വിഭാഗം", ["കടം വാങ്ങി (Borrowed)", "കടം കൊടുത്തു (Lent)"])
         if st.form_submit_button("ADD"):
-            label = f"🤝 DEBT: {p_name} ({d_type})"
+            label = f"🤝 DEBT: {p_name} ({d_type}) - By {url_user}"
             payload = {
                 "entry.1044099436": datetime.now().strftime("%Y-%m-%d"), 
                 "entry.2013476337": label,
@@ -107,29 +114,30 @@ elif page == L["debt"]:
                 "entry.1221658767": str(d_amt) if "Borrowed" in d_type else "0"
             }
             requests.post(FORM_URL_API, data=payload)
-            st.success("രേഖപ്പെടുത്തി! ✅")
+            st.success("കടം രേഖപ്പെടുത്തി! ✅")
 
-# --- പേജ് 4: റിപ്പോർട്ടുകൾ (ആഴ്ച തിരിച്ചുള്ള കണക്ക് ഉൾപ്പെടെ) ---
+# --- പേജ് 4: റിപ്പോർട്ടുകൾ (Weekly + CSV) ---
 elif page == L["rep"]:
     st.title(L["rep"])
     if df is not None:
-        # 1. പൈ ചാർട്ട്
+        # പൈ ചാർട്ട്
         sum_df = df.groupby('Item').agg({'Debit': 'sum', 'Amount': 'sum'}).sum(axis=1).reset_index(name='Total')
         sum_df = sum_df[sum_df['Total'] > 0]
         fig = px.pie(sum_df, values='Total', names='Item', hole=0.3, color_discrete_sequence=px.colors.sequential.Sunset)
         st.plotly_chart(fig, use_container_width=True)
         
-        # 2. ആഴ്ച തിരിച്ചുള്ള കണക്ക്
+        # ആഴ്ച തിരിച്ചുള്ള സംഗ്രഹം
         st.subheader("Weekly Summary 📅")
         if 'Date' in df.columns:
-            df['Week'] = df['Date'].dt.isocalendar().week
-            weekly = df.groupby('Week').agg({'Debit': 'sum', 'Amount': 'sum', 'Credit': 'sum'}).reset_index()
+            temp_df = df.copy()
+            temp_df['Week'] = temp_df['Date'].dt.isocalendar().week
+            weekly = temp_df.groupby('Week').agg({'Debit': 'sum', 'Amount': 'sum', 'Credit': 'sum'}).reset_index()
             weekly['Expense'] = weekly['Debit'] + weekly['Amount']
             st.dataframe(weekly[['Week', 'Expense', 'Credit']], use_container_width=True)
 
-        # 3. CSV ഡൗൺലോഡ്
+        # ഡൗൺലോഡ്
         csv_data = df.to_csv(index=False).encode('utf-8')
-        st.download_button("📥 Download Data (CSV)", data=csv_data, file_name="finance_report.csv", mime="text/csv")
+        st.download_button("📥 Download (CSV)", data=csv_data, file_name="family_hub_v24.csv", mime="text/csv")
 
 # --- പേജ് 5: ബജറ്റ് സെറ്റിംഗ്സ് ---
 elif page == L["set"]:
@@ -137,4 +145,4 @@ elif page == L["set"]:
     new_limit = st.number_input("മാസ ബജറ്റ് സെറ്റ് ചെയ്യുക:", value=st.session_state.get('b_limit', 10000))
     if st.button("Update"):
         st.session_state.b_limit = new_limit
-        st.success("അപ്‌ഡേറ്റ് ചെയ്തു!")
+        st.success("ബജറ്റ് അപ്‌ഡേറ്റ് ചെയ്തു!")
