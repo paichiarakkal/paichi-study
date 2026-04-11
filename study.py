@@ -12,43 +12,65 @@ CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR2UqKgCAEEv42IC6vwe0
 FORM_URL_API = "https://docs.google.com/forms/d/e/1FAIpQLScHkSw0nkgNQSeRGocM85t4bZCkWHQS6EUSDf-5dIts1gWZXw/formResponse"
 MY_NUMBER = "918714752210"
 
-st.set_page_config(page_title="PAICHI GOLDEN AI", layout="wide")
+st.set_page_config(page_title="PAICHI GOLDEN PRO", layout="wide")
 
-# --- 🌗 GOLDEN PREMIUM UI DESIGN ---
+# --- 🌗 PURE GOLD CSS ---
 st.markdown("""
     <style>
     /* Main Background */
     .stApp { background: #020617; color: #f8fafc; }
     
-    /* Sidebar Golden Style */
+    /* Sidebar Styling */
     [data-testid="stSidebar"] {
         background: #0f172a !important;
         border-right: 2px solid #ffd700;
     }
     
-    /* Sidebar-ile Ella Aksharangaḷum Golden Color Ākkunnu */
-    [data-testid="stSidebar"] .stText, 
+    /* Sidebar-ലെ എല്ലാ അക്ഷരങ്ങളും ഗോൾഡൻ */
     [data-testid="stSidebar"] label, 
-    [data-testid="stSidebar"] .stMarkdown p,
-    [data-testid="stSidebar"] h1,
-    [data-testid="stSidebar"] span {
-        color: #ffd700 !important; /* Golden Color */
+    [data-testid="stSidebar"] span, 
+    [data-testid="stSidebar"] p {
+        color: #ffd700 !important;
         font-weight: bold !important;
-        font-family: 'Courier New', Courier, monospace;
     }
 
-    /* Radio button select cheyyumpōḷ uḷḷa color */
-    div[data-testid="stMarkdownContainer"] > p {
-        font-size: 18px;
+    /* Radio Button (ആ സിൽവർ കളർ സർക്കിൾ) ഗോൾഡൻ ആക്കാൻ */
+    div[data-testid="stSidebar"] [data-testid="stWidgetLabel"] {
+        color: #ffd700 !important;
     }
     
-    /* Cards and Buttons */
+    /* സെലക്ട് ചെയ്യാത്ത ബട്ടണുകളുടെ ബോർഡർ */
+    div[role="radiogroup"] label div[data-test-id="stMarkdownContainer"] {
+        color: #ffd700 !important;
+    }
+
+    /* Radio button സർക്കിളിന്റെ ഉള്ളിലെ നിറം മാറ്റാൻ */
+    div[role="radiogroup"] [data-testid="stWidgetLabel"] p {
+        color: #ffd700 !important;
+    }
+
+    /* Input focus and Radio circle */
+    div[role="radiogroup"] > label > div:first-child {
+        border-color: #ffd700 !important;
+    }
+    
+    div[role="radiogroup"] > label[data-baseweb="radio"] div {
+        background-color: transparent !important;
+        border-color: #ffd700 !important;
+    }
+
+    /* സെലക്ട് ചെയ്യുമ്പോൾ ഉള്ള റേഡിയോ ബട്ടൺ */
+    input[type="radio"]:checked + div {
+        background-color: #ffd700 !important;
+        border-color: #ffd700 !important;
+    }
+
+    /* Cards and General Buttons */
     .glass-card {
         background: #1e293b;
         border-radius: 20px;
         padding: 25px;
         border: 1px solid #ffd700;
-        box-shadow: 0 0 15px rgba(255, 215, 0, 0.2);
     }
     
     .stButton>button {
@@ -65,8 +87,9 @@ st.markdown("""
 if 'page' not in st.session_state:
     st.session_state.page = "🏠 Dashboard"
 
-# Sidebar Menu
-st.sidebar.markdown("<h1 style='text-align: center;'>✨ PAICHI ✨</h1>", unsafe_allow_html=True)
+# Sidebar Header
+st.sidebar.markdown("<h1 style='text-align: center; color: #ffd700;'>✨ PAICHI ✨</h1>", unsafe_allow_html=True)
+
 menu_options = ["🏠 Dashboard", "🌙 Peace Mode", "💰 Transactions", "📊 Reports", "🔴 Debt Tracker", "✅ To-Do List"]
 st.session_state.page = st.sidebar.radio("COMMAND CENTRE:", menu_options, index=menu_options.index(st.session_state.page))
 
@@ -88,15 +111,15 @@ if st.session_state.page == "🏠 Dashboard":
 
 # --- 🌙 PEACE MODE ---
 elif st.session_state.page == "🌙 Peace Mode":
-    st.title("Peace Mode 🌙")
+    st.title("Morning Peace 🌙")
     msg = "🔵🔴🟢🟡🔵🔴🟢🟡\n*ASSALAMU ALAIKUM*\n━━━━━━━━━━━━━━\n🔵🔴🟢🟡🔵🔴🟢🟡"
     wa_url = f"https://wa.me/{MY_NUMBER}?text={urllib.parse.quote(msg)}"
     st.markdown(f'''
-        <div style="background: #1e293b; padding: 50px; border-radius: 25px; text-align: center; border: 2px solid #ffd700;">
+        <div style="background: #1e293b; padding: 40px; border-radius: 25px; text-align: center; border: 2px solid #ffd700;">
             <h1 style="color: #ffd700 !important;">Assalamu Alaikum</h1>
             <br>
             <a href="{wa_url}" target="_blank">
-                <button style="background: #ffd700; color: black; padding: 15px 40px; border-radius: 12px; font-weight: bold; cursor: pointer; border: none; font-size: 18px;">SEND 🚀</button>
+                <button style="background: #ffd700; color: black; padding: 15px 40px; border-radius: 12px; font-weight: bold; cursor: pointer; border: none;">SEND TO WHATSAPP 🚀</button>
             </a>
         </div>
     ''', unsafe_allow_html=True)
@@ -110,12 +133,11 @@ elif st.session_state.page == "💰 Transactions":
         amt = st.number_input("Amount", min_value=0)
         if st.form_submit_button("SAVE GOLDEN DATA"):
             requests.post(FORM_URL_API, data={"entry.1069832729": datetime.now().strftime("%Y-%m-%d"), "entry.1896057694": item, "entry.1570426033": str(amt)})
-            st.success("Cloud-lēkku mātthi!")
+            st.success("സേവ് ചെയ്തു!")
 
-# --- Bākki Ella Sections-um sidebar vazhi rēkhappeṭuṭṭām ---
 else:
     st.header(st.session_state.page)
-    st.info("System Online 🟢")
+    st.info("Section Active 🟡")
 
 st.sidebar.write("---")
-st.sidebar.caption("PAICHI AI GOLD v31.0")
+st.sidebar.caption("PAICHI AI GOLD v32.0")
