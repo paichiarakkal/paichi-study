@@ -19,20 +19,20 @@ st.markdown("""
     [data-testid="collapsedControl"], section[data-testid="stSidebar"] { display: none; }
     .stApp { background: #000000; color: #ffffff; }
     
-    /* ബട്ടണുകൾ റൗണ്ട് ആക്കാനും വരിവരിയായി വരാനും */
+    /* ബട്ടണുകൾ വരിവരിയായി വരാൻ */
     .stButton > button {
         background: #1a1a1a !important;
         color: #ffd700 !important;
         border: 2px solid #333 !important;
         border-radius: 50% !important; 
-        height: 75px !important;
-        width: 75px !important;
+        height: 80px !important;
+        width: 80px !important;
         margin: 10px auto !important;
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
-        font-size: 24px !important;
-        box-shadow: 0 4px 12px rgba(255, 215, 0, 0.1);
+        font-size: 26px !important;
+        box-shadow: 0 4px 15px rgba(255, 215, 0, 0.2);
     }
     
     .stButton > button:active {
@@ -47,14 +47,6 @@ st.markdown("""
         border: 1px solid #ffd700;
         text-align: center;
         margin-bottom: 30px;
-    }
-
-    /* പേജ് മാറ്റാനുള്ള താഴത്തെ ബട്ടണുകളുടെ സ്റ്റൈൽ */
-    .nav-btn > div > button {
-        background: transparent !important;
-        border: none !important;
-        font-size: 30px !important;
-        color: #ffd700 !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -84,7 +76,7 @@ if st.session_state.page == "🏠 HOME":
         </div>
     ''', unsafe_allow_html=True)
 
-    # --- 📱 ICON GRID (വരിവരിയായി) ---
+    # --- 📱 ICON GRID LAYOUT (വരിവരിയായി മാത്രം) ---
     
     # വരി 1
     c1, c2, c3 = st.columns(3)
@@ -92,7 +84,7 @@ if st.session_state.page == "🏠 HOME":
     with c2: st.button("📊", on_click=nav, args=("DATA",), key="btn2")
     with c3: st.button("🌙", on_click=nav, args=("PEACE",), key="btn3")
 
-    st.write("") # ചെറിയ വിടവ്
+    st.write("") 
 
     # വരി 2
     c4, c5, c6 = st.columns(3)
@@ -122,12 +114,12 @@ elif st.session_state.page == "ADD":
 
 # --- 📊 DATA PAGE ---
 elif st.session_state.page == "DATA":
-    st.markdown("<h3 style='color: #ffd700;'>📊 Data View</h3>", unsafe_allow_html=True)
+    st.markdown("<h3 style='color: #ffd700;'>📊 View</h3>", unsafe_allow_html=True)
     if st.button("🔙 BACK"): nav("🏠 HOME")
     try:
         df = pd.read_csv(f"{CSV_URL}&ref={random.randint(1,999)}")
         st.dataframe(df, use_container_width=True)
-    except: st.error("Data loading failed.")
+    except: st.error("Error!")
 
 else:
     st.title(st.session_state.page)
