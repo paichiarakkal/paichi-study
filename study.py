@@ -11,19 +11,39 @@ FORM_URL_API = "https://docs.google.com/forms/d/e/1FAIpQLScHkSw0nkgNQSeRGocM85t4
 
 st.set_page_config(page_title="PAICHI MINI", layout="wide", initial_sidebar_state="collapsed")
 
-# --- 🌗 CSS FOR GRID & ICONS ---
+# --- 🌗 MOBILE OPTIMIZED UI DESIGN ---
 st.markdown("""
     <style>
     [data-testid="collapsedControl"], section[data-testid="stSidebar"] { display: none; }
     .stApp { background: #000000; color: #ffffff; }
     
-    /* മൊബൈലിലും വരിവരിയായി വരാൻ നിർബന്ധിക്കുന്ന ഗ്രിഡ് സിസ്റ്റം */
-    .icon-grid {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 20px;
-        text-align: center;
-        padding: 20px;
+    /* 📱 മൊബൈലിലും 3 കോളങ്ങൾ വരിവരിയായി വരാൻ നിർബന്ധിക്കുന്ന കോഡ് */
+    [data-testid="column"] {
+        width: 33.33% !important;
+        flex: 1 1 33.33% !important;
+        min-width: 30% !important;
+    }
+    
+    .block-container {
+        padding-top: 1rem !important;
+        padding-left: 0.5rem !important;
+        padding-right: 0.5rem !important;
+    }
+
+    /* ബട്ടണുകൾ റൗണ്ട് ആക്കാൻ */
+    .stButton > button {
+        background: #1a1a1a !important;
+        color: #ffd700 !important;
+        border: 2px solid #333 !important;
+        border-radius: 50% !important; 
+        height: 70px !important;
+        width: 70px !important;
+        margin: 5px auto !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        font-size: 24px !important;
+        box-shadow: 0 4px 10px rgba(255, 215, 0, 0.1);
     }
     
     .status-card {
@@ -32,23 +52,7 @@ st.markdown("""
         border-radius: 20px;
         border: 1px solid #ffd700;
         text-align: center;
-        margin: 10px auto 30px auto;
-        width: 90%;
-    }
-    
-    /* ബട്ടണുകൾ റൗണ്ട് ആക്കാൻ */
-    .stButton > button {
-        background: #1a1a1a !important;
-        color: #ffd700 !important;
-        border: 2px solid #333 !important;
-        border-radius: 50% !important; 
-        height: 75px !important;
-        width: 75px !important;
-        margin: 0 auto !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        font-size: 25px !important;
+        margin-bottom: 20px;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -62,7 +66,7 @@ def nav(p):
 
 # --- 🏠 HOME SCREEN ---
 if st.session_state.page == "🏠 HOME":
-    st.markdown("<h2 style='text-align: center; color: #ffd700;'>PAICHI OS</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center; color: #ffd700; margin-top: -30px;'>PAICHI OS</h2>", unsafe_allow_html=True)
     
     try:
         df = pd.read_csv(f"{CSV_URL}&ref={random.randint(1,999)}")
@@ -71,14 +75,15 @@ if st.session_state.page == "🏠 HOME":
 
     st.markdown(f'<div class="status-card"><h2 style="color: #fff; margin:0;">₹ {total:,.2f}</h2></div>', unsafe_allow_html=True)
 
-    # ഓരോ കോളത്തിലും ഓരോ ബട്ടൺ വെക്കുന്നു
+    # ഒന്നാമത്തെ വരി
     c1, c2, c3 = st.columns(3)
     with c1: st.button("💰", on_click=nav, args=("ADD",), key="btn1")
     with c2: st.button("📊", on_click=nav, args=("DATA",), key="btn2")
     with c3: st.button("🌙", on_click=nav, args=("PEACE",), key="btn3")
 
-    st.write("") # വരികൾക്കിടയിൽ ചെറിയ വിടവ്
+    st.write("") # വിടവ്
 
+    # രണ്ടാമത്തെ വരി
     c4, c5, c6 = st.columns(3)
     with c4: st.button("🔴", on_click=nav, args=("DEBTS",), key="btn4")
     with c5: st.button("📝", on_click=nav, args=("TASKS",), key="btn5")
@@ -86,6 +91,7 @@ if st.session_state.page == "🏠 HOME":
 
     st.write("")
 
+    # മൂന്നാമത്തെ വരി
     c7, c8, c9 = st.columns(3)
     with c7: st.button("⚙️", on_click=nav, args=("SET",), key="btn7")
     with c8: st.button("🔄", on_click=st.rerun, key="btn8")
