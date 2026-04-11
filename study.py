@@ -7,12 +7,12 @@ import plotly.express as px
 from streamlit_mic_recorder import speech_to_text
 import io
 
-# 1. കോൺഫിഗറേഷൻ
+# 1. ലിങ്കുകളും ലോഗിൻ വിവരങ്ങളും
 CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRccfZch3jSdHqrScpqsR_j3FSd70NbELC1j6_nPi-MQXdrhVr3BPcKoI1nub4mQql727pQRPWYk9C-/pub?gid=1583146028&single=true&output=csv"
 FORM_API = "https://docs.google.com/forms/d/e/1FAIpQLSfLySolQSiRXV0wELNPhUBlKJh77RnJKWc2-uqAM0TPNG3Q5A/formResponse"
 USERS = {"faisal": "faisal123", "admin": "paichi786"}
 
-st.set_page_config(page_title="PAICHI Ultimate AI Hub", layout="wide")
+st.set_page_config(page_title="PAICHI Home Finance v26.8", layout="wide")
 
 # സ്റ്റേറ്റ് മാനേജ്‌മെന്റ്
 if 'app_logs' not in st.session_state: st.session_state.app_logs = []
@@ -22,33 +22,33 @@ def add_log(msg):
     now = datetime.now().strftime("%H:%M:%S")
     st.session_state.app_logs.insert(0, f"[{now}] {msg}")
 
-# CSS - ഗോൾഡൻ തീം
+# CSS - ഗോൾഡൻ തീം & ഡീസന്റ് ലുക്ക്
 st.markdown("""
     <style>
     .stApp { background: linear-gradient(135deg, #BF953F, #FCF6BA, #AA771C); color: #000; }
-    .box { background: #000; color: #00FF00; padding: 20px; border-radius: 15px; text-align: center; font-size: 28px; border: 3px solid #FFD700; }
-    .ai-card { background: rgba(0,0,0,0.85); color: #FFD700; padding: 20px; border-radius: 15px; border-left: 8px solid #FFD700; margin-bottom: 20px; }
-    .log-container { background: #f0f2f6; padding: 10px; border-radius: 5px; height: 150px; overflow-y:auto; font-family:monospace; font-size: 11px; }
+    .balance-box { background: #000; color: #00FF00; padding: 25px; border-radius: 15px; text-align: center; font-size: 30px; font-weight: bold; border: 3px solid #FFD700; margin-bottom: 20px; }
+    .ai-box { background: rgba(0,0,0,0.85); color: #FFD700; padding: 20px; border-radius: 15px; border-left: 8px solid #FFD700; margin-bottom: 20px; font-weight: bold; }
+    .log-container { background: #f0f2f6; padding: 10px; border-radius: 5px; height: 150px; overflow-y:auto; font-family:monospace; font-size: 11px; color: #333; }
     h1, h2, h3, label, p { color: black !important; font-weight: bold !important; }
     .stDataFrame { background: white; border-radius: 10px; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 🔐 ലോഗിൻ സിസ്റ്റം ---
+# --- 🔐 LOGIN SECTION ---
 if not st.session_state.auth:
-    st.title("🔐 PAICHI PRO LOGIN")
+    st.title("🔐 PAICHI FINANCE LOGIN")
     c1, c2, c3 = st.columns([1,2,1])
     with c2:
         u = st.text_input("Username").lower()
         p = st.text_input("Password", type="password")
-        if st.button("ENTER"):
+        if st.button("LOGIN"):
             if USERS.get(u) == p:
                 st.session_state.auth, st.session_state.user = True, u.capitalize()
-                add_log(f"Login: {u}")
+                add_log(f"Login success: {u}")
                 st.rerun()
-            else: 
-                st.error("Invalid Login!")
-                add_log(f"Failed attempt: {u}")
+            else:
+                st.error("Access Denied!")
+                add_log(f"Failed login attempt: {u}")
 else:
     @st.cache_data(ttl=1)
     def load_data():
@@ -62,85 +62,79 @@ else:
 
     df = load_data()
     st.sidebar.title(f"👤 {st.session_state.user}")
-    page = st.sidebar.radio("Menu", ["🏠 AI Dashboard", "💰 Entry", "🤝 Debt", "📄 Sheet Data", "📊 Report"])
+    page = st.sidebar.radio("Menu", ["🏠 Home Dashboard", "💰 Add Entry", "🤝 Debt Tracker", "📄 View Sheet Copy", "📊 Expense Report"])
     
-    if st.sidebar.button("Logout"): 
+    if st.sidebar.button("Log Out"): 
         st.session_state.auth = False
         st.rerun()
 
-    # --- 🏠 AI DASHBOARD (Advisor) ---
-    if page == "🏠 AI Dashboard":
-        st.title("AI Financial Advisor 🤖")
+    # --- 🏠 HOME DASHBOARD ---
+    if page == "🏠 Home Dashboard":
+        st.title(f"Welcome, {st.session_state.user}!")
         if df is not None:
             inc = df['Credit'].sum()
             deb = df['Debit'].sum() + df['Amount'].sum()
             bal = inc - deb
-            st.markdown(f'<div class="box">നിലവിലെ ബാലൻസ്: ₹{bal:,.2f}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="balance-box">ബാക്കി തുക: ₹{bal:,.2f}</div>', unsafe_allow_html=True)
             
-            st.subheader("💡 AI Insights")
-            st.markdown('<div class="ai-card">', unsafe_allow_html=True)
-            exp_ratio = (deb / inc * 100) if inc > 0 else 0
-            
-            if exp_ratio > 80:
-                st.write(f"⚠️ **ശ്രദ്ധിക്കുക!** ചിലവ് വരുമാനത്തിന്റെ {exp_ratio:.1f}% കടന്നു. മിതവ്യയം പാലിക്കുക.")
-            elif exp_ratio < 50 and inc > 0:
-                st.write("✅ **അടിപൊളി!** സാമ്പത്തിക നില ഭദ്രമാണ്. പണം സേവ് ചെയ്യാൻ പറ്റിയ സമയമാണിത്.")
-            
-            # ട്രേഡിംഗ് തിരിച്ചറിയൽ (ഉദാഹരണത്തിന് Crude Oil Profit)
-            trade_df = df[df['Item'].str.contains('profit|trade|CE|PE', case=False, na=False)]
-            if not trade_df.empty:
-                t_profit = trade_df['Credit'].sum()
-                st.write(f"📈 ട്രേഡിംഗിലൂടെ ₹{t_profit} സമ്പാദിച്ചിട്ടുണ്ട്. റിസ്ക് മാനേജ്മെന്റ് തുടരുക!")
+            st.subheader("🤖 AI Advisor Insights")
+            st.markdown('<div class="ai-box">', unsafe_allow_html=True)
+            ratio = (deb / inc * 100) if inc > 0 else 0
+            if ratio > 80:
+                st.write("⚠️ ഫൈസൽ, ഈ മാസത്തെ ചിലവ് വളരെ കൂടുതലാണ്. അത്യാവശ്യമല്ലാത്ത കാര്യങ്ങൾക്കായി പണം ചിലവാക്കുന്നത് നിയന്ത്രിക്കുക.")
+            elif ratio < 40 and inc > 0:
+                st.write("✅ മികച്ച സമ്പാദ്യശീലം! പണം ശരിയായ രീതിയിൽ കൈകാര്യം ചെയ്യാൻ നിങ്ങൾക്ക് സാധിക്കുന്നുണ്ട്.")
             else:
-                st.write("📊 നിങ്ങളുടെ ചിലവുകൾ ഇപ്പോൾ നോർമൽ ആണ്.")
+                st.write("📊 നിങ്ങളുടെ ഫിനാൻഷ്യൽ സ്റ്റാറ്റസ് ഇപ്പോൾ നോർമൽ ആണ്. ഇതേപോലെ തുടരുക.")
             st.markdown('</div>', unsafe_allow_html=True)
-            
-            st.plotly_chart(px.bar(x=["Income", "Expense"], y=[inc, deb], color=["Income", "Expense"], title="Income vs Expense Summary"))
 
-    # --- 💰 ENTRY (0 മാറ്റിയത്) ---
-    elif page == "💰 Entry":
-        st.title("New Entry")
-        v = speech_to_text(language='ml', key='v_in')
-        with st.form("f", clear_on_submit=True):
-            it = st.text_input("Item", value=v if v else "")
-            am = st.number_input("Amount", value=None, placeholder="തുക നൽകുക...")
+    # --- 💰 ADD ENTRY (No 0 Value) ---
+    elif page == "💰 Add Entry":
+        st.title("New Expense/Income")
+        v = speech_to_text(language='ml', key='voice_input')
+        with st.form("main_entry", clear_on_submit=True):
+            it = st.text_input("Item Description", value=v if v else "")
+            am = st.number_input("Amount (തുക)", value=None, placeholder="Amount നൽകുക...")
             ty = st.radio("Type", ["Debit (ചിലവ്)", "Credit (വരുമാനം)"], horizontal=True)
-            if st.form_submit_button("SAVE"):
+            if st.form_submit_button("SAVE DATA"):
                 if it and am:
                     d, c = (am, 0) if "Debit" in ty else (0, am)
                     payload = {"entry.1044099436": datetime.now().date(), "entry.2013476337": f"[{st.session_state.user}] {it}", "entry.1460982454": d, "entry.1221658767": c}
                     requests.post(FORM_API, data=payload)
-                    add_log(f"Saved: {it} (₹{am})")
-                    st.success("സേവ് ചെയ്തു! ✅")
+                    add_log(f"Added Entry: {it} (₹{am})")
+                    st.success("വിജയകരമായി സേവ് ചെയ്തു! ✅")
                     st.cache_data.clear()
 
     # --- 🤝 DEBT TRACKER ---
-    elif page == "🤝 Debt":
-        st.title("Debt Tracker")
-        with st.form("d_f", clear_on_submit=True):
-            n, a = st.text_input("പേര്"), st.number_input("തുക", value=None)
-            t = st.selectbox("വിഭാഗം", ["കടം വാങ്ങി", "കടം കൊടുത്തു"])
-            if st.form_submit_button("ADD"):
-                add_log(f"Debt Added: {n} ({a})")
-                st.success("രേഖപ്പെടുത്തി!")
+    elif page == "🤝 Debt Tracker":
+        st.title("Debt Management")
+        with st.form("debt_f", clear_on_submit=True):
+            n = st.text_input("ആളുടെ പേര്")
+            a = st.number_input("തുക", value=None)
+            t = st.selectbox("വിഭാഗം", ["Borrowed (വാങ്ങി)", "Lent (കൊടുത്തു)"])
+            if st.form_submit_button("SAVE DEBT"):
+                if n and a:
+                    add_log(f"Debt Recorded: {n} ({a})")
+                    st.success("കടം വിവരങ്ങൾ രേഖപ്പെടുത്തി! ✅")
 
-    # --- 📄 SHEET DATA (ഷീറ്റ് കോപ്പി) ---
-    elif page == "📄 Sheet Data":
+    # --- 📄 VIEW SHEET COPY (Google Sheet data in App) ---
+    elif page == "📄 View Sheet Copy":
         st.title("Google Sheet Records")
         if df is not None:
-            st.write("അവസാനത്തെ എൻട്രികൾ താഴെ:")
+            st.write("ഷീറ്റിലെ അവസാന എൻട്രികൾ:")
             st.dataframe(df.tail(20), use_container_width=True)
             
             buf = io.BytesIO()
             with pd.ExcelWriter(buf, engine='xlsxwriter') as wr: df.to_excel(wr, index=False)
-            st.download_button("📥 Download Excel Report", buf.getvalue(), "Full_Report.xlsx")
+            st.download_button("📥 Download Full Excel", buf.getvalue(), "Finance_History.xlsx")
 
-    # --- 📊 REPORT ---
-    elif page == "📊 Report":
-        st.title("Expense Analysis")
+    # --- 📊 EXPENSE REPORT ---
+    elif page == "📊 Expense Report":
+        st.title("Analysis Chart")
         if df is not None:
             sdf = df.groupby('Item')[['Debit','Amount']].sum().sum(axis=1).reset_index(name='T')
-            st.plotly_chart(px.pie(sdf[sdf['T']>0], values='T', names='Item', hole=0.4))
+            fig = px.pie(sdf[sdf['T']>0], values='T', names='Item', hole=0.4, color_discrete_sequence=px.colors.sequential.Sunset)
+            st.plotly_chart(fig, use_container_width=True)
 
     # --- 📜 LOGS (SideBar) ---
     st.sidebar.markdown("---")
