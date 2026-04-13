@@ -104,7 +104,7 @@ else:
                     add_log(f"Added Entry: {it} (₹{am})")
                     st.success("വിജയകരമായി സേവ് ചെയ്തു! ✅")
                     st.cache_data.clear()
-
+ 
     # --- 🤝 DEBT TRACKER ---
     elif page == "🤝 Debt Tracker":
         st.title("Debt Management")
