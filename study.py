@@ -22,7 +22,7 @@ def add_log(msg):
     now = datetime.now().strftime("%H:%M:%S")
     st.session_state.app_logs.insert(0, f"[{now}] {msg}")
 
-# CSS - ഗോൾഡൻ തീം & ഡീസന്റ് ലുക്ക്
+# CSS - ഗോൾഡൻ തീം
 st.markdown("""
     <style>
     .stApp { background: linear-gradient(135deg, #BF953F, #FCF6BA, #AA771C); color: #000; }
@@ -53,12 +53,17 @@ else:
     @st.cache_data(ttl=1)
     def load_data():
         try:
-            df = pd.read_csv(f"{CSV_URL}&r={random.randint(1,999)}")
+            # റാൻഡം നമ്പർ ചേർക്കുന്നത് ക്യാഷിങ് ഒഴിവാക്കി പുതിയ ഡാറ്റ കിട്ടാനാണ്
+            df = pd.read_csv(f"{CSV_URL}&r={random.randint(1,9999)}")
             df.columns = df.columns.str.strip()
-            for c in ['Amount','Debit','Credit']: 
-                df[c] = pd.to_numeric(df[c], errors='coerce').fillna(0)
+            # കോളം ടൈപ്പ് ശരിയാക്കുന്നു
+            for c in ['Amount', 'Debit', 'Credit']:
+                if c in df.columns:
+                    df[c] = pd.to_numeric(df[c], errors='coerce').fillna(0)
             return df
-        except: return None
+        except Exception as e:
+            st.error(f"Error loading data: {e}")
+            return None
 
     df = load_data()
     st.sidebar.title(f"👤 {st.session_state.user}")
@@ -72,39 +77,49 @@ else:
     if page == "🏠 Home Dashboard":
         st.title(f"Welcome, {st.session_state.user}!")
         if df is not None:
-            inc = df['Credit'].sum()
-            deb = df['Debit'].sum() + df['Amount'].sum()
-            bal = inc - deb
-            st.markdown(f'<div class="balance-box">ബാക്കി തുക: ₹{bal:,.2f}</div>', unsafe_allow_html=True)
+            # ഡെബിറ്റും ക്രെഡിറ്റും കണക്കാക്കുന്നു
+            total_credit = df['Credit'].sum() if 'Credit' in df.columns else 0
+            total_debit = (df['Debit'].sum() if 'Debit' in df.columns else 0) + (df['Amount'].sum() if 'Amount' in df.columns else 0)
+            balance = total_credit - total_debit
+            
+            st.markdown(f'<div class="balance-box">ബാക്കി തുക: ₹{balance:,.2f}</div>', unsafe_allow_html=True)
             
             st.subheader("🤖 AI Advisor Insights")
             st.markdown('<div class="ai-box">', unsafe_allow_html=True)
-            ratio = (deb / inc * 100) if inc > 0 else 0
+            ratio = (total_debit / total_credit * 100) if total_credit > 0 else 0
             if ratio > 80:
                 st.write("⚠️ ഫൈസൽ, ഈ മാസത്തെ ചിലവ് വളരെ കൂടുതലാണ്. അത്യാവശ്യമല്ലാത്ത കാര്യങ്ങൾക്കായി പണം ചിലവാക്കുന്നത് നിയന്ത്രിക്കുക.")
-            elif ratio < 40 and inc > 0:
+            elif ratio < 40 and total_credit > 0:
                 st.write("✅ മികച്ച സമ്പാദ്യശീലം! പണം ശരിയായ രീതിയിൽ കൈകാര്യം ചെയ്യാൻ നിങ്ങൾക്ക് സാധിക്കുന്നുണ്ട്.")
             else:
                 st.write("📊 നിങ്ങളുടെ ഫിനാൻഷ്യൽ സ്റ്റാറ്റസ് ഇപ്പോൾ നോർമൽ ആണ്. ഇതേപോലെ തുടരുക.")
             st.markdown('</div>', unsafe_allow_html=True)
 
-    # --- 💰 ADD ENTRY (No 0 Value) ---
+    # --- 💰 ADD ENTRY ---
     elif page == "💰 Add Entry":
         st.title("New Expense/Income")
         v = speech_to_text(language='ml', key='voice_input')
         with st.form("main_entry", clear_on_submit=True):
-            it = st.text_input("Item Description", value=v if v else "")
-            am = st.number_input("Amount (തുക)", value=None, placeholder="Amount നൽകുക...")
+            it = st.text_input("Item Description (വിവരണം)", value=v if v else "")
+            am = st.number_input("Amount (തുക)", value=None, step=1.0)
             ty = st.radio("Type", ["Debit (ചിലവ്)", "Credit (വരുമാനം)"], horizontal=True)
             if st.form_submit_button("SAVE DATA"):
                 if it and am:
                     d, c = (am, 0) if "Debit" in ty else (0, am)
-                    payload = {"entry.1044099436": datetime.now().date(), "entry.2013476337": f"[{st.session_state.user}] {it}", "entry.1460982454": d, "entry.1221658767": c}
-                    requests.post(FORM_API, data=payload)
-                    add_log(f"Added Entry: {it} (₹{am})")
-                    st.success("വിജയകരമായി സേവ് ചെയ്തു! ✅")
-                    st.cache_data.clear()
- 
+                    payload = {
+                        "entry.1044099436": datetime.now().strftime("%Y-%m-%d"), 
+                        "entry.2013476337": f"[{st.session_state.user}] {it}", 
+                        "entry.1460982454": d, 
+                        "entry.1221658767": c
+                    }
+                    try:
+                        requests.post(FORM_API, data=payload)
+                        add_log(f"Added Entry: {it} (₹{am})")
+                        st.success("വിജയകരമായി സേവ് ചെയ്തു! ✅")
+                        st.cache_data.clear()
+                    except:
+                        st.error("സേവ് ചെയ്യുന്നതിൽ പിശക് സംഭവിച്ചു!")
+
     # --- 🤝 DEBT TRACKER ---
     elif page == "🤝 Debt Tracker":
         st.title("Debt Management")
@@ -114,15 +129,24 @@ else:
             t = st.selectbox("വിഭാഗം", ["Borrowed (വാങ്ങി)", "Lent (കൊടുത്തു)"])
             if st.form_submit_button("SAVE DEBT"):
                 if n and a:
-                    add_log(f"Debt Recorded: {n} ({a})")
+                    desc = f"DEBT: {t} - {n}"
+                    d, c = (0, a) if "Borrowed" in t else (a, 0) # വാങ്ങിയാൽ ക്രെഡിറ്റ്, കൊടുത്താൽ ഡെബിറ്റ്
+                    payload = {
+                        "entry.1044099436": datetime.now().strftime("%Y-%m-%d"), 
+                        "entry.2013476337": f"[{st.session_state.user}] {desc}", 
+                        "entry.1460982454": d, 
+                        "entry.1221658767": c
+                    }
+                    requests.post(FORM_API, data=payload)
+                    add_log(f"Debt Recorded: {n} (₹{a})")
                     st.success("കടം വിവരങ്ങൾ രേഖപ്പെടുത്തി! ✅")
+                    st.cache_data.clear()
 
-    # --- 📄 VIEW SHEET COPY (Google Sheet data in App) ---
+    # --- 📄 VIEW SHEET COPY ---
     elif page == "📄 View Sheet Copy":
         st.title("Google Sheet Records")
         if df is not None:
-            st.write("ഷീറ്റിലെ അവസാന എൻട്രികൾ:")
-            st.dataframe(df.tail(20), use_container_width=True)
+            st.dataframe(df.iloc[::-1].head(50), use_container_width=True) # പുതിയത് മുകളിൽ കാണാൻ
             
             buf = io.BytesIO()
             with pd.ExcelWriter(buf, engine='xlsxwriter') as wr: df.to_excel(wr, index=False)
@@ -132,9 +156,14 @@ else:
     elif page == "📊 Expense Report":
         st.title("Analysis Chart")
         if df is not None:
-            sdf = df.groupby('Item')[['Debit','Amount']].sum().sum(axis=1).reset_index(name='T')
-            fig = px.pie(sdf[sdf['T']>0], values='T', names='Item', hole=0.4, color_discrete_sequence=px.colors.sequential.Sunset)
-            st.plotly_chart(fig, use_container_width=True)
+            # ഐറ്റം വൈസ് ചിലവ് കാണിക്കുന്നു
+            df['Total_Exp'] = df['Debit'] + df['Amount']
+            sdf = df[df['Total_Exp'] > 0].groupby('Item')['Total_Exp'].sum().reset_index()
+            if not sdf.empty:
+                fig = px.pie(sdf, values='Total_Exp', names='Item', hole=0.4, title="Expense Distribution")
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("ചിലവുകൾ ഒന്നും തന്നെ രേഖപ്പെടുത്തിയിട്ടില്ല.")
 
     # --- 📜 LOGS (SideBar) ---
     st.sidebar.markdown("---")
