@@ -53,11 +53,10 @@ else:
     @st.cache_data(ttl=1)
     def load_data():
         try:
-            # റാൻഡം നമ്പർ ചേർക്കുന്നത് ക്യാഷിങ് ഒഴിവാക്കി പുതിയ ഡാറ്റ കിട്ടാനാണ്
             df = pd.read_csv(f"{CSV_URL}&r={random.randint(1,9999)}")
             df.columns = df.columns.str.strip()
             # കോളം ടൈപ്പ് ശരിയാക്കുന്നു
-            for c in ['Amount', 'Debit', 'Credit']:
+            for c in ['Debit', 'Credit']:
                 if c in df.columns:
                     df[c] = pd.to_numeric(df[c], errors='coerce').fillna(0)
             return df
@@ -77,9 +76,8 @@ else:
     if page == "🏠 Home Dashboard":
         st.title(f"Welcome, {st.session_state.user}!")
         if df is not None:
-            # ഡെബിറ്റും ക്രെഡിറ്റും കണക്കാക്കുന്നു
             total_credit = df['Credit'].sum() if 'Credit' in df.columns else 0
-            total_debit = (df['Debit'].sum() if 'Debit' in df.columns else 0) + (df['Amount'].sum() if 'Amount' in df.columns else 0)
+            total_debit = df['Debit'].sum() if 'Debit' in df.columns else 0
             balance = total_credit - total_debit
             
             st.markdown(f'<div class="balance-box">ബാക്കി തുക: ₹{balance:,.2f}</div>', unsafe_allow_html=True)
@@ -130,7 +128,7 @@ else:
             if st.form_submit_button("SAVE DEBT"):
                 if n and a:
                     desc = f"DEBT: {t} - {n}"
-                    d, c = (0, a) if "Borrowed" in t else (a, 0) # വാങ്ങിയാൽ ക്രെഡിറ്റ്, കൊടുത്താൽ ഡെബിറ്റ്
+                    d, c = (0, a) if "Borrowed" in t else (a, 0)
                     payload = {
                         "entry.1044099436": datetime.now().strftime("%Y-%m-%d"), 
                         "entry.2013476337": f"[{st.session_state.user}] {desc}", 
@@ -146,7 +144,8 @@ else:
     elif page == "📄 View Sheet Copy":
         st.title("Google Sheet Records")
         if df is not None:
-            st.dataframe(df.iloc[::-1].head(50), use_container_width=True) # പുതിയത് മുകളിൽ കാണാൻ
+            # പുതിയ എൻട്രികൾ മുകളിൽ കാണാൻ iloc[::-1] ഉപയോഗിച്ചു
+            st.dataframe(df.iloc[::-1].head(50), use_container_width=True)
             
             buf = io.BytesIO()
             with pd.ExcelWriter(buf, engine='xlsxwriter') as wr: df.to_excel(wr, index=False)
@@ -156,11 +155,9 @@ else:
     elif page == "📊 Expense Report":
         st.title("Analysis Chart")
         if df is not None:
-            # ഐറ്റം വൈസ് ചിലവ് കാണിക്കുന്നു
-            df['Total_Exp'] = df['Debit'] + df['Amount']
-            sdf = df[df['Total_Exp'] > 0].groupby('Item')['Total_Exp'].sum().reset_index()
+            sdf = df[df['Debit'] > 0].groupby('Item')['Debit'].sum().reset_index()
             if not sdf.empty:
-                fig = px.pie(sdf, values='Total_Exp', names='Item', hole=0.4, title="Expense Distribution")
+                fig = px.pie(sdf, values='Debit', names='Item', hole=0.4, title="Expense Distribution")
                 st.plotly_chart(fig, use_container_width=True)
             else:
                 st.info("ചിലവുകൾ ഒന്നും തന്നെ രേഖപ്പെടുത്തിയിട്ടില്ല.")
