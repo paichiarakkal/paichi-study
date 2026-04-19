@@ -1,12 +1,7 @@
-streamlit
 pandas
+yfinance
 requests
-easyocr
-opencv-python-headless
-Pillow
-numpy
+streamlit
+streamlit-autorefresh
+streamlit-mic_recorder
 plotly
-streamlit-mic-recorder
-openpyxl
-xlsxwriter
-kaleido
