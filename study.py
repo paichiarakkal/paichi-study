@@ -10,12 +10,13 @@ from streamlit_autorefresh import st_autorefresh
 # --- 1. CONFIG ---
 CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRccfZch3jSdHqrScpqsR_j3FSd70NbELC1j6_nPi-MQXdrhVr3BPcKoI1nub4mQql727pQRPWYk9C-/pub?gid=1583146028&single=true&output=csv"
 FORM_API = "https://docs.google.com/forms/d/e/1FAIpQLSfLySolQSiRXV0wELNPhUBlKJh77RnJKWc2-uqAM0TPNG3Q5A/formResponse"
+# നിന്റെ പുതിയ പാസ്‌വേഡ്: faisal147
 USERS = {"faisal": "faisal147", "shabana": "shabana123", "admin": "paichi786"}
 
-st.set_page_config(page_title="PAICHI ULTIMATE v10.0", layout="wide")
+st.set_page_config(page_title="PAICHI ULTIMATE v12.0", layout="wide")
 st_autorefresh(interval=30000, key="auto_refresh")
 
-# --- 2. 🎨 YOUR FAVORITE PURPLE & GOLD THEME ---
+# --- 2. 🎨 DESIGN (Purple & Gold) ---
 st.markdown("""
     <style>
     .stApp { background: linear-gradient(135deg, #2D0844, #4B0082, #1A0521); color: #fff; }
@@ -23,11 +24,11 @@ st.markdown("""
     .stButton>button { background-color: #FFD700; color: #000; border-radius: 10px; font-weight: bold; width: 100%; }
     .purple-box {
         background: rgba(255, 255, 255, 0.05);
-        padding: 30px;
-        border-radius: 25px;
+        padding: 25px;
+        border-radius: 20px;
         border: 2px solid rgba(255, 215, 0, 0.3);
         text-align: center;
-        margin-bottom: 25px;
+        margin-bottom: 20px;
     }
     h1, h2, h3, p, label { color: white !important; font-weight: bold !important; }
     .stDataFrame { background: white; border-radius: 10px; }
@@ -37,7 +38,7 @@ st.markdown("""
 if 'auth' not in st.session_state: st.session_state.auth = False
 if 'user' not in st.session_state: st.session_state.user = ""
 
-# --- 3. 📊 TRIPLE INDICATOR ENGINE (YOUR ORIGINAL LOGIC) ---
+# --- 3. 📊 YOUR TRIPLE INDICATOR ENGINE ---
 def get_triple_advisor():
     try:
         symbols = {"Nifty 50": "^NSEI", "Bank Nifty": "^NSEBANK", "Crude Fut": "CL=F"}
@@ -67,9 +68,9 @@ def get_balance():
     try:
         df = pd.read_csv(f"{CSV_URL}&r={random.randint(1,999)}")
         df.columns = df.columns.str.strip()
-        total_in = pd.to_numeric(df['Credit'], errors='coerce').fillna(0).sum()
-        total_out = pd.to_numeric(df['Debit'], errors='coerce').fillna(0).sum()
-        return total_in - total_out
+        t_in = pd.to_numeric(df['Credit'], errors='coerce').fillna(0).sum()
+        t_out = pd.to_numeric(df['Debit'], errors='coerce').fillna(0).sum()
+        return t_in - t_out
     except: return 0
 
 # --- 4. APP LOGIC ---
@@ -89,18 +90,19 @@ else:
         st.sidebar.title(f"👤 {curr_user.capitalize()}")
         page = st.sidebar.radio("Menu", ["📊 Advisor", "🏠 Dashboard", "💰 Add Entry", "🔍 History"])
 
+    # --- PAGES ---
     if page == "💰 Add Entry":
-        st.title("Add Transaction")
+        st.title("Quick Transaction")
         bal = get_balance()
-        st.markdown(f'<div class="purple-box" style="border-color:#FFD700;"><p>Net Balance</p><h1 style="color:#FFD700; margin:0;">₹{bal:,.0f}</h1></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="purple-box" style="border-color:#FFD700;"><p>Current Balance</p><h2 style="color:#FFD700; margin:0;">₹{bal:,.0f}</h2></div>', unsafe_allow_html=True)
         v = speech_to_text(language='ml', key='voice')
-        with st.form("main_entry_form", clear_on_submit=True):
-            it = st.text_input("Item Description", value=v if v else "")
+        with st.form("entry_form_v12", clear_on_submit=True):
+            it = st.text_input("Details", value=v if v else "")
             # 0 ഒഴിവാക്കി ബോക്സ് കാലിയാക്കി വെച്ചു
-            am = st.number_input("Amount", min_value=1, step=1, value=None, placeholder="Amount?")
+            am = st.number_input("Amount", min_value=1, step=1, value=None, placeholder="Enter amount...")
             ty = st.radio("Type", ["Debit", "Credit"], horizontal=True)
-            submitted = st.form_submit_button("SAVE DATA")
-            if submitted:
+            # ഫോമിനുള്ളിൽ തന്നെ ബട്ടൺ വെച്ചു (ഫോട്ടോയിലെ എറർ ഫിക്സ്)
+            if st.form_submit_button("SAVE TO SHEET"):
                 if it and am:
                     d, c = (am, 0) if ty == "Debit" else (0, am)
                     requests.post(FORM_API, data={"entry.1044099436": datetime.now().strftime("%Y-%m-%d"), "entry.2013476337": f"[{curr_user.capitalize()}] {it}", "entry.1460982454": d, "entry.1221658767": c})
@@ -108,20 +110,20 @@ else:
                     st.rerun()
 
     elif page == "📊 Advisor" and curr_user != "shabana":
-        st.title("🚀 Smart Trading Terminal")
+        st.title("🚀 Smart Trading Advisor")
         markets = get_triple_advisor()
         if markets:
             for m in markets:
                 st.markdown(f"""<div class="purple-box" style="border-color: {m['color']} !important;">
                     <h2 style="color:#E0B0FF !important;">{m["name"]}</h2>
-                    <h1 style="color:{m["color"]} !important; font-size:60px;">{m["signal"]}</h1>
+                    <h1 style="color:{m["color"]} !important; font-size:55px;">{m["signal"]}</h1>
                     <h1 style="color:#FFD700 !important;">₹{m["price"]:,.0f}</h1>
                     <p>RSI: {m["rsi"]:.1f}</p></div>""", unsafe_allow_html=True)
 
     elif page == "🏠 Dashboard" and curr_user != "shabana":
-        st.title("Financial Overview")
+        st.title("Balance Overview")
         bal = get_balance()
-        st.markdown(f'<div class="purple-box"><h1>Total Balance: ₹{bal:,.0f}</h1></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="purple-box"><h1>Net Balance: ₹{bal:,.0f}</h1></div>', unsafe_allow_html=True)
 
     elif page == "🔍 History" and curr_user != "shabana":
         st.title("Transaction History")
