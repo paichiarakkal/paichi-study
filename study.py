@@ -13,7 +13,7 @@ import io
 CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRccfZch3jSdHqrScpqsR_j3FSd70NbELC1j6_nPi-MQXdrhVr3BPcKoI1nub4mQql727pQRPWYk9C-/pub?gid=1583146028&single=true&output=csv"
 FORM_API = "https://docs.google.com/forms/d/e/1FAIpQLSfLySolQSiRXV0wELNPhUBlKJh77RnJKWc2-uqAM0TPNG3Q5A/formResponse"
 
-USERS = {"faisal": "faisal123", "shabana": "shabana123", "admin": "paichi786"}
+USERS = {"faisal": "faisal147", "shabana": "shabana123", "admin": "paichi786"}
 
 st.set_page_config(page_title="PAICHI PURPLE GOLD v4.2", layout="wide")
 st_autorefresh(interval=60000, key="auto_refresh")
