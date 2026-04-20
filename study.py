@@ -4,7 +4,6 @@ import requests
 from datetime import datetime
 import yfinance as yf
 import random
-import plotly.express as px
 from streamlit_mic_recorder import speech_to_text
 from streamlit_autorefresh import st_autorefresh
 
@@ -13,10 +12,10 @@ CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRccfZch3jSdHqrScpqsR
 FORM_API = "https://docs.google.com/forms/d/e/1FAIpQLSfLySolQSiRXV0wELNPhUBlKJh77RnJKWc2-uqAM0TPNG3Q5A/formResponse"
 USERS = {"faisal": "faisal147", "shabana": "shabana123", "admin": "paichi786"}
 
-st.set_page_config(page_title="PAICHI ULTIMATE v9.0", layout="wide")
+st.set_page_config(page_title="PAICHI ULTIMATE v10.0", layout="wide")
 st_autorefresh(interval=30000, key="auto_refresh")
 
-# --- 2. 🎨 PREMIUM DESIGN ---
+# --- 2. 🎨 YOUR FAVORITE PURPLE & GOLD THEME ---
 st.markdown("""
     <style>
     .stApp { background: linear-gradient(135deg, #2D0844, #4B0082, #1A0521); color: #fff; }
@@ -38,7 +37,7 @@ st.markdown("""
 if 'auth' not in st.session_state: st.session_state.auth = False
 if 'user' not in st.session_state: st.session_state.user = ""
 
-# --- 3. 📊 TRIPLE INDICATOR ENGINE (From Your Original Code) ---
+# --- 3. 📊 TRIPLE INDICATOR ENGINE (YOUR ORIGINAL LOGIC) ---
 def get_triple_advisor():
     try:
         symbols = {"Nifty 50": "^NSEI", "Bank Nifty": "^NSEBANK", "Crude Fut": "CL=F"}
@@ -68,57 +67,69 @@ def get_balance():
     try:
         df = pd.read_csv(f"{CSV_URL}&r={random.randint(1,999)}")
         df.columns = df.columns.str.strip()
-        return pd.to_numeric(df['Credit'], errors='coerce').sum() - pd.to_numeric(df['Debit'], errors='coerce').sum()
+        total_in = pd.to_numeric(df['Credit'], errors='coerce').fillna(0).sum()
+        total_out = pd.to_numeric(df['Debit'], errors='coerce').fillna(0).sum()
+        return total_in - total_out
     except: return 0
 
 # --- 4. APP LOGIC ---
 if not st.session_state.auth:
-    st.title("🔐 PAICHI LOGIN")
+    st.title("🔐 PAICHI FINANCE LOGIN")
     u = st.text_input("Username").lower()
     p = st.text_input("Password", type="password")
     if st.button("LOGIN"):
         if USERS.get(u) == p:
             st.session_state.auth, st.session_state.user = True, u
             st.rerun()
+        else: st.error("Access Denied!")
 else:
     curr_user = st.session_state.user
     if curr_user == "shabana": page = "💰 Add Entry"
     else:
         st.sidebar.title(f"👤 {curr_user.capitalize()}")
-        page = st.sidebar.radio("Menu", ["📊 Advisor", "🏠 Dashboard", "💰 Add Entry", "📊 Report", "🔍 History"])
+        page = st.sidebar.radio("Menu", ["📊 Advisor", "🏠 Dashboard", "💰 Add Entry", "🔍 History"])
 
     if page == "💰 Add Entry":
         st.title("Add Transaction")
         bal = get_balance()
-        st.markdown(f'<div class="purple-box" style="border-color:#FFD700;"><p>Current Balance</p><h2 style="color:#FFD700;">₹{bal:,.0f}</h2></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="purple-box" style="border-color:#FFD700;"><p>Net Balance</p><h1 style="color:#FFD700; margin:0;">₹{bal:,.0f}</h1></div>', unsafe_allow_html=True)
         v = speech_to_text(language='ml', key='voice')
-        with st.form("entry_f", clear_on_submit=True):
+        with st.form("main_entry_form", clear_on_submit=True):
             it = st.text_input("Item Description", value=v if v else "")
-            am = st.number_input("Amount", min_value=1, step=1, value=None, placeholder="Enter Amount")
+            # 0 ഒഴിവാക്കി ബോക്സ് കാലിയാക്കി വെച്ചു
+            am = st.number_input("Amount", min_value=1, step=1, value=None, placeholder="Amount?")
             ty = st.radio("Type", ["Debit", "Credit"], horizontal=True)
-            if st.form_submit_button("SAVE DATA"):
+            submitted = st.form_submit_button("SAVE DATA")
+            if submitted:
                 if it and am:
                     d, c = (am, 0) if ty == "Debit" else (0, am)
                     requests.post(FORM_API, data={"entry.1044099436": datetime.now().strftime("%Y-%m-%d"), "entry.2013476337": f"[{curr_user.capitalize()}] {it}", "entry.1460982454": d, "entry.1221658767": c})
-                    st.success("Saved! ✅")
+                    st.success("വിജയകരമായി സേവ് ചെയ്തു! ✅")
                     st.rerun()
 
     elif page == "📊 Advisor" and curr_user != "shabana":
-        st.title("🚀 Smart Trading Advisor")
+        st.title("🚀 Smart Trading Terminal")
         markets = get_triple_advisor()
         if markets:
             for m in markets:
                 st.markdown(f"""<div class="purple-box" style="border-color: {m['color']} !important;">
                     <h2 style="color:#E0B0FF !important;">{m["name"]}</h2>
-                    <h1 style="color:{m["color"]} !important; font-size:50px;">{m["signal"]}</h1>
+                    <h1 style="color:{m["color"]} !important; font-size:60px;">{m["signal"]}</h1>
                     <h1 style="color:#FFD700 !important;">₹{m["price"]:,.0f}</h1>
                     <p>RSI: {m["rsi"]:.1f}</p></div>""", unsafe_allow_html=True)
 
     elif page == "🏠 Dashboard" and curr_user != "shabana":
-        st.title("Financial Status")
+        st.title("Financial Overview")
         bal = get_balance()
-        st.markdown(f'<div class="purple-box"><h1>Balance: ₹{bal:,.0f}</h1></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="purple-box"><h1>Total Balance: ₹{bal:,.0f}</h1></div>', unsafe_allow_html=True)
+
+    elif page == "🔍 History" and curr_user != "shabana":
+        st.title("Transaction History")
+        try:
+            df = pd.read_csv(f"{CSV_URL}&r={random.randint(1,999)}")
+            st.dataframe(df.iloc[::-1], use_container_width=True)
+        except: st.write("Loading History...")
 
     if st.sidebar.button("Logout"):
-        st.session_state.auth, st.session_state.user = False, ""
+        st.session_state.auth = False
         st.rerun()
