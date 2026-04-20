@@ -137,18 +137,49 @@ else:
             """, unsafe_allow_html=True)
         except: st.error("Error loading data.")
 
-    elif page == "💰 Add Entry":
+        elif page == "💰 Add Entry":
         st.title("Add Transaction")
+        
+        # --- Total Balance Display ---
+        try:
+            df_bal = pd.read_csv(f"{CSV_URL}&r={random.randint(1,999)}")
+            df_bal.columns = df_bal.columns.str.strip()
+            # വാല്യൂസ് കൂട്ടുമ്പോൾ വരുന്ന ചെറിയ പിശകുകൾ ഒഴിവാക്കാൻ numeric ആക്കുന്നു
+            total_in = pd.to_numeric(df_bal['Credit'], errors='coerce').fillna(0).sum()
+            total_out = pd.to_numeric(df_bal['Debit'], errors='coerce').fillna(0).sum()
+            current_bal = total_in - total_out
+            
+            # ടോട്ടൽ ബാലൻസ് മുകളിൽ കാണിക്കുന്നു
+            st.markdown(f"""
+            <div class="purple-box" style="padding: 15px; border-color: #FFD700 !important; margin-bottom: 20px;">
+                <p style="color:#E0B0FF !important; font-size:18px; margin:0;">Current Net Balance</p>
+                <h1 style="color:#FFD700 !important; font-size:45px; margin:0;">₹{current_bal:,.2f}</h1>
+            </div>
+            """, unsafe_allow_html=True)
+        except:
+            st.write("Balance Loading...")
+
         v = speech_to_text(language='ml', key='voice')
+        
         with st.form("entry_f", clear_on_submit=True):
             it = st.text_input("Item Description", value=v if v else "")
-            am = st.number_input("Amount", min_value=0.0)
+            
+            # ഇവിടെ value=None കൊടുത്താൽ 0.0 ബോക്സിൽ വരില്ല
+            am = st.number_input("Amount", min_value=0.0, value=None, placeholder="Enter Amount...")
+            
             ty = st.radio("Type", ["Debit", "Credit"], horizontal=True)
+            
             if st.form_submit_button("SAVE DATA"):
-                if it and am > 0:
+                if it and am and am > 0:
                     d, c = (am, 0) if ty == "Debit" else (0, am)
-                    requests.post(FORM_API, data={"entry.1044099436": datetime.now().strftime("%Y-%m-%d"), "entry.2013476337": f"[{curr_user.capitalize()}] {it}", "entry.1460982454": d, "entry.1221658767": c})
+                    requests.post(FORM_API, data={
+                        "entry.1044099436": datetime.now().strftime("%Y-%m-%d"), 
+                        "entry.2013476337": f"[{curr_user.capitalize()}] {it}", 
+                        "entry.1460982454": d, 
+                        "entry.1221658767": c
+                    })
                     st.success("സേവ് ചെയ്തു! ✅")
+                    st.rerun() # സേവ് ചെയ്ത ഉടനെ ബാലൻസ് അപ്ഡേറ്റ് ആകാൻ
 
     elif page == "📊 Report" and curr_user != "shabana":
         st.title("Expense Analysis")
