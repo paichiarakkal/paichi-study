@@ -7,6 +7,7 @@ import random
 import plotly.express as px
 from streamlit_mic_recorder import speech_to_text
 from streamlit_autorefresh import st_autorefresh
+from fpdf import FPDF
 import io
 
 # --- 1. CONFIG & SETTINGS ---
@@ -52,7 +53,34 @@ st.markdown("""
 if 'auth' not in st.session_state: st.session_state.auth = False
 if 'user' not in st.session_state: st.session_state.user = ""
 
-# --- 3. 📊 TRIPLE INDICATOR ENGINE ---
+# --- 3. 📊 FUNCTIONS & ENGINES ---
+
+def create_pdf(df):
+    """Dataframe-നെ PDF ആക്കി മാറ്റുന്ന ഫങ്ക്ഷൻ"""
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", 'B', 16)
+    pdf.cell(190, 10, txt="PAICHI FINANCE REPORT", ln=True, align='C')
+    pdf.ln(10)
+    
+    pdf.set_font("Arial", 'B', 10)
+    # Headers
+    cols = df.columns.tolist()
+    for col in cols:
+        pdf.cell(38, 10, txt=str(col), border=1)
+    pdf.ln()
+    
+    # Rows
+    pdf.set_font("Arial", size=9)
+    for index, row in df.iterrows():
+        for col in cols:
+            # മലയാളം അക്ഷരങ്ങൾ ഉണ്ടെങ്കിൽ എറർ വരാതിരിക്കാൻ ലാറ്റിൻ അല്ലാത്തവ ഒഴിവാക്കുന്നു
+            val = str(row[col]).encode('ascii', 'ignore').decode('ascii')
+            pdf.cell(38, 10, txt=val, border=1)
+        pdf.ln()
+    
+    return pdf.output(dest='S').encode('latin-1')
+
 def get_triple_advisor():
     try:
         symbols = {"Nifty 50": "^NSEI", "Bank Nifty": "^NSEBANK", "Crude Fut": "CL=F"}
@@ -138,27 +166,20 @@ else:
 
     elif page == "💰 Add Entry":
         st.title("Add Transaction")
-        
-        # Live Balance Display
         try:
             df_bal = pd.read_csv(f"{CSV_URL}&r={random.randint(1,999)}")
             df_bal.columns = df_bal.columns.str.strip()
             total_in = pd.to_numeric(df_bal['Credit'], errors='coerce').fillna(0).sum()
             total_out = pd.to_numeric(df_bal['Debit'], errors='coerce').fillna(0).sum()
             current_bal = total_in - total_out
-            
-            st.markdown(f"""
-            <div class="purple-box" style="padding: 15px; border-color: #FFD700 !important; margin-bottom: 20px;">
-                <p style="color:#E0B0FF !important; font-size:18px; margin:0;">Current Balance</p>
-                <h1 style="color:#FFD700 !important; font-size:45px; margin:0;">₹{current_bal:,.2f}</h1>
-            </div>
-            """, unsafe_allow_html=True)
-        except: st.write("Loading Balance...")
+            st.markdown(f"""<div class="purple-box" style="padding: 15px; border-color: #FFD700 !important;">
+                <p style="color:#E0B0FF !important; font-size:18px;">Current Balance: ₹{current_bal:,.2f}</p>
+            </div>""", unsafe_allow_html=True)
+        except: pass
 
         v = speech_to_text(language='ml', key='voice')
         with st.form("entry_f", clear_on_submit=True):
             it = st.text_input("Item Description", value=v if v else "")
-            # Amount field fix: 0.0 ഒഴിവാക്കി placeholder നൽകി
             am = st.number_input("Amount", min_value=0.0, value=None, placeholder="Enter Amount...")
             ty = st.radio("Type", ["Debit", "Credit"], horizontal=True)
             if st.form_submit_button("SAVE DATA"):
@@ -178,10 +199,27 @@ else:
                 item_col = 'Item' if 'Item' in df.columns else 'item'
                 if item_col in df.columns:
                     report_df = df[df['Debit'] > 0].groupby(item_col)['Debit'].sum().reset_index()
-                    if not report_df.empty:
-                        fig = px.pie(report_df, values='Debit', names=item_col, hole=0.3)
-                        st.plotly_chart(fig, use_container_width=True)
+                    fig = px.pie(report_df, values='Debit', names=item_col, hole=0.3)
+                    st.plotly_chart(fig, use_container_width=True)
         except Exception as e: st.error(f"Report Error: {e}")
+
+    elif page == "🔍 History" and curr_user != "shabana":
+        st.title("Transaction History")
+        try:
+            df = pd.read_csv(f"{CSV_URL}&r={random.randint(1,999)}")
+            df.columns = df.columns.str.strip()
+            
+            # --- PDF DOWNLOAD BUTTON ---
+            pdf_bytes = create_pdf(df)
+            st.download_button(
+                label="📥 Download PDF Report",
+                data=pdf_bytes,
+                file_name=f"Finance_Report_{datetime.now().strftime('%Y-%m-%d')}.pdf",
+                mime="application/pdf"
+            )
+            
+            st.dataframe(df.iloc[::-1], use_container_width=True)
+        except: st.write("Loading History...")
 
     elif page == "🤝 Debt Tracker" and curr_user != "shabana":
         st.title("Debt Management")
@@ -193,10 +231,3 @@ else:
                 d, c = (0, a) if "Borrowed" in t else (a, 0)
                 requests.post(FORM_API, data={"entry.1044099436": datetime.now().strftime("%Y-%m-%d"), "entry.2013476337": f"[{curr_user.capitalize()}] DEBT: {t} - {n}", "entry.1460982454": d, "entry.1221658767": c})
                 st.success("രേഖപ്പെടുത്തി!")
-
-    elif page == "🔍 History" and curr_user != "shabana":
-        st.title("Transaction History")
-        try:
-            df = pd.read_csv(f"{CSV_URL}&r={random.randint(1,999)}")
-            st.dataframe(df.iloc[::-1], use_container_width=True)
-        except: st.write("Loading History...")
