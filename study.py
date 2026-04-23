@@ -36,7 +36,7 @@ st.markdown("""
         border: none;
         font-weight: bold;
     }
-    .purple-box {
+    . gold-box {
         background: rgba(255, 255, 255, 0.05);
         padding: 30px;
         border-radius: 25px;
