@@ -16,7 +16,7 @@ FORM_API = "https://docs.google.com/forms/d/e/1FAIpQLSfLySolQSiRXV0wELNPhUBlKJh7
 
 USERS = {"faisal": "faisal147", "shabana": "shabana123", "admin": "paichi786"}
 
-st.set_page_config(page_title="PAICHI PURPLE GOLD v4.2", layout="wide")
+st.set_page_config(page_title="PAICHI ARAKKAL", layout="wide")
 st_autorefresh(interval=60000, key="auto_refresh")
 
 # --- 2. 🎨 PREMIUM DESIGN ---
