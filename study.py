@@ -36,8 +36,8 @@ st.markdown("""
         border: none;
         font-weight: bold;
     }
-    .  purple-box
-        background: rgba(255, 255, 255, 0.05);
+    .purple-box
+        background: rgba(255, 210, 255, 0.05);
         padding: 30px;
         border-radius: 25px;
         border: 2px solid rgba(255, 215, 0, 0.3);
