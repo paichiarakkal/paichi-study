@@ -10,9 +10,10 @@ from streamlit_mic_recorder import speech_to_text
 from streamlit_autorefresh import st_autorefresh
 
 # --- 1. CONFIG & SETTINGS ---
+# ഷീറ്റിലെ ഡാറ്റ വായിക്കാൻ മാത്രം CSV_URL ഉപയോഗിക്കുന്നു
 CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRccfZch3jSdHqrScpqsR_j3FSd70NbELC1j6_nPi-MQXdrhVr3BPcKoI1nub4mQql727pQRPWYk9C-/pub?gid=1583146028&single=true&output=csv"
-FORM_API = "https://docs.google.com/forms/d/e/1FAIpQLSfLySolQSiRXV0wELNPhUBlKJh77RnJKWc2-uqAM0TPNG3Q5A/formResponse"
-# ഫൈസൽ ഉണ്ടാക്കിയ പുതിയ ഗൂഗിൾ സ്ക്രിപ്റ്റ് URL
+
+# വാട്സാപ്പും ആപ്പും ഒരുമിച്ച് കണക്ട് ചെയ്യാൻ നമ്മൾ ഉണ്ടാക്കിയ പുതിയ ഗൂഗിൾ സ്ക്രിപ്റ്റ്
 SCRIPT_API = "https://script.google.com/macros/s/AKfycbwKdWx72KzPuq7s3FD0IsoalS2or-DrkEHc-g_dTlqX5ZQ8FdwHmC9ypPuy8WTklBc/exec"
 
 WA_PHONE, WA_API_KEY = "+971551347989", "7463030"
@@ -54,7 +55,7 @@ def get_data():
         return df
     except: return pd.DataFrame()
 
-# --- 4. AUTH & PAGES ---
+# --- 4. AUTH & MAIN ---
 if 'auth' not in st.session_state: st.session_state.auth = False
 
 if not st.session_state.auth:
@@ -90,18 +91,16 @@ else:
                         am = float(am_input)
                         with st.spinner("Processing..."):
                             link = upload_bill(bill) if bill else ""
-                            final_desc = f"[{curr_user.capitalize()}] {category if category else 'Others'}: {it}"
-                            if link: final_desc += f" | 📂 Bill: {link}"
-                            d, c = (am, 0) if ty=="Debit" else (0, am)
+                            # ആപ്പിൽ നിന്നുള്ള എൻട്രി ആണെന്ന് ഷീറ്റിൽ കാണാൻ
+                            display_name = f"[{curr_user.capitalize()}] {it}"
+                            if link: display_name += f" (Bill: {link})"
                             
-                            # 1. പഴയ ഗൂഗിൾ ഫോം (ഡാറ്റ മാറ്റമില്ലാതെ തുടരും)
-                            requests.post(FORM_API, data={"entry.1044099436": datetime.now().strftime("%Y-%m-%d"), "entry.2013476337": final_desc, "entry.1460982454": d, "entry.1221658767": c})
-                            
-                            # 2. പുതിയ ഗൂഗിൾ സ്ക്രിപ്റ്റ് (വാട്സാപ്പുമായി കണക്ട് ചെയ്യാൻ)
-                            text_p = f"{it} {am} {ty[0].lower()}"
+                            # കേവലം പുതിയ ഗൂഗിൾ സ്ക്രിപ്റ്റിലേക്ക് മാത്രം അയക്കുന്നു
+                            text_p = f"{display_name} {am} {ty[0].lower()}"
                             requests.get(f"{SCRIPT_API}?text={urllib.parse.quote(text_p)}")
                             
-                            wa_msg = f"✅ *Paichi Entry*\n👤 {curr_user.capitalize()}\n💰 ₹{am} - {it}\n💳 *Balance: ₹{(balance - am if ty == 'Debit' else balance + am):,.2f}*"
+                            new_bal = balance - am if ty == "Debit" else balance + am
+                            wa_msg = f"✅ *Paichi Entry*\n👤 {curr_user.capitalize()}\n💰 ₹{am} - {it}\n💳 *Balance: ₹{new_bal:,.2f}*"
                             threading.Thread(target=send_wa, args=(wa_msg,)).start()
                             st.success("Entry Saved!"); st.rerun()
                     except: st.error("Check Amount!")
@@ -117,16 +116,13 @@ else:
                 if n and a_input:
                     try:
                         am = float(a_input)
-                        d, c = (am, 0) if "Lent" in t else (0, am)
-                        
-                        # പഴയ ഫോമിലേക്ക്
-                        requests.post(FORM_API, data={"entry.1044099436": datetime.now().strftime("%Y-%m-%d"), "entry.2013476337": f"[{curr_user.capitalize()}] DEBT: {t}-{n}", "entry.1460982454": d, "entry.1221658767": c})
-                        
-                        # പുതിയ സ്ക്രിപ്റ്റിലേക്ക്
-                        text_p = f"DEBT-{n} {am} {'d' if 'Lent' in t else 'c'}"
+                        # പുതിയ സ്ക്രിപ്റ്റിലേക്ക് അയക്കുന്നു
+                        debt_tag = "Lent" if "Lent" in t else "Borrowed"
+                        text_p = f"[DEBT-{debt_tag}] {n} {am} {'d' if 'Lent' in t else 'c'}"
                         requests.get(f"{SCRIPT_API}?text={urllib.parse.quote(text_p)}")
                         
-                        wa_msg = f"🤝 *Debt Update*\n👤 {n}\n💰 ₹{am} ({t})\n💳 *Balance: ₹{(balance - am if 'Lent' in t else balance + am):,.2f}*"
+                        new_bal = balance - am if "Lent" in t else balance + am
+                        wa_msg = f"🤝 *Debt Update*\n👤 {n}\n💰 ₹{am} ({t})\n💳 *Balance: ₹{new_bal:,.2f}*"
                         threading.Thread(target=send_wa, args=(wa_msg,)).start()
                         st.success("Debt Saved!"); st.rerun()
                     except: st.error("Check Amount!")
