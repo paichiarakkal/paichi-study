@@ -14,7 +14,9 @@ import urllib.parse
 import threading
 
 # --- 1. CONFIG & SETTINGS ---
+# നിന്റെ ഗൂഗിൾ ഷീറ്റ് CSV ലിങ്ക്
 CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRccfZch3jSdHqrScpqsR_j3FSd70NbELC1j6_nPi-MQXdrhVr3BPcKoI1nub4mQql727pQRPWYk9C-/pub?gid=1583146028&single=true&output=csv"
+# ഗൂഗിൾ ഫോം API (ആപ്പിൽ നിന്ന് ഡാറ്റ ഷീറ്റിലേക്ക് അയക്കാൻ)
 FORM_API = "https://docs.google.com/forms/d/e/1FAIpQLSfLySolQSiRXV0wELNPhUBlKJh77RnJKWc2-uqAM0TPNG3Q5A/formResponse"
 
 # WhatsApp API Config (CallMeBot)
@@ -23,7 +25,9 @@ WA_API_KEY = "7463030"
 
 USERS = {"faisal": "faisal147", "shabana": "shabana123", "admin": "paichi786"}
 
-st.set_page_config(page_title="PAICHI GOLD v8.0", layout="wide")
+st.set_page_config(page_title="PAICHI GOLD v8.5", layout="wide")
+
+# ഓരോ 60 സെക്കൻഡിലും ആപ്പ് തനിയെ പുതുക്കപ്പെടും (Auto-Refresh)
 st_autorefresh(interval=60000, key="auto_refresh")
 
 # --- 2. 🎨 PREMIUM DESIGN ---
@@ -45,17 +49,20 @@ if 'user' not in st.session_state: st.session_state.user = ""
 # --- 3. 📊 SMART ENGINES ---
 
 def send_whatsapp_auto(message):
+    """വാട്സാപ്പിലേക്ക് നോട്ടിഫിക്കേഷൻ അയക്കുന്ന ഫങ്ക്ഷൻ"""
     url = f"https://api.callmebot.com/whatsapp.php?phone={WA_PHONE}&text={urllib.parse.quote(message)}&apikey={WA_API_KEY}"
-    try: requests.get(url, timeout=10)
+    try: requests.get(url, timeout=15)
     except: pass
 
 def send_to_google_async(data):
+    """ഗൂഗിൾ ഷീറ്റിലേക്ക് ഡാറ്റ സേവ് ചെയ്യുന്ന ഫങ്ക്ഷൻ"""
     try: requests.post(FORM_API, data=data, timeout=10)
     except: pass
 
 def get_totals():
+    """ഷീറ്റിലെ ബാലൻസ് കണക്കാക്കുന്ന ഫങ്ക്ഷൻ"""
     try:
-        df = pd.read_csv(f"{CSV_URL}&r={random.randint(1,999)}")
+        df = pd.read_csv(f"{CSV_URL}&r={random.randint(1,9999)}")
         df.columns = df.columns.str.strip()
         t_in = pd.to_numeric(df['Credit'], errors='coerce').fillna(0).sum()
         t_out = pd.to_numeric(df['Debit'], errors='coerce').fillna(0).sum()
@@ -63,6 +70,7 @@ def get_totals():
     except: return 0.0, 0.0, 0.0
 
 def process_voice(text):
+    """വോയ്‌സ് എൻട്രിയെ കാറ്റഗറി ആക്കി മാറ്റുന്ന ഫങ്ക്ഷൻ"""
     if not text: return "Others", "", ""
     raw = text.lower().replace('.', '').replace(',', '')
     nums = re.findall(r'\d+', raw)
@@ -74,6 +82,7 @@ def process_voice(text):
     return category, amt, desc
 
 def get_triple_advisor():
+    """ട്രേഡിംഗ് സിഗ്നലുകൾ നൽകുന്ന ഫങ്ക്ഷൻ"""
     try:
         symbols = {"Nifty 50": "^NSEI", "Bank Nifty": "^NSEBANK", "Crude Fut": "CL=F"}
         results = []
@@ -96,6 +105,7 @@ def get_triple_advisor():
     except: return None
 
 def create_pdf(df):
+    """റിപ്പോർട്ട് PDF ആക്കുന്ന ഫങ്ക്ഷൻ"""
     try:
         pdf = FPDF()
         pdf.add_page(); pdf.set_font("Arial", 'B', 16)
@@ -112,7 +122,45 @@ def create_pdf(df):
         return pdf.output(dest='S').encode('latin-1')
     except: return None
 
-# --- 4. APP MAIN ---
+# --- 4. 🔔 AUTOMATIC WHATSAPP NOTIFIER ENGINE ---
+
+def check_for_new_entries():
+    """ഷീറ്റിൽ പുതിയ വരികൾ വന്നോ എന്ന് നോക്കി വാട്സാപ്പിൽ റിപ്ലൈ അയക്കുന്ന എൻജിൻ"""
+    url = f"{CSV_URL}&r={random.randint(1,999999)}"
+    try:
+        current_df = pd.read_csv(url)
+        current_df.columns = current_df.columns.str.strip()
+        current_row_count = len(current_df)
+        
+        if 'last_row_count' not in st.session_state:
+            st.session_state.last_row_count = current_row_count
+            return
+
+        if current_row_count > st.session_state.last_row_count:
+            new_rows = current_df.iloc[st.session_state.last_row_count:]
+            for index, row in new_rows.iterrows():
+                item_name = str(row.get('Item', ''))
+                
+                # തുക കണ്ടെത്തുന്നു (Amount, Debit, Credit എന്നിവ നോക്കും)
+                val_amt = pd.to_numeric(row.get('Amount', 0), errors='coerce') or 0
+                val_debit = pd.to_numeric(row.get('Debit', 0), errors='coerce') or 0
+                val_credit = pd.to_numeric(row.get('Credit', 0), errors='coerce') or 0
+                final_amt = val_amt if val_amt > 0 else (val_debit if val_debit > 0 else val_credit)
+
+                # വാട്സാപ്പിൽ നിന്നോ നിന്റെ പേര് വെച്ചോ വരുന്ന എൻട്രികൾക്ക് റിപ്ലൈ അയക്കും
+                if any(tag in item_name for tag in ["[WhatsApp]", "[Faisal]", "[Shabana]"]):
+                    clean_name = item_name.replace('[WhatsApp]', '').replace('[Faisal]', '').replace('[Shabana]', '').strip()
+                    reply = f"✅ *Paichi Update*\n📝 Item: {clean_name}\n💰 Amount: ₹{final_amt}\n📊 Status: Saved to Sheet"
+                    send_whatsapp_auto(reply)
+            
+            st.session_state.last_row_count = current_row_count
+    except:
+        pass
+
+# ഓരോ തവണ ആപ്പ് പുതുക്കുമ്പോഴും ഈ ഫങ്ക്ഷൻ പ്രവർത്തിക്കും
+check_for_new_entries()
+
+# --- 5. APP MAIN UI ---
 if not st.session_state.auth:
     st.title("🔐 PAICHI FINANCE LOGIN")
     u = st.text_input("Username").lower()
@@ -180,6 +228,7 @@ else:
                         msg = f"✅ *Paichi Entry*\n📝 Item: {it}\n💰 Amt: ₹{am}\n👤 User: {curr_user}"
                         threading.Thread(target=send_whatsapp_auto, args=(msg,)).start()
                         st.success("Saved & Notification Sent! ✅")
+                        st.session_state.last_row_count += 1
                     else: st.error("വിവരങ്ങൾ നൽകുക!")
                 except: st.error("നമ്പർ മാത്രം നൽകുക!")
 
@@ -210,36 +259,4 @@ else:
                 payload = {"entry.1044099436": datetime.now().strftime("%Y-%m-%d"), "entry.2013476337": f"[{curr_user.capitalize()}] DEBT: {t} - {n}", "entry.1460982454": d, "entry.1221658767": c}
                 threading.Thread(target=send_to_google_async, args=(payload,)).start()
                 st.success("Debt Saved! ✅")
-# പഴയ വരികളുടെ എണ്ണം സൂക്ഷിക്കാൻ ഒരു വേരിയബിൾ
-if 'last_row_count' not in st.session_state:
-    try:
-        temp_df = pd.read_csv(CSV_URL)
-        st.session_state.last_row_count = len(temp_df)
-    except:
-        st.session_state.last_row_count = 0
-
-# ഷീറ്റിൽ പുതിയ വരി വന്നോ എന്ന് പരിശോധിക്കുന്ന ഫങ്ക്ഷൻ
-def check_for_new_entries():
-    try:
-        current_df = pd.read_csv(f"{CSV_URL}&r={random.randint(1,999)}")
-        current_row_count = len(current_df)
-        
-        if current_row_count > st.session_state.last_row_count:
-            # പുതിയ വരികൾ വന്നിട്ടുണ്ട്!
-            new_rows = current_df.iloc[st.session_state.last_row_count:]
-            
-            for index, row in new_rows.iterrows():
-                item = row['Item']
-                # ഇത് Twilio വഴിയാണോ വന്നതെന്ന് നോക്കുന്നു (ഉദാഹരണത്തിന് [Shabana] എന്ന് പേര് ഉണ്ടോ എന്ന്)
-                if "[Shabana]" in str(item) or "[Faisal]" in str(item):
-                    amt = row['Debit'] if row['Debit'] > 0 else row['Credit']
-                    msg = f"🔔 *External Entry Detected*\n📝 {item}\n💰 Amt: ₹{amt}"
-                    send_whatsapp_auto(msg)
-            
-            # കൗണ്ട് അപ്ഡേറ്റ് ചെയ്യുന്നു
-            st.session_state.last_row_count = current_row_count
-    except:
-        pass
-
-# ഇത് ഓട്ടോമാറ്റിക്കായി റൺ ചെയ്യാൻ നിന്റെ st_autorefresh സഹായിക്കും
-check_for_new_entries()
+                st.session_state.last_row_count += 1
