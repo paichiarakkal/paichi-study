@@ -14,9 +14,7 @@ import urllib.parse
 import threading
 
 # --- 1. CONFIG & SETTINGS ---
-# നിന്റെ ഗൂഗിൾ ഷീറ്റ് CSV ലിങ്ക്
 CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRccfZch3jSdHqrScpqsR_j3FSd70NbELC1j6_nPi-MQXdrhVr3BPcKoI1nub4mQql727pQRPWYk9C-/pub?gid=1583146028&single=true&output=csv"
-# ഗൂഗിൾ ഫോം API (ആപ്പിൽ നിന്ന് ഡാറ്റ ഷീറ്റിലേക്ക് അയക്കാൻ)
 FORM_API = "https://docs.google.com/forms/d/e/1FAIpQLSfLySolQSiRXV0wELNPhUBlKJh77RnJKWc2-uqAM0TPNG3Q5A/formResponse"
 
 # WhatsApp API Config (CallMeBot)
@@ -25,9 +23,7 @@ WA_API_KEY = "7463030"
 
 USERS = {"faisal": "faisal147", "shabana": "shabana123", "admin": "paichi786"}
 
-st.set_page_config(page_title="PAICHI GOLD v8.5", layout="wide")
-
-# ഓരോ 60 സെക്കൻഡിലും ആപ്പ് തനിയെ പുതുക്കപ്പെടും (Auto-Refresh)
+st.set_page_config(page_title="PAICHI GOLD v8.0", layout="wide")
 st_autorefresh(interval=60000, key="auto_refresh")
 
 # --- 2. 🎨 PREMIUM DESIGN ---
@@ -49,20 +45,17 @@ if 'user' not in st.session_state: st.session_state.user = ""
 # --- 3. 📊 SMART ENGINES ---
 
 def send_whatsapp_auto(message):
-    """വാട്സാപ്പിലേക്ക് നോട്ടിഫിക്കേഷൻ അയക്കുന്ന ഫങ്ക്ഷൻ"""
     url = f"https://api.callmebot.com/whatsapp.php?phone={WA_PHONE}&text={urllib.parse.quote(message)}&apikey={WA_API_KEY}"
-    try: requests.get(url, timeout=15)
+    try: requests.get(url, timeout=10)
     except: pass
 
 def send_to_google_async(data):
-    """ഗൂഗിൾ ഷീറ്റിലേക്ക് ഡാറ്റ സേവ് ചെയ്യുന്ന ഫങ്ക്ഷൻ"""
     try: requests.post(FORM_API, data=data, timeout=10)
     except: pass
 
 def get_totals():
-    """ഷീറ്റിലെ ബാലൻസ് കണക്കാക്കുന്ന ഫങ്ക്ഷൻ"""
     try:
-        df = pd.read_csv(f"{CSV_URL}&r={random.randint(1,9999)}")
+        df = pd.read_csv(f"{CSV_URL}&r={random.randint(1,999)}")
         df.columns = df.columns.str.strip()
         t_in = pd.to_numeric(df['Credit'], errors='coerce').fillna(0).sum()
         t_out = pd.to_numeric(df['Debit'], errors='coerce').fillna(0).sum()
@@ -70,7 +63,6 @@ def get_totals():
     except: return 0.0, 0.0, 0.0
 
 def process_voice(text):
-    """വോയ്‌സ് എൻട്രിയെ കാറ്റഗറി ആക്കി മാറ്റുന്ന ഫങ്ക്ഷൻ"""
     if not text: return "Others", "", ""
     raw = text.lower().replace('.', '').replace(',', '')
     nums = re.findall(r'\d+', raw)
@@ -82,7 +74,6 @@ def process_voice(text):
     return category, amt, desc
 
 def get_triple_advisor():
-    """ട്രേഡിംഗ് സിഗ്നലുകൾ നൽകുന്ന ഫങ്ക്ഷൻ"""
     try:
         symbols = {"Nifty 50": "^NSEI", "Bank Nifty": "^NSEBANK", "Crude Fut": "CL=F"}
         results = []
@@ -105,7 +96,6 @@ def get_triple_advisor():
     except: return None
 
 def create_pdf(df):
-    """റിപ്പോർട്ട് PDF ആക്കുന്ന ഫങ്ക്ഷൻ"""
     try:
         pdf = FPDF()
         pdf.add_page(); pdf.set_font("Arial", 'B', 16)
@@ -122,45 +112,33 @@ def create_pdf(df):
         return pdf.output(dest='S').encode('latin-1')
     except: return None
 
-# --- 4. 🔔 AUTOMATIC WHATSAPP NOTIFIER ENGINE ---
-
+# --- 4. 🔔 NOTIFIER ---
 def check_for_new_entries():
-    """ഷീറ്റിൽ പുതിയ വരികൾ വന്നോ എന്ന് നോക്കി വാട്സാപ്പിൽ റിപ്ലൈ അയക്കുന്ന എൻജിൻ"""
-    url = f"{CSV_URL}&r={random.randint(1,999999)}"
+    url = f"{CSV_URL}&r={random.randint(1,99999)}"
     try:
         current_df = pd.read_csv(url)
         current_df.columns = current_df.columns.str.strip()
         current_row_count = len(current_df)
-        
         if 'last_row_count' not in st.session_state:
             st.session_state.last_row_count = current_row_count
             return
-
         if current_row_count > st.session_state.last_row_count:
             new_rows = current_df.iloc[st.session_state.last_row_count:]
             for index, row in new_rows.iterrows():
-                item_name = str(row.get('Item', ''))
-                
-                # തുക കണ്ടെത്തുന്നു (Amount, Debit, Credit എന്നിവ നോക്കും)
-                val_amt = pd.to_numeric(row.get('Amount', 0), errors='coerce') or 0
-                val_debit = pd.to_numeric(row.get('Debit', 0), errors='coerce') or 0
-                val_credit = pd.to_numeric(row.get('Credit', 0), errors='coerce') or 0
-                final_amt = val_amt if val_amt > 0 else (val_debit if val_debit > 0 else val_credit)
-
-                # വാട്സാപ്പിൽ നിന്നോ നിന്റെ പേര് വെച്ചോ വരുന്ന എൻട്രികൾക്ക് റിപ്ലൈ അയക്കും
-                if any(tag in item_name for tag in ["[WhatsApp]", "[Faisal]", "[Shabana]"]):
-                    clean_name = item_name.replace('[WhatsApp]', '').replace('[Faisal]', '').replace('[Shabana]', '').strip()
-                    reply = f"✅ *Paichi Update*\n📝 Item: {clean_name}\n💰 Amount: ₹{final_amt}\n📊 Status: Saved to Sheet"
-                    send_whatsapp_auto(reply)
-            
+                item_val = str(row.get('Item', ''))
+                if any(x in item_val for x in ["[WhatsApp]", "[Faisal]", "[Shabana]"]):
+                    amt = row.get('Amount', 0)
+                    if pd.to_numeric(amt, errors='coerce') == 0 or pd.isna(amt):
+                        d_val = pd.to_numeric(row.get('Debit', 0), errors='coerce') or 0
+                        c_val = pd.to_numeric(row.get('Credit', 0), errors='coerce') or 0
+                        amt = d_val if d_val > 0 else c_val
+                    send_whatsapp_auto(f"🔔 *New Entry Detected*\n📝 {item_val}\n💰 Amount: ₹{amt}")
             st.session_state.last_row_count = current_row_count
-    except:
-        pass
+    except: pass
 
-# ഓരോ തവണ ആപ്പ് പുതുക്കുമ്പോഴും ഈ ഫങ്ക്ഷൻ പ്രവർത്തിക്കും
 check_for_new_entries()
 
-# --- 5. APP MAIN UI ---
+# --- 5. APP MAIN ---
 if not st.session_state.auth:
     st.title("🔐 PAICHI FINANCE LOGIN")
     u = st.text_input("Username").lower()
@@ -179,8 +157,11 @@ else:
         <span style="font-size:40px; color:#FFD700; font-weight:bold;">₹{balance:,.2f}</span>
     </div>''', unsafe_allow_html=True)
 
-    if curr_user == "shabana": menu_options = ["💰 Add Entry"]
-    else: menu_options = ["📊 Advisor", "🏠 Dashboard", "💰 Add Entry", "📊 Report", "🔍 History", "🤝 Debt Tracker"]
+    # ഷബാനയ്ക്കും എല്ലാ ആക്സസ്സും നൽകി
+    if curr_user == "shabana": 
+        menu_options = ["💰 Add Entry", "📊 Report", "🔍 History"]
+    else: 
+        menu_options = ["📊 Advisor", "🏠 Dashboard", "💰 Add Entry", "📊 Report", "🔍 History", "🤝 Debt Tracker"]
 
     page = st.sidebar.radio("Menu", menu_options)
     if st.sidebar.button("Logout"): st.session_state.auth = False; st.rerun()
@@ -195,7 +176,6 @@ else:
                     <h2 style="color:#E0B0FF !important;">{m["name"]}</h2>
                     <h1 style="color:{m["color"]} !important; font-size:55px;">{m["signal"]}</h1>
                     <h1 style="color:#FFD700 !important; font-size:50px;">₹{m["price"]:,.0f}</h1>
-                    <p>RSI: {m["rsi"]:.1f}</p>
                 </div>""", unsafe_allow_html=True)
 
     elif page == "🏠 Dashboard":
@@ -209,37 +189,52 @@ else:
         st.title("Smart Voice Entry 🎙️")
         v_raw = speech_to_text(language='ml', key='voice_v8')
         v_cat, v_amt, v_desc = process_voice(v_raw)
-        
         with st.form("entry_form", clear_on_submit=True):
             it = st.text_input("Description", value=v_desc)
             am_str = st.text_input("Amount", value=str(v_amt))
-            cat_list = ["Food", "Shop", "Fish", "Travel", "Chicken", "Rent", "Others"]
-            cat = st.selectbox("Category", cat_list, index=cat_list.index(v_cat) if v_cat in cat_list else 6)
+            cat = st.selectbox("Category", ["Food", "Shop", "Fish", "Travel", "Rent", "Others"])
             ty = st.radio("Type", ["Debit", "Credit"], horizontal=True)
-            
             if st.form_submit_button("SAVE & NOTIFY"):
                 try:
                     am = float(am_str.strip().replace(',', ''))
-                    if it and am > 0:
-                        d, c = (am, 0) if ty == "Debit" else (0, am)
-                        payload = {"entry.1044099436": datetime.now().strftime("%Y-%m-%d"), "entry.2013476337": f"[{curr_user.capitalize()}] {cat}: {it}", "entry.1460982454": d, "entry.1221658767": c}
-                        
-                        threading.Thread(target=send_to_google_async, args=(payload,)).start()
-                        msg = f"✅ *Paichi Entry*\n📝 Item: {it}\n💰 Amt: ₹{am}\n👤 User: {curr_user}"
-                        threading.Thread(target=send_whatsapp_auto, args=(msg,)).start()
-                        st.success("Saved & Notification Sent! ✅")
-                        st.session_state.last_row_count += 1
-                    else: st.error("വിവരങ്ങൾ നൽകുക!")
-                except: st.error("നമ്പർ മാത്രം നൽകുക!")
+                    d, c = (am, 0) if ty == "Debit" else (0, am)
+                    payload = {"entry.1044099436": datetime.now().strftime("%Y-%m-%d"), "entry.2013476337": f"[{curr_user.capitalize()}] {cat}: {it}", "entry.1460982454": d, "entry.1221658767": c}
+                    threading.Thread(target=send_to_google_async, args=(payload,)).start()
+                    send_whatsapp_auto(f"✅ *Paichi Entry*\n📝 Item: {it}\n💰 Amt: ₹{am}\n👤 User: {curr_user}")
+                    st.success("Saved! ✅")
+                    st.session_state.last_row_count += 1
+                except: st.error("Error!")
 
     elif page == "📊 Report":
-        st.title("Expense Analysis")
+        st.title("Monthly Expense Analysis")
         df = pd.read_csv(f"{CSV_URL}&r={random.randint(1,999)}")
         df.columns = df.columns.str.strip()
-        df['Debit'] = pd.to_numeric(df['Debit'], errors='coerce').fillna(0)
-        report_df = df[df['Debit'] > 0].copy()
-        if not report_df.empty:
-            fig = px.pie(report_df, values='Debit', names='Item', hole=0.4)
+        df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+        df['Month'] = df['Date'].dt.strftime('%B %Y')
+        
+        months = df.sort_values(by='Date', ascending=False)['Month'].dropna().unique()
+        sel_month = st.selectbox("Select Month", months)
+        
+        monthly_df = df[df['Month'] == sel_month].copy()
+        monthly_df['Debit'] = pd.to_numeric(monthly_df['Debit'], errors='coerce').fillna(0)
+        m_total = monthly_df['Debit'].sum()
+        
+        st.markdown(f"""<div class="purple-box">
+            <h3>{sel_month} Total Expense</h3>
+            <h1 style="color: #FF3131;">₹{m_total:,.2f}</h1>
+        </div>""", unsafe_allow_html=True)
+
+        if m_total > 0:
+            # പൈ ചാർട്ടിലെ എഴുത്തുകൾ ശരിയാക്കാൻ കാറ്റഗറി ലേബൽ ഉപയോഗിക്കുന്നു
+            monthly_df['Category_Label'] = monthly_df['Item'].apply(lambda x: x.split(':')[0] if ':' in x else 'Others')
+            
+            fig = px.pie(
+                monthly_df[monthly_df['Debit'] > 0], 
+                values='Debit', 
+                names='Category_Label', 
+                hole=0.4
+            )
+            fig.update_traces(textposition='inside', textinfo='percent+label')
             st.plotly_chart(fig, use_container_width=True)
 
     elif page == "🔍 History":
@@ -258,5 +253,5 @@ else:
                 d, c = (0, a) if "Borrowed" in t else (a, 0)
                 payload = {"entry.1044099436": datetime.now().strftime("%Y-%m-%d"), "entry.2013476337": f"[{curr_user.capitalize()}] DEBT: {t} - {n}", "entry.1460982454": d, "entry.1221658767": c}
                 threading.Thread(target=send_to_google_async, args=(payload,)).start()
-                st.success("Debt Saved! ✅")
+                st.success("Saved! ✅")
                 st.session_state.last_row_count += 1
