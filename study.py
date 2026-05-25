@@ -1,4 +1,4 @@
-import streamlit as st
+Import streamlit as st
 import pandas as pd
 import requests
 from datetime import datetime
@@ -157,6 +157,7 @@ else:
         <span style="font-size:40px; color:#FFD700; font-weight:bold;">₹{balance:,.2f}</span>
     </div>''', unsafe_allow_html=True)
 
+    # ഷബാനയ്ക്കും എല്ലാ ആക്സസ്സും നൽകി
     if curr_user == "shabana": 
         menu_options = ["💰 Add Entry", "📊 Report", "🔍 History"]
     else: 
@@ -224,48 +225,24 @@ else:
         </div>""", unsafe_allow_html=True)
 
         if m_total > 0:
+            # പൈ ചാർട്ടിലെ എഴുത്തുകൾ ശരിയാക്കാൻ കാറ്റഗറി ലേബൽ ഉപയോഗിക്കുന്നു
             monthly_df['Category_Label'] = monthly_df['Item'].apply(lambda x: x.split(':')[0] if ':' in x else 'Others')
-            fig = px.pie(monthly_df[monthly_df['Debit'] > 0], values='Debit', names='Category_Label', hole=0.4)
+            
+            fig = px.pie(
+                monthly_df[monthly_df['Debit'] > 0], 
+                values='Debit', 
+                names='Category_Label', 
+                hole=0.4
+            )
             fig.update_traces(textposition='inside', textinfo='percent+label')
             st.plotly_chart(fig, use_container_width=True)
 
-    # --- 🛠️ UPDATED MONTH-WISE HISTORY SECTION ---
     elif page == "🔍 History":
-        st.title("📅 Transaction History (Month-wise)")
-        
+        st.title("Transaction History")
         df = pd.read_csv(f"{CSV_URL}&r={random.randint(1,999)}")
-        df.columns = df.columns.str.strip()
-        
-        # തീയതികൾ കൃത്യമായി തിരിച്ചറിയാൻ താൽക്കാലിക കോളങ്ങൾ ഉണ്ടാക്കുന്നു
-        df['Date_Parsed'] = pd.to_datetime(df['Date'], errors='coerce')
-        df['Month_Year'] = df['Date_Parsed'].dt.strftime('%B %Y')
-        
-        # PDF ഡൗൺലോഡ് ചെയ്യാനുള്ള ബട്ടൺ
-        pdf_bytes = create_pdf(df.drop(columns=['Date_Parsed', 'Month_Year'], errors='ignore'))
-        if pdf_bytes: 
-            st.download_button("📥 Download Full PDF", pdf_bytes, "Report.pdf", "application/pdf")
-            st.write("") # ചെറിയൊരു സ്പേസ് നൽകാൻ
-        
-        # മാസങ്ങൾ പുതിയതിൽ നിന്ന് പഴയതിലേക്ക് എന്ന രീതിയിൽ ക്രമീകരിക്കുന്നു
-        unique_months = df.sort_values(by='Date_Parsed', ascending=False)['Month_Year'].dropna().unique()
-        
-        if len(unique_months) == 0:
-            st.info("No data available in Google Sheets.")
-        else:
-            for month in unique_months:
-                month_df = df[df['Month_Year'] == month].copy()
-                
-                # ആ മാസത്തെ മാത്രം ടോട്ടൽ തുകകൾ കണക്കാക്കുന്നു
-                m_credit = pd.to_numeric(month_df['Credit'], errors='coerce').fillna(0).sum()
-                m_debit = pd.to_numeric(month_df['Debit'], errors='coerce').fillna(0).sum()
-                m_bal = m_credit - m_debit
-                
-                # ഓരോ മാസത്തിനും മനോഹരമായ ഓരോ എക്സ്പാൻഡർ (Dropdown) ഉണ്ടാക്കുന്നു
-                expander_title = f"📁 {month}  |  🟢 Credit: ₹{m_credit:,.2f}  |  🔴 Debit: ₹{m_debit:,.2f}  |  ⚖️ Bal: ₹{m_bal:,.2f}"
-                with st.expander(expander_title):
-                    # താൽക്കാലികമായി ഉണ്ടാക്കിയ കോളങ്ങൾ കളഞ്ഞ ശേഷം പുതിയ എൻട്രികൾ മുകളിൽ വരുന്ന രീതിയിൽ കാണിക്കുന്നു
-                    display_df = month_df.drop(columns=['Date_Parsed', 'Month_Year'], errors='ignore')
-                    st.dataframe(display_df.iloc[::-1], use_container_width=True)
+        pdf_bytes = create_pdf(df)
+        if pdf_bytes: st.download_button("📥 Download PDF", pdf_bytes, "Report.pdf", "application/pdf")
+        st.dataframe(df.iloc[::-1], use_container_width=True)
 
     elif page == "🤝 Debt Tracker":
         st.title("Debt Management")
@@ -278,3 +255,4 @@ else:
                 threading.Thread(target=send_to_google_async, args=(payload,)).start()
                 st.success("Saved! ✅")
                 st.session_state.last_row_count += 1
+
