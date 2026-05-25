@@ -254,5 +254,5 @@ else:
                 payload = {"entry.1044099436": datetime.now().strftime("%Y-%m-%d"), "entry.2013476337": f"[{curr_user.capitalize()}] DEBT: {t} - {n}", "entry.1460982454": d, "entry.1221658767": c}
                 threading.Thread(target=send_to_google_async, args=(payload,)).start()
                 st.success("Saved! ✅")
-                st.session_state.last_row_count += 
+                st.session_state.last_row_count 
                         
