@@ -1,4 +1,4 @@
-Import streamlit as st
+import streamlit as st
 import pandas as pd
 import requests
 from datetime import datetime
@@ -157,7 +157,6 @@ else:
         <span style="font-size:40px; color:#FFD700; font-weight:bold;">₹{balance:,.2f}</span>
     </div>''', unsafe_allow_html=True)
 
-    # ഷബാനയ്ക്കും എല്ലാ ആക്സസ്സും നൽകി
     if curr_user == "shabana": 
         menu_options = ["💰 Add Entry", "📊 Report", "🔍 History"]
     else: 
@@ -193,7 +192,7 @@ else:
             it = st.text_input("Description", value=v_desc)
             am_str = st.text_input("Amount", value=str(v_amt))
             cat = st.selectbox("Category", ["Food", "Shop", "Fish", "Travel", "Rent", "Others"])
-            ty = st.radio("Type", ["Debit", "Credit"], horizontal=True)
+            ty = ty = st.radio("Type", ["Debit", "Credit"], horizontal=True)
             if st.form_submit_button("SAVE & NOTIFY"):
                 try:
                     am = float(am_str.strip().replace(',', ''))
@@ -225,7 +224,6 @@ else:
         </div>""", unsafe_allow_html=True)
 
         if m_total > 0:
-            # പൈ ചാർട്ടിലെ എഴുത്തുകൾ ശരിയാക്കാൻ കാറ്റഗറി ലേബൽ ഉപയോഗിക്കുന്നു
             monthly_df['Category_Label'] = monthly_df['Item'].apply(lambda x: x.split(':')[0] if ':' in x else 'Others')
             
             fig = px.pie(
