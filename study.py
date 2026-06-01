@@ -11,13 +11,11 @@ from fpdf import FPDF
 import io
 import re
 import urllib.parse
-import threading
 
 # --- 1. CONFIG & SETTINGS ---
 CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRccfZch3jSdHqrScpqsR_j3FSd70NbELC1j6_nPi-MQXdrhVr3BPcKoI1nub4mQql727pQRPWYk9C-/pub?gid=1583146028&single=true&output=csv"
 FORM_API = "https://docs.google.com/forms/d/e/1FAIpQLSfLySolQSiRXV0wELNPhUBlKJh77RnJKWc2-uqAM0TPNG3Q5A/formResponse"
 
-# WhatsApp API Config (CallMeBot)
 WA_PHONE = "971551347989"
 WA_API_KEY = "7463030"
 
@@ -43,7 +41,6 @@ if 'auth' not in st.session_state: st.session_state.auth = False
 if 'user' not in st.session_state: st.session_state.user = ""
 
 # --- 3. 📊 SMART ENGINES ---
-
 def send_whatsapp_auto(message):
     url = f"https://api.callmebot.com/whatsapp.php?phone={WA_PHONE}&text={urllib.parse.quote(message)}&apikey={WA_API_KEY}"
     try: requests.get(url, timeout=10)
@@ -111,6 +108,30 @@ def create_pdf(df):
             pdf.ln()
         return pdf.output(dest='S').encode('latin-1')
     except: return None
+
+# 🔥 തീയതി കൃത്യമാക്കാനും പഴയ മാസങ്ങളെ വെട്ടിമാറ്റാനുമുള്ള മാസ്സ് ഫംഗ്ഷൻ
+def parse_mixed_dates(date_series):
+    parsed_dates = []
+    for val in date_series:
+        val_str = str(val).strip()
+        dt = pd.NaT
+        try:
+            # 1. ആദ്യം ഗൂഗിൾ ഫോം ഫോർമാറ്റിൽ (M/D/YYYY) നോക്കുന്നു
+            dt = pd.to_datetime(val_str, errors='coerce')
+            if not pd.isna(dt) and dt.year == 2026 and dt.month < 4:
+                # മാസം ഏപ്രിലിന് താഴെയാണെങ്കിൽ അത് തീയതി മാറി വായിച്ചതാകാം, അത് തിരുത്തുന്നു
+                dt = datetime(2026, dt.day, dt.month)
+        except:
+            pass
+            
+        if pd.isna(dt):
+            try:
+                # 2. നടന്നില്ലെങ്കിൽ DD/MM/YYYY രീതിയിൽ നോക്കുന്നു
+                dt = pd.to_datetime(val_str, dayfirst=True, errors='coerce')
+            except:
+                pass
+        parsed_dates.append(dt)
+    return pd.Series(parsed_dates)
 
 # --- 4. 🔔 NOTIFIER ---
 def check_for_new_entries():
@@ -192,13 +213,13 @@ else:
             it = st.text_input("Description", value=v_desc)
             am_str = st.text_input("Amount", value=str(v_amt))
             cat = st.selectbox("Category", ["Food", "Shop", "Fish", "Travel", "Rent", "Others"])
-            ty = ty = st.radio("Type", ["Debit", "Credit"], horizontal=True)
+            ty = st.radio("Type", ["Debit", "Credit"], horizontal=True)
             if st.form_submit_button("SAVE & NOTIFY"):
                 try:
                     am = float(am_str.strip().replace(',', ''))
                     d, c = (am, 0) if ty == "Debit" else (0, am)
                     payload = {"entry.1044099436": datetime.now().strftime("%Y-%m-%d"), "entry.2013476337": f"[{curr_user.capitalize()}] {cat}: {it}", "entry.1460982454": d, "entry.1221658767": c}
-                    threading.Thread(target=send_to_google_async, args=(payload,)).start()
+                    send_to_google_async(payload)
                     send_whatsapp_auto(f"✅ *Paichi Entry*\n📝 Item: {it}\n💰 Amt: ₹{am}\n👤 User: {curr_user}")
                     st.success("Saved! ✅")
                     st.session_state.last_row_count += 1
@@ -208,39 +229,96 @@ else:
         st.title("Monthly Expense Analysis")
         df = pd.read_csv(f"{CSV_URL}&r={random.randint(1,999)}")
         df.columns = df.columns.str.strip()
-        df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+        
+        df['Date'] = parse_mixed_dates(df['Date'])
+        
+        # ⚠️ കടുപ്പമേറിയ ഫിൽട്ടർ: 2026 ഏപ്രിലിന് (Month >= 4) മുൻപുള്ള എല്ലാ തീയതികളെയും ഇവിടെ വെച്ച് ഒഴിവാക്കുന്നു
+        df = df[df['Date'].dt.year == 2026]
+        df = df[df['Date'].dt.month >= 4]
+        
         df['Month'] = df['Date'].dt.strftime('%B %Y')
+        df = df.dropna(subset=['Month'])
         
-        months = df.sort_values(by='Date', ascending=False)['Month'].dropna().unique()
-        sel_month = st.selectbox("Select Month", months)
-        
-        monthly_df = df[df['Month'] == sel_month].copy()
-        monthly_df['Debit'] = pd.to_numeric(monthly_df['Debit'], errors='coerce').fillna(0)
-        m_total = monthly_df['Debit'].sum()
-        
-        st.markdown(f"""<div class="purple-box">
-            <h3>{sel_month} Total Expense</h3>
-            <h1 style="color: #FF3131;">₹{m_total:,.2f}</h1>
-        </div>""", unsafe_allow_html=True)
-
-        if m_total > 0:
-            monthly_df['Category_Label'] = monthly_df['Item'].apply(lambda x: x.split(':')[0] if ':' in x else 'Others')
+        months = df.sort_values(by='Date', ascending=False)['Month'].unique()
+        if len(months) == 0:
+            st.warning("No data found in Google Sheets for April 2026 onwards!")
+        else:
+            sel_month = st.selectbox("Select Month", months)
+            monthly_df = df[df['Month'] == sel_month].copy()
+            monthly_df['Debit'] = pd.to_numeric(monthly_df['Debit'], errors='coerce').fillna(0)
+            monthly_df['Credit'] = pd.to_numeric(monthly_df['Credit'], errors='coerce').fillna(0)
             
-            fig = px.pie(
-                monthly_df[monthly_df['Debit'] > 0], 
-                values='Debit', 
-                names='Category_Label', 
-                hole=0.4
-            )
-            fig.update_traces(textposition='inside', textinfo='percent+label')
-            st.plotly_chart(fig, use_container_width=True)
+            m_total_debit = monthly_df['Debit'].sum()
+            m_total_credit = monthly_df['Credit'].sum()
+            m_savings = m_total_credit - m_total_debit
+            
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.markdown(f"""<div class="purple-box">
+                    <h3 style="color: #00FF00;">{sel_month} Total Credit</h3>
+                    <h1 style="color: #00FF00;">₹{m_total_credit:,.2f}</h1>
+                </div>""", unsafe_allow_html=True)
+            with col2:
+                st.markdown(f"""<div class="purple-box">
+                    <h3 style="color: #FF3131;">{sel_month} Total Expense</h3>
+                    <h1 style="color: #FF3131;">₹{m_total_debit:,.2f}</h1>
+                </div>""", unsafe_allow_html=True)
+            with col3:
+                st.markdown(f"""<div class="purple-box">
+                    <h3 style="color: #FFD700;">{sel_month} Net Savings</h3>
+                    <h1 style="color: #FFD700;">₹{m_savings:,.2f}</h1>
+                </div>""", unsafe_allow_html=True)
+
+            if m_total_debit > 0:
+                monthly_df['Category_Label'] = monthly_df['Item'].apply(lambda x: x.split(':')[0] if ':' in x else 'Others')
+                fig = px.pie(monthly_df[monthly_df['Debit'] > 0], values='Debit', names='Category_Label', hole=0.4, title=f"{sel_month} Expense Split")
+                fig.update_traces(textposition='inside', textinfo='percent+label')
+                st.plotly_chart(fig, use_container_width=True)
+                
+            st.subheader(f"📋 {sel_month} Detailed Transactions")
+            clean_table_df = monthly_df.drop(columns=['Month'], errors='ignore')
+            
+            csv_data = clean_table_df.to_csv(index=False).encode('utf-8')
+            st.download_button(label="📥 Download Excel/CSV Report", data=csv_data, file_name=f"Report_{sel_month.replace(' ', '_')}.csv", mime="text/csv")
+            
+            clean_table_df['Date'] = clean_table_df['Date'].dt.strftime('%d/%m/%Y')
+            st.dataframe(clean_table_df.iloc[::-1], use_container_width=True)
 
     elif page == "🔍 History":
         st.title("Transaction History")
         df = pd.read_csv(f"{CSV_URL}&r={random.randint(1,999)}")
-        pdf_bytes = create_pdf(df)
-        if pdf_bytes: st.download_button("📥 Download PDF", pdf_bytes, "Report.pdf", "application/pdf")
-        st.dataframe(df.iloc[::-1], use_container_width=True)
+        df.columns = df.columns.str.strip()
+        
+        df['Date'] = parse_mixed_dates(df['Date'])
+        
+        # ⚠️ ഇവിടെയും 2026 ഏപ്രിലിന് മുൻപുള്ള പഴയ ഡാറ്റകളെ ബ്ലോക്ക് ചെയ്യുന്നു
+        df = df[df['Date'].dt.year == 2026]
+        df = df[df['Date'].dt.month >= 4]
+        
+        df['Month'] = df['Date'].dt.strftime('%B %Y')
+        df = df.dropna(subset=['Month'])
+        
+        months = df.sort_values(by='Date', ascending=False)['Month'].unique()
+        
+        if len(months) == 0:
+            st.warning("No transactions found from April 2026 onwards!")
+        else:
+            sel_hist_month = st.selectbox("Select Month for History", months, key="history_month_select")
+            filtered_history = df[df['Month'] == sel_hist_month].copy()
+            
+            clean_hist_df = filtered_history.drop(columns=['Month'], errors='ignore')
+            csv_hist_data = clean_hist_df.to_csv(index=False).encode('utf-8')
+            
+            col_pdf, col_csv = st.columns(2)
+            with col_pdf:
+                pdf_bytes = create_pdf(clean_hist_df)
+                if pdf_bytes: 
+                    st.download_button(f"📄 Download {sel_hist_month} PDF", pdf_bytes, f"History_{sel_hist_month.replace(' ', '_')}.pdf", "application/pdf")
+            with col_csv:
+                st.download_button(label=f"📥 Download {sel_hist_month} CSV (Excel)", data=csv_hist_data, file_name=f"History_{sel_hist_month.replace(' ', '_')}.csv", mime="text/csv")
+            
+            clean_hist_df['Date'] = clean_hist_df['Date'].dt.strftime('%d/%m/%Y')
+            st.dataframe(clean_hist_df.iloc[::-1], use_container_width=True)
 
     elif page == "🤝 Debt Tracker":
         st.title("Debt Management")
@@ -250,6 +328,6 @@ else:
             if st.form_submit_button("SAVE"):
                 d, c = (0, a) if "Borrowed" in t else (a, 0)
                 payload = {"entry.1044099436": datetime.now().strftime("%Y-%m-%d"), "entry.2013476337": f"[{curr_user.capitalize()}] DEBT: {t} - {n}", "entry.1460982454": d, "entry.1221658767": c}
-                threading.Thread(target=send_to_google_async, args=(payload,)).start()
+                send_to_google_async(payload)
                 st.success("Saved! ✅")
                 st.session_state.last_row_count += 1
