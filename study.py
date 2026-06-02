@@ -163,7 +163,8 @@ else:
     </div>''', unsafe_allow_html=True)
 
     if curr_user == "shabana": 
-        menu_options = ["💰 Add Entry", "📊 Report", "🔍 History"]
+        menu_options = ["💰 Add Entry", "📊 Report", "🔍 History", "🤝 Debt Tracker"]
+        
     else: 
         menu_options = ["🏠 Dashboard", "💰 Add Entry", "📊 Report", "🔍 History", "🤝 Debt Tracker"]
 
