@@ -276,7 +276,7 @@ else:
         st.title("Debt Management")
         with st.form("debt_form"):
             n, a = st.text_input("Name"), st.number_input("Amount", min_value=0.0)
-            t = st.selectbox("Category", ["Borrowed", "Lent"])
+            t = st.selectbox("Category", ["koduhade", "vagiyade"])
             if st.form_submit_button("SAVE"):
                 d, c = (0, a) if "Borrowed" in t else (a, 0)
                 payload = {
