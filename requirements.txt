@@ -6,3 +6,5 @@ streamlit-autorefresh
 streamlit-mic_recorder
 plotly
 fpdf
+gspread
+oauth2client
