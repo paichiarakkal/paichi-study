@@ -10,8 +10,6 @@ from fpdf import FPDF
 import io
 import re
 import urllib.parse
-import gspread
-from oauth2client.service_account import ServiceAccountCredentials
 
 # --- 1. CONFIG & SETTINGS ---
 CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRccfZch3jSdHqrScpqsR_j3FSd70NbELC1j6_nPi-MQXdrhVr3BPcKoI1nub4mQql727pQRPWYk9C-/pub?gid=1583146028&single=true&output=csv"
@@ -22,13 +20,12 @@ WA_API_KEY = "7463030"
 
 USERS = {"faisal": "faisal147", "shabana": "shabana123", "admin": "paichi786"}
 
-st.set_page_config(page_title="PAICHI EXPENSES v2.5", layout="wide")
+st.set_page_config(page_title="PAICHI EXPENSES v2.6", layout="wide")
 st_autorefresh(interval=60000, key="auto_refresh")
 
 # Session State Initialization
 if 'auth' not in st.session_state: st.session_state.auth = False
 if 'user' not in st.session_state: st.session_state.user = ""
-if 'last_row_count' not in st.session_state: st.session_state.last_row_count = 0
 
 # --- 2. 🎨 PREMIUM DESIGN ---
 st.markdown("""
@@ -63,6 +60,7 @@ def get_totals():
         return t_in, t_out, (t_in - t_out)
     except: return 0.0, 0.0, 0.0
 
+# 🔍 ആപ്പിൽ കാണാൻ വേണ്ടി ഷീറ്റിൽ നിന്ന് കാറ്റഗറി ടോട്ടൽ കണക്കാക്കുന്ന സിമ്പിൾ എൻജിൻ
 def get_category_totals():
     try:
         df = pd.read_csv(f"{CSV_URL}&r={random.randint(1,999)}")
@@ -86,29 +84,6 @@ def get_category_totals():
         return cat_summary
     except:
         return {}
-
-# 🛠️ ഷീറ്റിൽ നേരിട്ട് കയറി തെറ്റായ വരി ഡിലീറ്റ് ചെയ്യാനുള്ള ഫങ്ക്ഷൻ
-def delete_wrong_row_and_reply(row_index, category_name):
-    try:
-        scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-        # നിങ്ങളുടെ credentials.json ആപ്പിന്റെ ഗിറ്റ്‌ഹബ്ബിൽ ഉണ്ടായിരിക്കണം
-        creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
-        client = gspread.authorize(creds)
-        # നിങ്ങളുടെ ഗൂഗിൾ ഷീറ്റിന്റെ പേര് നൽകുക
-        sheet = client.open_by_url("https://docs.google.com/spreadsheets/d/1vRccfZch3jSdHqrScpqsR_j3FSd70NbELC1j6_nPi-MQXdrhVr3BPcKoI1nub4mQql727pQRPWYk9C-").sheet1
-        
-        # തെറ്റായ ആ വരി ഡിലീറ്റ് ചെയ്യുന്നു
-        sheet.delete_rows(row_index + 2) # Header ഉള്ളതുകൊണ്ട് +2
-        
-        # കറക്റ്റ് ടോട്ടൽ കണക്കാക്കുന്നു
-        cat_totals = get_category_totals()
-        final_total = cat_totals.get(category_name.capitalize(), 0.0)
-        
-        # വാട്സാപ്പിലേക്ക് ഫൈനൽ റിപ്പോർട്ട് അയക്കുന്നു
-        reply = f"📊 *CATEGORY TOTAL REPORT*\n\n🗂️ *Category:* {category_name.upper()}\n💰 *Total Spent:* ₹{final_total:,.2f}"
-        send_whatsapp_auto(reply)
-    except:
-        pass
 
 def process_voice(text):
     if not text: return "Others", "", ""
@@ -159,44 +134,7 @@ def parse_mixed_dates(date_series):
         parsed_dates.append(dt)
     return pd.Series(parsed_dates)
 
-# --- 4. 🔔 NOTIFIER & AUTO-CLEANER ---
-def check_for_new_entries():
-    url = f"{CSV_URL}&r={random.randint(1,99999)}"
-    try:
-        current_df = pd.read_csv(url)
-        current_df.columns = current_df.columns.str.strip()
-        current_row_count = len(current_df)
-        
-        if st.session_state.last_row_count == 0:
-            st.session_state.last_row_count = current_row_count
-            return
-            
-        if current_row_count > st.session_state.last_row_count:
-            new_rows = current_df.iloc[st.session_state.last_row_count:]
-            for index, row in new_rows.iterrows():
-                item_val = str(row.get('Item', ''))
-                
-                # 🔍 സ്മാർട്ട് ചെക്കിംഗ്: മെസ്സേജിൽ 'Total' എന്ന് കണ്ടാൽ ആപ്പിൽ വെച്ച് ക്ലീൻ ചെയ്യും!
-                if "total" in item_val.lower():
-                    # കാറ്റഗറിയുടെ പേര് വേർതിരിക്കുന്നു (e.g., "Total food" ആണെങ്കിൽ "food")
-                    cat_name = item_val.lower().replace("total", "").replace("[whatsapp]", "").replace(":", "").strip()
-                    delete_wrong_row_and_reply(index, cat_name)
-                    continue
-                
-                if any(x in item_val for x in ["[WhatsApp]", "[Faisal]", "[Shabana]"]):
-                    amt = row.get('Amount', 0)
-                    if pd.to_numeric(amt, errors='coerce') == 0 or pd.isna(amt):
-                        d_val = pd.to_numeric(row.get('Debit', 0), errors='coerce') or 0
-                        c_val = pd.to_numeric(row.get('Credit', 0), errors='coerce') or 0
-                        amt = d_val if d_val > 0 else c_val
-                    
-                    send_whatsapp_auto(f"🔔 *New Entry Detected*\n📝 {item_val}\n💰 Amount: ₹{amt}")
-            st.session_state.last_row_count = current_row_count
-    except: pass
-
-check_for_new_entries()
-
-# --- 5. APP MAIN ---
+# --- 4. APP MAIN ---
 if not st.session_state.auth:
     st.title("🔐 PAICHI EXPENSES LOGIN")
     u = st.text_input("Username").lower()
@@ -231,6 +169,7 @@ else:
             <h2 style="color: #FF3131;">Total Debit: ₹{t_out:,.2f}</h2>
         </div>""", unsafe_allow_html=True)
         
+        # 📊 കാറ്റഗറി ടോട്ടലുകൾ സുന്ദരമായി ഇവിടെ കാണാം
         st.subheader("🗂️ Categorywise Expense Breakdown")
         cat_data = get_category_totals()
         if cat_data:
@@ -265,7 +204,6 @@ else:
                     send_to_google_async(payload)
                     send_whatsapp_auto(f"✅ *Paichi Entry*\n📝 Item: {it}\n💰 Amt: ₹{am}\n👤 User: {curr_user}")
                     st.success("Saved! ✅")
-                    st.session_state.last_row_count += 1
                 except: st.error("Error! Please enter a valid number for amount.")
 
     elif page == "📊 Report" or page == "🔍 History":
@@ -339,4 +277,3 @@ else:
                 }
                 send_to_google_async(payload)
                 st.success("Saved! ✅")
-                st.session_state.last_row_count += 1
