@@ -20,7 +20,7 @@ WA_API_KEY = "7463030"
 
 USERS = {"faisal": "faisal147", "shabana": "shabana123", "admin": "paichi786"}
 
-st.set_page_config(page_title="PAICHI EXPENSES v1.0", layout="wide")
+st.set_page_config(page_title="PAICHI EXPENSES v2.0", layout="wide")
 st_autorefresh(interval=60000, key="auto_refresh")
 
 # Session State Initialization
@@ -36,6 +36,7 @@ st.markdown("""
     .stButton>button { background-color: #FFD700; color: #000; border-radius: 10px; font-weight: bold; width: 100%; }
     .balance-banner { background: rgba(255, 255, 255, 0.05); padding: 25px; border-radius: 15px; border-left: 10px solid #FFD700; margin-bottom: 25px; text-align: center; }
     .purple-box { background: rgba(255, 255, 255, 0.05); padding: 20px; border-radius: 25px; border: 2px solid rgba(255, 215, 0, 0.3); text-align: center; margin-bottom: 20px; }
+    .category-box { background: rgba(255, 255, 255, 0.08); padding: 15px; border-radius: 15px; text-align: center; border-bottom: 4px solid #FFD700; margin-bottom: 15px; }
     h1, h2, h3, p, label { color: white !important; font-weight: bold !important; }
     .stDataFrame { background: white; border-radius: 10px; color: black; }
     </style>
@@ -60,6 +61,28 @@ def get_totals():
         return t_in, t_out, (t_in - t_out)
     except: return 0.0, 0.0, 0.0
 
+# 🔍 പുതിയ ഫീച്ചർ: ഷീറ്റിൽ നിന്ന് കാറ്റഗറി ടോട്ടൽ മാത്രം കണക്കാക്കുന്ന എൻജിൻ
+def get_category_totals():
+    try:
+        df = pd.read_csv(f"{CSV_URL}&r={random.randint(1,999)}")
+        df.columns = df.columns.str.strip()
+        df['Debit'] = pd.to_numeric(df['Debit'], errors='coerce').fillna(0)
+        
+        # 'Item' കോളത്തിൽ നിന്ന് കാറ്റഗറി വേർതിരിച്ചെടുക്കുന്നു (Format: [User] Category: Description)
+        def extract_cat(item_str):
+            if ':' in str(item_str):
+                part = str(item_str).split(':')[0]
+                if ']' in part:
+                    return part.split(']')[1].strip()
+                return part.strip()
+            return "Others"
+            
+        df['Extracted_Category'] = df['Item'].apply(extract_cat)
+        cat_summary = df.groupby('Extracted_Category')['Debit'].sum().to_dict()
+        return cat_summary
+    except:
+        return {}
+
 def process_voice(text):
     if not text: return "Others", "", ""
     raw = text.lower().replace('.', '').replace(',', '')
@@ -69,6 +92,8 @@ def process_voice(text):
     category = "Others"
     if any(x in raw for x in ["food", "ഭക്ഷണം", "ചായ"]): category = "Food"
     elif any(x in raw for x in ["shop", "കട"]): category = "Shop"
+    elif any(x in raw for x in ["fish", "മീൻ"]): category = "Fish"
+    elif any(x in raw for x in ["travel", "യാത്ര"]): category = "Travel"
     return category, amt, desc
 
 def create_pdf(df):
@@ -137,7 +162,23 @@ def check_for_new_entries():
                         d_val = pd.to_numeric(row.get('Debit', 0), errors='coerce') or 0
                         c_val = pd.to_numeric(row.get('Credit', 0), errors='coerce') or 0
                         amt = d_val if d_val > 0 else c_val
-                    send_whatsapp_auto(f"🔔 *New Entry Detected*\n📝 {item_val}\n💰 Amount: ₹{amt}")
+                    
+                    # വാട്സാപ്പിൽ മെസ്സേജ് അയക്കുമ്പോൾ ആ കാറ്റഗറിയുടെ ടോട്ടൽ കൂടി കണ്ടുപിടിക്കുന്നു
+                    cat_name = "Others"
+                    if ':' in item_val:
+                        part = item_val.split(':')[0]
+                        cat_name = part.split(']')[-1].strip() if ']' in part else part.strip()
+                    
+                    cat_totals = get_category_totals()
+                    current_cat_total = cat_totals.get(cat_name, 0.0)
+                    
+                    # വാട്സാപ്പ് നോട്ടിഫിക്കേഷൻ വിത്ത് കാറ്റഗറി ടോട്ടൽ
+                    send_whatsapp_auto(
+                        f"🔔 *New Entry Detected*\n"
+                        f"📝 {item_val}\n"
+                        f"💰 Amount: ₹{amt}\n"
+                        f"📊 Total {cat_name} Spent: ₹{current_cat_total:,.2f}"
+                    )
             st.session_state.last_row_count = current_row_count
     except: pass
 
@@ -164,7 +205,6 @@ else:
 
     if curr_user == "shabana": 
         menu_options = ["💰 Add Entry", "📊 Report", "🔍 History", "🤝 Debt Tracker"]
-        
     else: 
         menu_options = ["🏠 Dashboard", "💰 Add Entry", "📊 Report", "🔍 History", "🤝 Debt Tracker"]
 
@@ -180,6 +220,21 @@ else:
             <h2 style="color: #00FF00;">Total Credit: ₹{t_in:,.2f}</h2>
             <h2 style="color: #FF3131;">Total Debit: ₹{t_out:,.2f}</h2>
         </div>""", unsafe_allow_html=True)
+        
+        # 🔍 പുതിയ ഫീച്ചർ: ഡാഷ്‌ബോർഡിൽ കാറ്റഗറി തിരിച്ചുള്ള ടോട്ടൽ കാണിക്കുന്നു
+        st.subheader("🗂️ Categorywise Expense Breakdown")
+        cat_data = get_category_totals()
+        if cat_data:
+            cols = st.columns(3)
+            for idx, (c_name, c_amount) in enumerate(cat_data.items()):
+                if c_amount > 0:
+                    with cols[idx % 3]:
+                        st.markdown(f"""<div class="category-box">
+                            <span style="font-size:16px; color:#aaa;">Total {c_name}</span><br>
+                            <span style="font-size:24px; color:#FFF; font-weight:bold;">₹{c_amount:,.2f}</span>
+                        </div>""", unsafe_allow_html=True)
+        else:
+            st.info("No category data found.")
 
     elif page == "💰 Add Entry":
         st.title("Smart Voice Entry 🎙️")
@@ -201,7 +256,18 @@ else:
                         "entry.1221658767": c
                     }
                     send_to_google_async(payload)
-                    send_whatsapp_auto(f"✅ *Paichi Entry*\n📝 Item: {it}\n💰 Amt: ₹{am}\n👤 User: {curr_user}")
+                    
+                    # ഇപ്പോഴത്തെ കാറ്റഗറി ടോട്ടൽ എടുക്കുന്നു
+                    cat_totals = get_category_totals()
+                    new_cat_total = cat_totals.get(cat, 0.0) + (d if ty == "Debit" else 0)
+                    
+                    send_whatsapp_auto(
+                        f"✅ *Paichi Entry*\n"
+                        f"📝 Item: {it}\n"
+                        f"💰 Amt: ₹{am}\n"
+                        f"👤 User: {curr_user}\n"
+                        f"📊 New {cat} Total: ₹{new_cat_total:,.2f}"
+                    )
                     st.success("Saved! ✅")
                     st.session_state.last_row_count += 1
                 except: st.error("Error! Please enter a valid number for amount.")
