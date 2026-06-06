@@ -10,6 +10,8 @@ from fpdf import FPDF
 import io
 import re
 import urllib.parse
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 
 # --- 1. CONFIG & SETTINGS ---
 CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRccfZch3jSdHqrScpqsR_j3FSd70NbELC1j6_nPi-MQXdrhVr3BPcKoI1nub4mQql727pQRPWYk9C-/pub?gid=1583146028&single=true&output=csv"
@@ -20,7 +22,7 @@ WA_API_KEY = "7463030"
 
 USERS = {"faisal": "faisal147", "shabana": "shabana123", "admin": "paichi786"}
 
-st.set_page_config(page_title="PAICHI EXPENSES v2.0", layout="wide")
+st.set_page_config(page_title="PAICHI EXPENSES v2.5", layout="wide")
 st_autorefresh(interval=60000, key="auto_refresh")
 
 # Session State Initialization
@@ -61,27 +63,52 @@ def get_totals():
         return t_in, t_out, (t_in - t_out)
     except: return 0.0, 0.0, 0.0
 
-# 🔍 പുതിയ ഫീച്ചർ: ഷീറ്റിൽ നിന്ന് കാറ്റഗറി ടോട്ടൽ മാത്രം കണക്കാക്കുന്ന എൻജിൻ
 def get_category_totals():
     try:
         df = pd.read_csv(f"{CSV_URL}&r={random.randint(1,999)}")
         df.columns = df.columns.str.strip()
         df['Debit'] = pd.to_numeric(df['Debit'], errors='coerce').fillna(0)
         
-        # 'Item' കോളത്തിൽ നിന്ന് കാറ്റഗറി വേർതിരിച്ചെടുക്കുന്നു (Format: [User] Category: Description)
         def extract_cat(item_str):
-            if ':' in str(item_str):
-                part = str(item_str).split(':')[0]
+            item_str = str(item_str)
+            if 'total' in item_str.lower():
+                return None
+            if ':' in item_str:
+                part = item_str.split(':')[0]
                 if ']' in part:
-                    return part.split(']')[1].strip()
-                return part.strip()
+                    return part.split(']')[1].strip().capitalize()
+                return part.strip().capitalize()
             return "Others"
             
         df['Extracted_Category'] = df['Item'].apply(extract_cat)
+        df = df.dropna(subset=['Extracted_Category'])
         cat_summary = df.groupby('Extracted_Category')['Debit'].sum().to_dict()
         return cat_summary
     except:
         return {}
+
+# 🛠️ ഷീറ്റിൽ നേരിട്ട് കയറി തെറ്റായ വരി ഡിലീറ്റ് ചെയ്യാനുള്ള ഫങ്ക്ഷൻ
+def delete_wrong_row_and_reply(row_index, category_name):
+    try:
+        scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+        # നിങ്ങളുടെ credentials.json ആപ്പിന്റെ ഗിറ്റ്‌ഹബ്ബിൽ ഉണ്ടായിരിക്കണം
+        creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
+        client = gspread.authorize(creds)
+        # നിങ്ങളുടെ ഗൂഗിൾ ഷീറ്റിന്റെ പേര് നൽകുക
+        sheet = client.open_by_url("https://docs.google.com/spreadsheets/d/1vRccfZch3jSdHqrScpqsR_j3FSd70NbELC1j6_nPi-MQXdrhVr3BPcKoI1nub4mQql727pQRPWYk9C-").sheet1
+        
+        # തെറ്റായ ആ വരി ഡിലീറ്റ് ചെയ്യുന്നു
+        sheet.delete_rows(row_index + 2) # Header ഉള്ളതുകൊണ്ട് +2
+        
+        # കറക്റ്റ് ടോട്ടൽ കണക്കാക്കുന്നു
+        cat_totals = get_category_totals()
+        final_total = cat_totals.get(category_name.capitalize(), 0.0)
+        
+        # വാട്സാപ്പിലേക്ക് ഫൈനൽ റിപ്പോർട്ട് അയക്കുന്നു
+        reply = f"📊 *CATEGORY TOTAL REPORT*\n\n🗂️ *Category:* {category_name.upper()}\n💰 *Total Spent:* ₹{final_total:,.2f}"
+        send_whatsapp_auto(reply)
+    except:
+        pass
 
 def process_voice(text):
     if not text: return "Others", "", ""
@@ -103,13 +130,10 @@ def create_pdf(df):
         pdf.set_font("Arial", 'B', 16)
         pdf.cell(190, 10, txt="PAICHI FINANCE REPORT", ln=True, align='C')
         pdf.ln(10)
-        
         cols = df.columns.tolist()
         pdf.set_font("Arial", 'B', 10)
-        for col in cols: 
-            pdf.cell(38, 10, txt=str(col), border=1)
+        for col in cols: pdf.cell(38, 10, txt=str(col), border=1)
         pdf.ln()
-        
         pdf.set_font("Arial", size=9)
         for _, row in df.iterrows():
             for col in cols:
@@ -117,8 +141,7 @@ def create_pdf(df):
                 pdf.cell(38, 10, txt=val, border=1)
             pdf.ln()
         return pdf.output(dest='S').encode('latin-1')
-    except: 
-        return None
+    except: return None
 
 def parse_mixed_dates(date_series):
     parsed_dates = []
@@ -129,18 +152,14 @@ def parse_mixed_dates(date_series):
             dt = pd.to_datetime(val_str, errors='coerce')
             if not pd.isna(dt) and dt.year == 2026 and dt.month < 4:
                 dt = datetime(2026, dt.day, dt.month)
-        except:
-            pass
-            
+        except: pass
         if pd.isna(dt):
-            try:
-                dt = pd.to_datetime(val_str, dayfirst=True, errors='coerce')
-            except:
-                pass
+            try: dt = pd.to_datetime(val_str, dayfirst=True, errors='coerce')
+            except: pass
         parsed_dates.append(dt)
     return pd.Series(parsed_dates)
 
-# --- 4. 🔔 NOTIFIER ---
+# --- 4. 🔔 NOTIFIER & AUTO-CLEANER ---
 def check_for_new_entries():
     url = f"{CSV_URL}&r={random.randint(1,99999)}"
     try:
@@ -156,6 +175,14 @@ def check_for_new_entries():
             new_rows = current_df.iloc[st.session_state.last_row_count:]
             for index, row in new_rows.iterrows():
                 item_val = str(row.get('Item', ''))
+                
+                # 🔍 സ്മാർട്ട് ചെക്കിംഗ്: മെസ്സേജിൽ 'Total' എന്ന് കണ്ടാൽ ആപ്പിൽ വെച്ച് ക്ലീൻ ചെയ്യും!
+                if "total" in item_val.lower():
+                    # കാറ്റഗറിയുടെ പേര് വേർതിരിക്കുന്നു (e.g., "Total food" ആണെങ്കിൽ "food")
+                    cat_name = item_val.lower().replace("total", "").replace("[whatsapp]", "").replace(":", "").strip()
+                    delete_wrong_row_and_reply(index, cat_name)
+                    continue
+                
                 if any(x in item_val for x in ["[WhatsApp]", "[Faisal]", "[Shabana]"]):
                     amt = row.get('Amount', 0)
                     if pd.to_numeric(amt, errors='coerce') == 0 or pd.isna(amt):
@@ -163,22 +190,7 @@ def check_for_new_entries():
                         c_val = pd.to_numeric(row.get('Credit', 0), errors='coerce') or 0
                         amt = d_val if d_val > 0 else c_val
                     
-                    # വാട്സാപ്പിൽ മെസ്സേജ് അയക്കുമ്പോൾ ആ കാറ്റഗറിയുടെ ടോട്ടൽ കൂടി കണ്ടുപിടിക്കുന്നു
-                    cat_name = "Others"
-                    if ':' in item_val:
-                        part = item_val.split(':')[0]
-                        cat_name = part.split(']')[-1].strip() if ']' in part else part.strip()
-                    
-                    cat_totals = get_category_totals()
-                    current_cat_total = cat_totals.get(cat_name, 0.0)
-                    
-                    # വാട്സാപ്പ് നോട്ടിഫിക്കേഷൻ വിത്ത് കാറ്റഗറി ടോട്ടൽ
-                    send_whatsapp_auto(
-                        f"🔔 *New Entry Detected*\n"
-                        f"📝 {item_val}\n"
-                        f"💰 Amount: ₹{amt}\n"
-                        f"📊 Total {cat_name} Spent: ₹{current_cat_total:,.2f}"
-                    )
+                    send_whatsapp_auto(f"🔔 *New Entry Detected*\n📝 {item_val}\n💰 Amount: ₹{amt}")
             st.session_state.last_row_count = current_row_count
     except: pass
 
@@ -203,10 +215,8 @@ else:
         <span style="font-size:40px; color:#FFD700; font-weight:bold;">₹{balance:,.2f}</span>
     </div>''', unsafe_allow_html=True)
 
-    if curr_user == "shabana": 
-        menu_options = ["💰 Add Entry", "📊 Report", "🔍 History", "🤝 Debt Tracker"]
-    else: 
-        menu_options = ["🏠 Dashboard", "💰 Add Entry", "📊 Report", "🔍 History", "🤝 Debt Tracker"]
+    if curr_user == "shabana": menu_options = ["💰 Add Entry", "📊 Report", "🔍 History", "🤝 Debt Tracker"]
+    else: menu_options = ["🏠 Dashboard", "💰 Add Entry", "📊 Report", "🔍 History", "🤝 Debt Tracker"]
 
     page = st.sidebar.radio("Menu", menu_options)
     if st.sidebar.button("Logout"): 
@@ -221,20 +231,17 @@ else:
             <h2 style="color: #FF3131;">Total Debit: ₹{t_out:,.2f}</h2>
         </div>""", unsafe_allow_html=True)
         
-        # 🔍 പുതിയ ഫീച്ചർ: ഡാഷ്‌ബോർഡിൽ കാറ്റഗറി തിരിച്ചുള്ള ടോട്ടൽ കാണിക്കുന്നു
         st.subheader("🗂️ Categorywise Expense Breakdown")
         cat_data = get_category_totals()
         if cat_data:
             cols = st.columns(3)
             for idx, (c_name, c_amount) in enumerate(cat_data.items()):
-                if c_amount > 0:
+                if c_amount > 0 and c_name:
                     with cols[idx % 3]:
                         st.markdown(f"""<div class="category-box">
                             <span style="font-size:16px; color:#aaa;">Total {c_name}</span><br>
                             <span style="font-size:24px; color:#FFF; font-weight:bold;">₹{c_amount:,.2f}</span>
                         </div>""", unsafe_allow_html=True)
-        else:
-            st.info("No category data found.")
 
     elif page == "💰 Add Entry":
         st.title("Smart Voice Entry 🎙️")
@@ -256,18 +263,7 @@ else:
                         "entry.1221658767": c
                     }
                     send_to_google_async(payload)
-                    
-                    # ഇപ്പോഴത്തെ കാറ്റഗറി ടോട്ടൽ എടുക്കുന്നു
-                    cat_totals = get_category_totals()
-                    new_cat_total = cat_totals.get(cat, 0.0) + (d if ty == "Debit" else 0)
-                    
-                    send_whatsapp_auto(
-                        f"✅ *Paichi Entry*\n"
-                        f"📝 Item: {it}\n"
-                        f"💰 Amt: ₹{am}\n"
-                        f"👤 User: {curr_user}\n"
-                        f"📊 New {cat} Total: ₹{new_cat_total:,.2f}"
-                    )
+                    send_whatsapp_auto(f"✅ *Paichi Entry*\n📝 Item: {it}\n💰 Amt: ₹{am}\n👤 User: {curr_user}")
                     st.success("Saved! ✅")
                     st.session_state.last_row_count += 1
                 except: st.error("Error! Please enter a valid number for amount.")
@@ -283,25 +279,20 @@ else:
 
         if page == "📊 Report":
             st.title("Monthly Expense Analysis")
-            if len(months) == 0:
-                st.warning("No data found in Google Sheets for April 2026 onwards!")
+            if len(months) == 0: st.warning("No data found in Google Sheets for April 2026 onwards!")
             else:
                 sel_month = st.selectbox("Select Month", months)
                 monthly_df = df[df['Month'] == sel_month].copy()
                 monthly_df['Debit'] = pd.to_numeric(monthly_df['Debit'], errors='coerce').fillna(0)
                 monthly_df['Credit'] = pd.to_numeric(monthly_df['Credit'], errors='coerce').fillna(0)
-                
                 m_total_debit = monthly_df['Debit'].sum()
                 m_total_credit = monthly_df['Credit'].sum()
                 m_savings = m_total_credit - m_total_debit
                 
                 col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.markdown(f'<div class="purple-box"><h3 style="color: #00FF00;">{sel_month} Total Credit</h3><h1 style="color: #00FF00;">₹{m_total_credit:,.2f}</h1></div>', unsafe_allow_html=True)
-                with col2:
-                    st.markdown(f'<div class="purple-box"><h3 style="color: #FF3131;">{sel_month} Total Expense</h3><h1 style="color: #FF3131;">₹{m_total_debit:,.2f}</h1></div>', unsafe_allow_html=True)
-                with col3:
-                    st.markdown(f'<div class="purple-box"><h3 style="color: #FFD700;">{sel_month} Net Savings</h3><h1 style="color: #FFD700;">₹{m_savings:,.2f}</h1></div>', unsafe_allow_html=True)
+                with col1: st.markdown(f'<div class="purple-box"><h3 style="color: #00FF00;">{sel_month} Total Credit</h3><h1 style="color: #00FF00;">₹{m_total_credit:,.2f}</h1></div>', unsafe_allow_html=True)
+                with col2: st.markdown(f'<div class="purple-box"><h3 style="color: #FF3131;">{sel_month} Total Expense</h3><h1 style="color: #FF3131;">₹{m_total_debit:,.2f}</h1></div>', unsafe_allow_html=True)
+                with col3: st.markdown(f'<div class="purple-box"><h3 style="color: #FFD700;">{sel_month} Net Savings</h3><h1 style="color: #FFD700;">₹{m_savings:,.2f}</h1></div>', unsafe_allow_html=True)
 
                 if m_total_debit > 0:
                     monthly_df['Category_Label'] = monthly_df['Item'].apply(lambda x: x.split(':')[0] if ':' in x else 'Others')
@@ -313,14 +304,12 @@ else:
                 clean_table_df = monthly_df.drop(columns=['Month'], errors='ignore')
                 csv_data = clean_table_df.to_csv(index=False).encode('utf-8')
                 st.download_button(label="📥 Download Excel/CSV Report", data=csv_data, file_name=f"Report_{sel_month.replace(' ', '_')}.csv", mime="text/csv")
-                
                 clean_table_df['Date'] = clean_table_df['Date'].dt.strftime('%d/%m/%Y')
                 st.dataframe(clean_table_df.iloc[::-1], use_container_width=True)
 
         elif page == "🔍 History":
             st.title("Transaction History")
-            if len(months) == 0:
-                st.warning("No transactions found from April 2026 onwards!")
+            if len(months) == 0: st.warning("No transactions found from April 2026 onwards!")
             else:
                 sel_hist_month = st.selectbox("Select Month for History", months, key="history_month_select")
                 filtered_history = df[df['Month'] == sel_hist_month].copy()
@@ -330,11 +319,8 @@ else:
                 col_pdf, col_csv = st.columns(2)
                 with col_pdf:
                     pdf_bytes = create_pdf(clean_hist_df)
-                    if pdf_bytes: 
-                        st.download_button(f"📄 Download {sel_hist_month} PDF", pdf_bytes, f"History_{sel_hist_month.replace(' ', '_')}.pdf", "application/pdf")
-                with col_csv:
-                    st.download_button(label=f"📥 Download {sel_hist_month} CSV (Excel)", data=csv_hist_data, file_name=f"History_{sel_hist_month.replace(' ', '_')}.csv", mime="text/csv")
-                
+                    if pdf_bytes: st.download_button(f"📄 Download {sel_hist_month} PDF", pdf_bytes, f"History_{sel_hist_month.replace(' ', '_')}.pdf", "application/pdf")
+                with col_csv: st.download_button(label=f"📥 Download {sel_hist_month} CSV (Excel)", data=csv_hist_data, file_name=f"History_{sel_hist_month.replace(' ', '_')}.csv", mime="text/csv")
                 clean_hist_df['Date'] = clean_hist_df['Date'].dt.strftime('%d/%m/%Y')
                 st.dataframe(clean_hist_df.iloc[::-1], use_container_width=True)
 
