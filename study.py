@@ -93,8 +93,24 @@ def parse_mixed_dates(date_series):
     return pd.to_datetime(date_series, errors='coerce')
 
 def create_pdf(df):
-    # PDF creation logic ... (നിങ്ങളുടെ ഒറിജിനൽ കോഡ് പോലെ തന്നെ)
-    return None
+    try:
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font("Arial", 'B', 16)
+        pdf.cell(190, 10, txt="PAICHI FINANCE REPORT", ln=True, align='C')
+        pdf.ln(10)
+        cols = df.columns.tolist()
+        pdf.set_font("Arial", 'B', 10)
+        for col in cols: pdf.cell(38, 10, txt=str(col), border=1)
+        pdf.ln()
+        pdf.set_font("Arial", size=9)
+        for _, row in df.iterrows():
+            for col in cols:
+                val = str(row[col]).encode('ascii', 'ignore').decode('ascii')
+                pdf.cell(38, 10, txt=val, border=1)
+            pdf.ln()
+        return pdf.output(dest='S').encode('latin-1')
+    except: return None
 
 # --- 4. APP MAIN ---
 if not st.session_state.auth:
@@ -110,46 +126,79 @@ else:
     curr_user = st.session_state.user
     t_in, t_out, balance = get_totals()
     
-    # Header
     st.markdown(f'''<div class="balance-banner">
         <span style="font-size:20px; color: #E0B0FF;">Available Balance</span><br>
         <span style="font-size:40px; color:#FFD700; font-weight:bold;">₹{balance:,.2f}</span>
     </div>''', unsafe_allow_html=True)
 
-    page = st.sidebar.radio("Menu", ["🏠 Dashboard", "💰 Add Entry", "📊 Report", "🔍 History", "🤝 Debt Tracker"])
+    menu_options = ["🏠 Dashboard", "💰 Add Entry", "📊 Report", "🔍 History", "🤝 Debt Tracker"]
+    page = st.sidebar.radio("Menu", menu_options)
     if st.sidebar.button("Logout"): 
         st.session_state.auth = False
         st.rerun()
 
-    # --- DASHBOARD WITH CALENDAR ---
     if page == "🏠 Dashboard":
         st.title("Financial Overview")
-        
-        # കലണ്ടർ
         st.subheader("📅 P&L Calendar")
         df_cal = pd.read_csv(f"{CSV_URL}&r={random.randint(1,999)}")
         df_cal.columns = df_cal.columns.str.strip()
         df_cal['Date'] = parse_mixed_dates(df_cal['Date'])
         df_cal['Net'] = pd.to_numeric(df_cal['Credit'], errors='coerce').fillna(0) - pd.to_numeric(df_cal['Debit'], errors='coerce').fillna(0)
-        daily = df_cal.groupby('Date')['Net'].sum().reset_index()
-        
+        daily = df_cal.groupby(df_cal['Date'].dt.date)['Net'].sum().reset_index()
         calendar_events = []
         for _, row in daily.iterrows():
             if pd.notnull(row['Date']):
-                calendar_events.append({"title": f"₹{row['Net']:,.0f}", "start": row['Date'].strftime('%Y-%m-%d'), "color": "#28a745" if row['Net'] >= 0 else "#dc3545"})
+                calendar_events.append({"title": f"₹{row['Net']:,.0f}", "start": str(row['Date']), "color": "#28a745" if row['Net'] >= 0 else "#dc3545"})
         calendar(events=calendar_events, options={"headerToolbar": {"left": "prev,next today", "center": "title", "right": ""}, "initialView": "dayGridMonth"})
         
-        # Category Breakdown
         st.subheader("🗂️ Categorywise Expense Breakdown")
         cat_data = get_category_totals()
         for c_name, c_amount in cat_data.items():
             if c_amount > 0: st.markdown(f"**{c_name}**: ₹{c_amount:,.2f}")
 
-    # മറ്റ് പേജുകൾ ഇവിടെ ചേർക്കുക...
     elif page == "💰 Add Entry":
-        # നിങ്ങളുടെ Add Entry കോഡ് ഇവിടെ ചേർക്കുക
-        pass
-    elif page == "📊 Report":
-        # നിങ്ങളുടെ Report കോഡ് ഇവിടെ ചേർക്കുക
-        pass
-    # ബാക്കി പേജുകൾ...
+        st.title("Smart Voice Entry 🎙️")
+        v_raw = speech_to_text(language='ml', key='voice_v8')
+        v_cat, v_amt, v_desc = process_voice(v_raw)
+        with st.form("entry_form", clear_on_submit=True):
+            it = st.text_input("Description", value=v_desc)
+            am_str = st.text_input("Amount", value=str(v_amt))
+            cat = st.selectbox("Category", ["Food", "Shop", "Fish", "Travel", "Rent", "Others"])
+            ty = st.radio("Type", ["Debit", "Credit"], horizontal=True)
+            if st.form_submit_button("SAVE & NOTIFY"):
+                try:
+                    am = float(am_str.strip().replace(',', ''))
+                    d, c = (am, 0) if ty == "Debit" else (0, am)
+                    payload = {"entry.1044099436": datetime.now().strftime("%Y-%m-%d"), "entry.2013476337": f"[{curr_user.capitalize()}] {cat}: {it}", "entry.1460982454": d, "entry.1221658767": c}
+                    send_to_google_async(payload)
+                    send_whatsapp_auto(f"✅ *Paichi Entry*\n📝 Item: {it}\n💰 Amt: ₹{am}\n👤 User: {curr_user}")
+                    st.success("Saved! ✅")
+                except: st.error("Error! Please enter a valid number for amount.")
+
+    elif page == "📊 Report" or page == "🔍 History":
+        df = pd.read_csv(f"{CSV_URL}&r={random.randint(1,999)}")
+        df.columns = df.columns.str.strip()
+        df['Date'] = parse_mixed_dates(df['Date'])
+        df = df[(df['Date'].dt.year == 2026) & (df['Date'].dt.month >= 4)]
+        df['Month'] = df['Date'].dt.strftime('%B %Y')
+        df = df.dropna(subset=['Month'])
+        months = df.sort_values(by='Date', ascending=False)['Month'].unique()
+        if page == "📊 Report":
+            st.title("Monthly Expense Analysis")
+            sel_month = st.selectbox("Select Month", months)
+            monthly_df = df[df['Month'] == sel_month].copy()
+            # ... (Report logic here)
+        elif page == "🔍 History":
+            st.title("Transaction History")
+            # ... (History logic here)
+
+    elif page == "🤝 Debt Tracker":
+        st.title("Debt Management")
+        with st.form("debt_form"):
+            n, a = st.text_input("Name"), st.number_input("Amount", min_value=0.0)
+            t = st.selectbox("Category", ["vagiyade", "koduthade"])
+            if st.form_submit_button("SAVE"):
+                d, c = (0, a) if "Borrowed" in t else (a, 0)
+                payload = {"entry.1044099436": datetime.now().strftime("%Y-%m-%d"), "entry.2013476337": f"[{curr_user.capitalize()}] DEBT: {t} - {n}", "entry.1460982454": d, "entry.1221658767": c}
+                send_to_google_async(payload)
+                st.success("Saved! ✅")
