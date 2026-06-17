@@ -12,7 +12,7 @@ import re
 import urllib.parse
 from streamlit_calendar import calendar
 
-# --- 1. CONFIG & SETTINGS ---
+# --- CONFIG & SETTINGS ---
 CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRccfZch3jSdHqrScpqsR_j3FSd70NbELC1j6_nPi-MQXdrhVr3BPcKoI1nub4mQql727pQRPWYk9C-/pub?gid=1583146028&single=true&output=csv"
 FORM_API = "https://docs.google.com/forms/d/e/1FAIpQLSfLySolQSiRXV0wELNPhUBlKJh77RnJKWc2-uqAM0TPNG3Q5A/formResponse"
 WA_PHONE = "971551347989"
@@ -25,18 +25,9 @@ st_autorefresh(interval=60000, key="auto_refresh")
 if 'auth' not in st.session_state: st.session_state.auth = False
 if 'user' not in st.session_state: st.session_state.user = ""
 
-# --- 2. 🎨 DESIGN ---
-st.markdown("""
-    <style>
-    .stApp { background: linear-gradient(135deg, #1A0521, #4B0082, #0D0214); color: #fff; }
-    .balance-banner { background: rgba(255, 255, 255, 0.05); padding: 25px; border-radius: 15px; border-left: 10px solid #FFD700; margin-bottom: 25px; text-align: center; }
-    .purple-box { background: rgba(255, 255, 255, 0.05); padding: 20px; border-radius: 25px; border: 2px solid rgba(255, 215, 0, 0.3); text-align: center; margin-bottom: 20px; }
-    .category-box { background: rgba(255, 255, 255, 0.08); padding: 15px; border-radius: 15px; text-align: center; border-bottom: 4px solid #FFD700; margin-bottom: 15px; }
-    </style>
-    """, unsafe_allow_html=True)
-
-# --- 3. FUNCTIONS ---
+# --- FUNCTIONS ---
 def parse_mixed_dates(date_series):
+    # തീയതികൾ ശരിയായി വായിക്കാൻ dayfirst=True നൽകുന്നു
     return pd.to_datetime(date_series, errors='coerce', dayfirst=True)
 
 def get_totals():
@@ -52,9 +43,9 @@ def send_to_google_async(data):
     try: requests.post(FORM_API, data=data, timeout=10)
     except: pass
 
-# --- 4. APP MAIN ---
+# --- APP MAIN ---
 if not st.session_state.auth:
-    st.title("🔐 PAICHI EXPENSES LOGIN")
+    st.title("🔐 LOGIN")
     u = st.text_input("Username").lower()
     p = st.text_input("Password", type="password")
     if st.button("LOGIN"):
@@ -64,7 +55,8 @@ if not st.session_state.auth:
 else:
     curr_user = st.session_state.user
     t_in, t_out, balance = get_totals()
-    st.markdown(f'''<div class="balance-banner"><h3>Available Balance</h3><h1>₹{balance:,.2f}</h1></div>''', unsafe_allow_html=True)
+    st.markdown(f'''<div style="background: rgba(255, 255, 255, 0.05); padding: 20px; border-radius: 15px;">
+        <h3>Available Balance</h3><h1>₹{balance:,.2f}</h1></div>''', unsafe_allow_html=True)
 
     page = st.sidebar.radio("Menu", ["🏠 Dashboard", "💰 Add Entry", "📊 Report", "🔍 History", "🤝 Debt Tracker"])
     
@@ -79,8 +71,8 @@ else:
         events = []
         for _, row in daily.iterrows():
             if pd.notnull(row['Date']):
-                if row['Credit'] > 0: events.append({"title": f"⬆️ {row['Credit']:,.0f}", "start": str(row['Date']), "color": "#28a745"})
-                if row['Debit'] > 0: events.append({"title": f"⬇️ {row['Debit']:,.0f}", "start": str(row['Date']), "color": "#dc3545"})
+                if row['Credit'] > 0: events.append({"title": f"⬆️ ₹{row['Credit']:,.0f}", "start": str(row['Date']), "color": "#28a745"})
+                if row['Debit'] > 0: events.append({"title": f"⬇️ ₹{row['Debit']:,.0f}", "start": str(row['Date']), "color": "#dc3545"})
         calendar(events=events, options={"headerToolbar": {"left": "prev,next", "center": "title", "right": ""}, "initialView": "dayGridMonth"})
 
     elif page == "💰 Add Entry":
@@ -99,6 +91,7 @@ else:
         df = pd.read_csv(f"{CSV_URL}&r={random.randint(1,999)}")
         df.columns = df.columns.str.strip()
         df['Date'] = parse_mixed_dates(df['Date'])
+        # ഇവിടെ ഫിൽറ്റർ നീക്കം ചെയ്തു, അതിനാൽ എല്ലാ മാസവും വരും
         df = df.dropna(subset=['Date'])
         df['Month'] = df['Date'].dt.strftime('%B %Y')
         months = df.sort_values(by='Date', ascending=False)['Month'].unique()
@@ -111,6 +104,3 @@ else:
             st.dataframe(monthly_df[['Date', 'Item', 'Debit']])
         else:
             st.dataframe(monthly_df.iloc[::-1])
-
-    elif page == "🤝 Debt Tracker":
-        st.write("Debt Tracker Page")
