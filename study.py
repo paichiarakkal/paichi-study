@@ -320,7 +320,6 @@ else:
         df = pd.read_csv(f"{CSV_URL}&r={random.randint(1,999)}")
         df.columns = df.columns.str.strip()
         df['Date'] = parse_mixed_dates(df['Date'])
-        # ഇവിടെ ഫിൽറ്റർ മാറ്റിയതിനാൽ എല്ലാ മാസങ്ങളും പൂർണ്ണമായി ലിസ്റ്റ് ചെയ്യും
         df = df.dropna(subset=['Date'])
         df['Month'] = df['Date'].dt.strftime('%B %Y')
         months = df.sort_values(by='Date', ascending=False)['Month'].unique()
@@ -377,4 +376,6 @@ else:
         with st.form("debt_form"):
             n = st.text_input("Name")
             a = st.number_input("Amount", min_value=0.0)
-            t = st.selectbox("Category", ["vagiyade", "
+            t = st.selectbox("Category", ["vagiyade", "koduthade"])
+            if st.form_submit_button("SAVE"):
+                if "va
