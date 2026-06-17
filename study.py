@@ -104,33 +104,28 @@ def create_pdf(df):
         pdf.set_font("Arial", 'B', 16)
         pdf.cell(190, 10, txt="PAICHI FINANCE REPORT", ln=True, align='C')
         pdf.ln(10)
-        
         cols = df.columns.tolist()
-        col_width = 190 / len(cols)  # Dynamic width based on columns count
-        
         pdf.set_font("Arial", 'B', 10)
-        for col in cols: pdf.cell(col_width, 10, txt=str(col), border=1)
+        for col in cols: pdf.cell(38, 10, txt=str(col), border=1)
         pdf.ln()
-        
         pdf.set_font("Arial", size=9)
         for _, row in df.iterrows():
             for col in cols:
                 val = str(row[col]).encode('ascii', 'ignore').decode('ascii')
-                pdf.cell(col_width, 10, txt=val, border=1)
+                pdf.cell(38, 10, txt=val, border=1)
             pdf.ln()
         return pdf.output(dest='S').encode('latin-1')
     except: return None
 
 def parse_mixed_dates(date_series):
     parsed_dates = []
-    current_year = datetime.now().year
     for val in date_series:
         val_str = str(val).strip()
         dt = pd.NaT
         try:
             dt = pd.to_datetime(val_str, errors='coerce')
-            if not pd.isna(dt) and dt.year == current_year and dt.month < 4:
-                dt = datetime(current_year, dt.day, dt.month)
+            if not pd.isna(dt) and dt.year == 2026 and dt.month < 4:
+                dt = datetime(2026, dt.day, dt.month)
         except: pass
         if pd.isna(dt):
             try: dt = pd.to_datetime(val_str, dayfirst=True, errors='coerce')
@@ -213,17 +208,14 @@ else:
         df = pd.read_csv(f"{CSV_URL}&r={random.randint(1,999)}")
         df.columns = df.columns.str.strip()
         df['Date'] = parse_mixed_dates(df['Date'])
-        
-        # Filters data for current year onwards from April
-        current_year = datetime.now().year
-        df = df[(df['Date'].dt.year == current_year) & (df['Date'].dt.month >= 4)]
+        df = df[(df['Date'].dt.year == 2026) & (df['Date'].dt.month >= 4)]
         df['Month'] = df['Date'].dt.strftime('%B %Y')
         df = df.dropna(subset=['Month'])
         months = df.sort_values(by='Date', ascending=False)['Month'].unique()
 
         if page == "📊 Report":
             st.title("Monthly Expense Analysis")
-            if len(months) == 0: st.warning("No data found in Google Sheets from April onwards!")
+            if len(months) == 0: st.warning("No data found in Google Sheets for April 2026 onwards!")
             else:
                 sel_month = st.selectbox("Select Month", months)
                 monthly_df = df[df['Month'] == sel_month].copy()
@@ -253,7 +245,7 @@ else:
 
         elif page == "🔍 History":
             st.title("Transaction History")
-            if len(months) == 0: st.warning("No transactions found from April onwards!")
+            if len(months) == 0: st.warning("No transactions found from April 2026 onwards!")
             else:
                 sel_hist_month = st.selectbox("Select Month for History", months, key="history_month_select")
                 filtered_history = df[df['Month'] == sel_hist_month].copy()
@@ -273,18 +265,16 @@ else:
         with st.form("debt_form"):
             n = st.text_input("Name")
             a = st.number_input("Amount", min_value=0.0)
-            t = st.selectbox("Type", ["Vagiyade (Borrowed/Income)", "Koduthade (Lent/Expense)"])
-            
+            t = st.selectbox("Category", ["vagiyade", "koduthade"])
             if st.form_submit_button("SAVE"):
-                # Logical calculation based on selected type
-                if "Vagiyade" in t:
+                # നിങ്ങളുടെ കണ്ടീഷൻ കൃത്യമായി ഇവിടെ മാറ്റിയിട്ടുണ്ട്
+                if "vagiyade" in t:
                     d, c = 0, a
                 else:
                     d, c = a, 0
-                    
                 payload = {
                     "entry.1044099436": datetime.now().strftime("%Y-%m-%d"), 
-                    "entry.2013476337": f"[{curr_user.capitalize()}] DEBT: {t.split(' ')[0]} - {n}", 
+                    "entry.2013476337": f"[{curr_user.capitalize()}] DEBT: {t} - {n}", 
                     "entry.1460982454": d, 
                     "entry.1221658767": c
                 }
