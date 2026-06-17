@@ -83,20 +83,26 @@ else:
         st.title("Financial Overview")
         # CALENDAR LOGIC
         st.subheader("📅 All Transactions Calendar")
+        
         df_cal = pd.read_csv(f"{CSV_URL}&r={random.randint(1,999)}")
         df_cal.columns = df_cal.columns.str.strip()
         df_cal['Date'] = parse_mixed_dates(df_cal['Date'])
-        df_cal['Net'] = pd.to_numeric(df_cal['Credit'], errors='coerce').fillna(0) - pd.to_numeric(df_cal['Debit'], errors='coerce').fillna(0)
-        daily = df_cal.groupby(df_cal['Date'].dt.date)['Net'].sum().reset_index()
+        
+        # തുകകൾ കൺവെർട്ട് ചെയ്യുന്നു
+        df_cal['Credit'] = pd.to_numeric(df_cal['Credit'], errors='coerce').fillna(0)
+        df_cal['Debit'] = pd.to_numeric(df_cal['Debit'], errors='coerce').fillna(0)
+        
+        # തീയതി അനുസരിച്ച് ക്രെഡിറ്റും ഡെബിറ്റും പ്രത്യേകം സം (sum) ചെയ്യുന്നു
+        daily = df_cal.groupby(df_cal['Date'].dt.date)[['Credit', 'Debit']].sum().reset_index()
         
         events = []
         for _, row in daily.iterrows():
             if pd.notnull(row['Date']):
-                events.append({"title": f"₹{row['Net']:,.0f}", "start": str(row['Date']), "color": "#28a745" if row['Net'] >= 0 else "#dc3545"})
+                # ക്രെഡിറ്റ് ഉണ്ടെങ്കിൽ പച്ച നിറത്തിൽ (മുകളിൽ)
+                if row['Credit'] > 0:
+                    events.append({"title": f"⬆️ ₹{row['Credit']:,.0f}", "start": str(row['Date']), "color": "#28a745"})
+                # ഡെബിറ്റ് ഉണ്ടെങ്കിൽ ചുവപ്പ് നിറത്തിൽ (താഴെ)
+                if row['Debit'] > 0:
+                    events.append({"title": f"⬇️ ₹{row['Debit']:,.0f}", "start": str(row['Date']), "color": "#dc3545"})
         
         calendar(events=events, options={"headerToolbar": {"left": "prev,next today", "center": "title", "right": ""}, "initialView": "dayGridMonth"})
-
-    elif page == "💰 Add Entry":
-        # ... (നിങ്ങളുടെ ഒറിജിനൽ Add Entry കോഡ് ഇവിടെ പേസ്റ്റ് ചെയ്യുക)
-        pass
-    # ... (ബാക്കി പേജുകളും ഇതേപോലെ ഒറിജിനൽ കോഡ് വെച്ച് പൂർത്തിയാക്കുക)
