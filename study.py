@@ -303,6 +303,16 @@ else:
                 if not day_entries.empty:
                     day_entries['Date'] = day_entries['Date'].dt.strftime('%d/%m/%Y')
                     show_df = day_entries[['Date', 'Item', 'Debit', 'Credit']].reset_index(drop=True)
+                    
+                    # 🔥 ഇതാ ഇവിടെ ഡൗൺലോഡ് ബട്ടൺ ചേർത്തിട്ടുണ്ട് ഭായ്!
+                    csv_day_data = show_df.to_csv(index=False).encode('utf-8')
+                    st.download_button(
+                        label="📥 Download This Day's Data", 
+                        data=csv_day_data, 
+                        file_name=f"Transactions_{clicked_date}.csv", 
+                        mime="text/csv"
+                    )
+                    
                     st.dataframe(show_df, use_container_width=True)
                 else:
                     st.info("No details found for this day.")
