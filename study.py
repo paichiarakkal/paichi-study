@@ -84,16 +84,67 @@ st.markdown("""
     h1, h2, h3, p, label { color: white !important; font-weight: bold !important; font-family: 'Poppins', sans-serif; }
     .stDataFrame { background: #12061C; border-radius: 12px; color: white; padding: 10px; }
     
-    /* 🔥 ADVANCED DARK CALENDAR STYLING */
-    .fc { background: rgba(15, 5, 25, 0.6) !important; border-radius: 20px !important; padding: 20px !important; border: 1px solid rgba(255, 215, 0, 0.15) !important; backdrop-filter: blur(10px); }
-    .fc-header-toolbar { margin-bottom: 20px !important; }
-    .fc-button { background: rgba(255, 215, 0, 0.1) !important; border: 1px solid #FFD700 !important; color: white !important; font-weight: bold !important; border-radius: 8px !important; }
-    .fc-button-active { background: #FFD700 !important; color: black !important; }
-    .fc-col-header-cell { background: rgba(75, 0, 130, 0.4) !important; padding: 10px 0 !important; font-size: 14px !important; border: 1px solid rgba(255,255,255,0.05) !important; }
-    .fc-daygrid-day { min-height: 100px !important; border: 1px solid rgba(255,255,255,0.03) !important; }
-    .fc-day-today { background: rgba(255, 215, 0, 0.05) !important; border: 1px solid #FFD700 !important; }
-    .fc-event { border-radius: 6px !important; padding: 4px 8px !important; font-size: 12px !important; font-weight: bold !important; border: none !important; margin-top: 3px !important; box-shadow: 0px 2px 5px rgba(0,0,0,0.2); }
-    .fc-daygrid-day-number { color: #aaa !important; font-size: 14px !important; padding: 8px !important; }
+    /* 🔥 ULTRA PREMIUM MODERN DARK CALENDAR STYLING */
+    .fc { 
+        background: rgba(25, 10, 40, 0.45) !important; 
+        border-radius: 16px !important; 
+        padding: 15px !important; 
+        border: 1px solid rgba(255, 215, 0, 0.25) !important; 
+        backdrop-filter: blur(12px);
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+    }
+    .fc-header-toolbar { 
+        margin-bottom: 15px !important; 
+        padding: 5px !important;
+    }
+    .fc-toolbar-title {
+        font-size: 18px !important;
+        color: #FFD700 !important;
+        font-weight: bold !important;
+    }
+    .fc-button { 
+        background: linear-gradient(135deg, #2D0B4E, #140526) !important; 
+        border: 1px solid rgba(255, 215, 0, 0.4) !important; 
+        color: #fff !important; 
+        font-weight: bold !important; 
+        border-radius: 8px !important; 
+        text-transform: capitalize !important;
+    }
+    .fc-button-active { 
+        background: #FFD700 !important; 
+        color: #000 !important; 
+        box-shadow: 0 0 10px rgba(255, 215, 0, 0.5) !important;
+    }
+    .fc-col-header-cell { 
+        background: rgba(255, 215, 0, 0.08) !important; 
+        padding: 8px 0 !important; 
+        font-size: 13px !important; 
+        color: #FFD700 !important;
+        border: 1px solid rgba(255,255,255,0.08) !important; 
+    }
+    .fc-daygrid-day { 
+        min-height: 85px !important; 
+        border: 1px solid rgba(255,255,255,0.05) !important; 
+    }
+    .fc-day-today { 
+        background: rgba(255, 215, 0, 0.08) !important; 
+        border: 1px solid #FFD700 !important; 
+    }
+    .fc-event { 
+        border-radius: 6px !important; 
+        padding: 3px 6px !important; 
+        font-size: 11px !important; 
+        font-weight: bold !important; 
+        border: none !important; 
+        margin-top: 4px !important; 
+        box-shadow: 0px 4px 10px rgba(0,0,0,0.4);
+    }
+    .fc-daygrid-day-number { 
+        color: #fff !important; 
+        font-size: 13px !important; 
+        padding: 6px !important; 
+        font-weight: bold;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -366,25 +417,4 @@ else:
                 col_pdf, col_csv = st.columns(2)
                 with col_pdf:
                     pdf_bytes = create_pdf(clean_hist_df)
-                    if pdf_bytes: st.download_button(f"📄 Download {sel_hist_month} PDF", pdf_bytes, f"History_{sel_hist_month.replace(' ', '_')}.pdf", "application/pdf")
-                with col_csv: st.download_button(label=f"📥 Download {sel_hist_month} CSV (Excel)", data=csv_hist_data, file_name=f"History_{sel_hist_month.replace(' ', '_')}.csv", mime="text/csv")
-                clean_hist_df['Date'] = clean_hist_df['Date'].dt.strftime('%d/%m/%Y')
-                st.dataframe(clean_hist_df.iloc[::-1], use_container_width=True)
-
-    elif page == "🤝 Debt Tracker":
-        st.title("Debt Management")
-        with st.form("debt_form"):
-            n = st.text_input("Name")
-            a = st.number_input("Amount", min_value=0.0)
-            t = st.selectbox("Category", ["vagiyade", "koduthade"])
-            if st.form_submit_button("SAVE"):
-                if "vagiyade" in t: d, c = 0, a
-                else: d, c = a, 0
-                payload = {
-                    "entry.1044099436": datetime.now().strftime("%Y-%m-%d"), 
-                    "entry.2013476337": f"[{curr_user.capitalize()}] DEBT: {t} - {n}", 
-                    "entry.1460982454": d, 
-                    "entry.1221658767": c
-                }
-                send_to_google_async(payload)
-                st.success("Saved! ✅")
+                    if pdf_bytes: st.download_button(f"📄 Download {sel_hist_month} PDF", pdf_bytes, f"Histo
