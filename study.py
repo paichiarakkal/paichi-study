@@ -417,4 +417,25 @@ else:
                 col_pdf, col_csv = st.columns(2)
                 with col_pdf:
                     pdf_bytes = create_pdf(clean_hist_df)
-                    if pdf_bytes: st.download_button(f"📄 Download {sel_hist_month} PDF", pdf_bytes, f"Histo
+                    if pdf_bytes: st.download_button(f"📄 Download {sel_hist_month} PDF", pdf_bytes, f"History_{sel_hist_month.replace(' ', '_')}.pdf", "application/pdf")
+                with col_csv: st.download_button(label=f"📥 Download {sel_hist_month} CSV (Excel)", data=csv_hist_data, file_name=f"History_{sel_hist_month.replace(' ', '_')}.csv", mime="text/csv")
+                clean_hist_df['Date'] = clean_hist_df['Date'].dt.strftime('%d/%m/%Y')
+                st.dataframe(clean_hist_df.iloc[::-1], use_container_width=True)
+
+    elif page == "🤝 Debt Tracker":
+        st.title("Debt Management")
+        with st.form("debt_form"):
+            n = st.text_input("Name")
+            a = st.number_input("Amount", min_value=0.0)
+            t = st.selectbox("Category", ["vagiyade", "koduthade"])
+            if st.form_submit_button("SAVE"):
+                if "vagiyade" in t: d, c = 0, a
+                else: d, c = a, 0
+                payload = {
+                    "entry.1044099436": datetime.now().strftime("%Y-%m-%d"), 
+                    "entry.2013476337": f"[{curr_user.capitalize()}] DEBT: {t} - {n}", 
+                    "entry.1460982454": d, 
+                    "entry.1221658767": c
+                }
+                send_to_google_async(payload)
+                st.success("Saved! ✅")
