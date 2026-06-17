@@ -25,19 +25,30 @@ st_autorefresh(interval=60000, key="auto_refresh")
 if 'auth' not in st.session_state: st.session_state.auth = False
 if 'user' not in st.session_state: st.session_state.user = ""
 
-# --- 2. CSS ---
+# --- 2. 🎨 PREMIUM DESIGN ---
 st.markdown("""
     <style>
     .stApp { background: linear-gradient(135deg, #1A0521, #4B0082, #0D0214); color: #fff; }
-    .balance-banner { background: rgba(255, 255, 255, 0.05); padding: 25px; border-radius: 15px; border-left: 10px solid #FFD700; text-align: center; }
-    .category-box { background: rgba(255, 255, 255, 0.08); padding: 15px; border-radius: 15px; text-align: center; border-bottom: 4px solid #FFD700; }
-    h1, h2, h3, p, label { color: white !important; }
+    [data-testid="stSidebar"] { background: rgba(0,0,0,0.85) !important; }
+    .stButton>button { background-color: #FFD700; color: #000; border-radius: 10px; font-weight: bold; width: 100%; }
+    .balance-banner { background: rgba(255, 255, 255, 0.05); padding: 25px; border-radius: 15px; border-left: 10px solid #FFD700; margin-bottom: 25px; text-align: center; }
+    .purple-box { background: rgba(255, 255, 255, 0.05); padding: 20px; border-radius: 25px; border: 2px solid rgba(255, 215, 0, 0.3); text-align: center; margin-bottom: 20px; }
+    .category-box { background: rgba(255, 255, 255, 0.08); padding: 15px; border-radius: 15px; text-align: center; border-bottom: 4px solid #FFD700; margin-bottom: 15px; }
+    h1, h2, h3, p, label { color: white !important; font-weight: bold !important; }
     </style>
     """, unsafe_allow_html=True)
 
 # --- 3. FUNCTIONS ---
 def parse_mixed_dates(date_series):
-    return pd.to_datetime(date_series, errors='coerce')
+    parsed_dates = []
+    for val in date_series:
+        val_str = str(val).strip()
+        dt = pd.to_datetime(val_str, errors='coerce')
+        if pd.isna(dt):
+            try: dt = pd.to_datetime(val_str, dayfirst=True, errors='coerce')
+            except: pass
+        parsed_dates.append(dt)
+    return pd.Series(parsed_dates)
 
 def get_totals():
     try:
@@ -48,18 +59,9 @@ def get_totals():
         return t_in, t_out, (t_in - t_out)
     except: return 0.0, 0.0, 0.0
 
-def get_category_totals():
-    try:
-        df = pd.read_csv(f"{CSV_URL}&r={random.randint(1,999)}")
-        df.columns = df.columns.str.strip()
-        df['Debit'] = pd.to_numeric(df['Debit'], errors='coerce').fillna(0)
-        df['Cat'] = df['Item'].apply(lambda x: str(x).split(':')[0].split(']')[1].strip().capitalize() if ']' in str(x) else "Others")
-        return df.groupby('Cat')['Debit'].sum().to_dict()
-    except: return {}
-
 # --- 4. APP MAIN ---
 if not st.session_state.auth:
-    st.title("🔐 LOGIN")
+    st.title("🔐 PAICHI EXPENSES LOGIN")
     u = st.text_input("Username").lower()
     p = st.text_input("Password", type="password")
     if st.button("LOGIN"):
@@ -67,36 +69,34 @@ if not st.session_state.auth:
             st.session_state.auth, st.session_state.user = True, u
             st.rerun()
 else:
+    curr_user = st.session_state.user
     t_in, t_out, balance = get_totals()
-    st.markdown(f'''<div class="balance-banner"><h3>Available Balance</h3><h1>₹{balance:,.2f}</h1></div>''', unsafe_allow_html=True)
+    
+    st.markdown(f'''<div class="balance-banner">
+        <span style="font-size:20px; color: #E0B0FF;">Available Balance</span><br>
+        <span style="font-size:40px; color:#FFD700; font-weight:bold;">₹{balance:,.2f}</span>
+    </div>''', unsafe_allow_html=True)
 
     page = st.sidebar.radio("Menu", ["🏠 Dashboard", "💰 Add Entry", "📊 Report", "🔍 History", "🤝 Debt Tracker"])
     
     if page == "🏠 Dashboard":
         st.title("Financial Overview")
-        st.subheader("📅 P&L Calendar")
-        
+        # CALENDAR LOGIC
+        st.subheader("📅 All Transactions Calendar")
         df_cal = pd.read_csv(f"{CSV_URL}&r={random.randint(1,999)}")
         df_cal.columns = df_cal.columns.str.strip()
         df_cal['Date'] = parse_mixed_dates(df_cal['Date'])
-        df_cal['Debit'] = pd.to_numeric(df_cal['Debit'], errors='coerce').fillna(0)
-        df_cal['Credit'] = pd.to_numeric(df_cal['Credit'], errors='coerce').fillna(0)
+        df_cal['Net'] = pd.to_numeric(df_cal['Credit'], errors='coerce').fillna(0) - pd.to_numeric(df_cal['Debit'], errors='coerce').fillna(0)
+        daily = df_cal.groupby(df_cal['Date'].dt.date)['Net'].sum().reset_index()
         
-        daily_summary = df_cal.groupby(df_cal['Date'].dt.date)[['Credit', 'Debit']].sum().reset_index()
-        
-        calendar_events = []
-        for _, row in daily_summary.iterrows():
+        events = []
+        for _, row in daily.iterrows():
             if pd.notnull(row['Date']):
-                if row['Credit'] > 0:
-                    calendar_events.append({"title": f"⬆️ ₹{row['Credit']:,.0f}", "start": str(row['Date']), "color": "#28a745"})
-                if row['Debit'] > 0:
-                    calendar_events.append({"title": f"⬇️ ₹{row['Debit']:,.0f}", "start": str(row['Date']), "color": "#dc3545"})
+                events.append({"title": f"₹{row['Net']:,.0f}", "start": str(row['Date']), "color": "#28a745" if row['Net'] >= 0 else "#dc3545"})
         
-        calendar(events=calendar_events, options={"headerToolbar": {"left": "prev,next today", "center": "title", "right": ""}, "initialView": "dayGridMonth"})
-        
-        st.subheader("🗂️ Category Breakdown")
-        cat_data = get_category_totals()
-        for c_name, c_amount in cat_data.items():
-            if c_amount > 0: st.markdown(f"**{c_name}**: ₹{c_amount:,.2f}")
+        calendar(events=events, options={"headerToolbar": {"left": "prev,next today", "center": "title", "right": ""}, "initialView": "dayGridMonth"})
 
-    # Add Entry, Report, History, Debt Tracker കോഡുകൾ നിങ്ങളുടെ പഴയത് തന്നെ ഇവിടെ താഴെ ചേർക്കുക...
+    elif page == "💰 Add Entry":
+        # ... (നിങ്ങളുടെ ഒറിജിനൽ Add Entry കോഡ് ഇവിടെ പേസ്റ്റ് ചെയ്യുക)
+        pass
+    # ... (ബാക്കി പേജുകളും ഇതേപോലെ ഒറിജിനൽ കോഡ് വെച്ച് പൂർത്തിയാക്കുക)
