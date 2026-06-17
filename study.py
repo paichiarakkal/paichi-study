@@ -378,4 +378,13 @@ else:
             a = st.number_input("Amount", min_value=0.0)
             t = st.selectbox("Category", ["vagiyade", "koduthade"])
             if st.form_submit_button("SAVE"):
-                if "va
+                if "vagiyade" in t: d, c = 0, a
+                else: d, c = a, 0
+                payload = {
+                    "entry.1044099436": datetime.now().strftime("%Y-%m-%d"), 
+                    "entry.2013476337": f"[{curr_user.capitalize()}] DEBT: {t} - {n}", 
+                    "entry.1460982454": d, 
+                    "entry.1221658767": c
+                }
+                send_to_google_async(payload)
+                st.success("Saved! ✅")
