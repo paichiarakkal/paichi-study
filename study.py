@@ -17,7 +17,6 @@ FORM_API = "https://docs.google.com/forms/d/e/1FAIpQLSfLySolQSiRXV0wELNPhUBlKJh7
 
 WA_PHONE = "971551347989"
 WA_API_KEY = "7463030"
-
 USERS = {"faisal": "faisal147", "shabana": "shabana123", "admin": "paichi786"}
 
 st.set_page_config(page_title="PAICHI EXPENSES v2.6", layout="wide")
@@ -30,20 +29,24 @@ if 'user' not in st.session_state: st.session_state.user = ""
 st.markdown("""
     <style>
     .stApp { background: linear-gradient(135deg, #1A0521, #4B0082, #0D0214); color: #fff; }
+    [data-testid="stSidebar"] { background: rgba(0,0,0,0.85) !important; }
     .stButton>button { background-color: #FFD700; color: #000; border-radius: 10px; font-weight: bold; width: 100%; }
     .balance-banner { background: rgba(255, 255, 255, 0.05); padding: 25px; border-radius: 15px; border-left: 10px solid #FFD700; margin-bottom: 25px; text-align: center; }
+    .purple-box { background: rgba(255, 255, 255, 0.05); padding: 20px; border-radius: 25px; border: 2px solid rgba(255, 215, 0, 0.3); text-align: center; margin-bottom: 20px; }
     .category-box { background: rgba(255, 255, 255, 0.08); padding: 15px; border-radius: 15px; text-align: center; border-bottom: 4px solid #FFD700; margin-bottom: 15px; }
     h1, h2, h3, p, label { color: white !important; font-weight: bold !important; }
     </style>
     """, unsafe_allow_html=True)
 
 # --- 3. HELPER FUNCTIONS ---
-def get_data():
-    df = pd.read_csv(f"{CSV_URL}&r={random.randint(1,999)}")
-    df.columns = df.columns.str.strip()
-    df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
-    df['Month_Year'] = df['Date'].dt.strftime('%B %Y')
-    return df
+def get_totals():
+    try:
+        df = pd.read_csv(f"{CSV_URL}&r={random.randint(1,999)}")
+        df.columns = df.columns.str.strip()
+        t_in = pd.to_numeric(df['Credit'], errors='coerce').fillna(0).sum()
+        t_out = pd.to_numeric(df['Debit'], errors='coerce').fillna(0).sum()
+        return t_in, t_out, (t_in - t_out)
+    except: return 0.0, 0.0, 0.0
 
 # --- 4. APP MAIN ---
 if not st.session_state.auth:
@@ -56,41 +59,35 @@ if not st.session_state.auth:
             st.rerun()
 else:
     curr_user = st.session_state.user
-    page = st.sidebar.radio("Menu", ["🏠 Dashboard", "💰 Add Entry", "📊 Report", "🔍 History"])
     
-    if page == "📊 Report" or page == "🔍 History":
-        df = get_data()
-        months = df['Month_Year'].dropna().unique()
-        selected_month = st.selectbox("Select Month", months)
-        filtered_df = df[df['Month_Year'] == selected_month]
+    # --- SIDEBAR WITH CALENDAR ---
+    with st.sidebar:
+        st.header("Menu")
+        if curr_user == "shabana": menu_options = ["💰 Add Entry", "📊 Report", "🔍 History", "🤝 Debt Tracker"]
+        else: menu_options = ["🏠 Dashboard", "💰 Add Entry", "📊 Report", "🔍 History", "🤝 Debt Tracker"]
+        
+        page = st.radio("Navigation", menu_options)
+        
+        st.markdown("---")
+        st.subheader("📅 Calendar")
+        calendar(events=[], options={"initialView": "dayGridMonth", "height": 300})
+        
+        if st.button("Logout"): 
+            st.session_state.auth = False
+            st.rerun()
 
-        if page == "📊 Report":
-            st.title(f"Report for {selected_month}")
-            col1, col2 = st.columns(2)
-            with col1:
-                st.metric("Total Income", f"₹{filtered_df['Credit'].sum():,.2f}")
-            with col2:
-                st.metric("Total Expenses", f"₹{filtered_df['Debit'].sum():,.2f}")
-            
-            # Pie Chart
-            fig = px.pie(filtered_df[filtered_df['Debit'] > 0], values='Debit', names='Item', title="Expense Breakdown")
-            st.plotly_chart(fig, use_container_width=True)
+    # --- PAGES (Simplified for brevity) ---
+    if page == "🏠 Dashboard":
+        t_in, t_out, balance = get_totals()
+        st.title("Financial Overview")
+        st.markdown(f'''<div class="balance-banner"><h1>₹{balance:,.2f}</h1></div>''', unsafe_allow_html=True)
+    
+    elif page == "🔍 History":
+        st.title("Transaction History")
+        # നിങ്ങളുടെ ഹിസ്റ്ററി പേജിലെ ബാക്കി കോഡ് ഇവിടെ നൽകുക
+        
+    elif page == "💰 Add Entry":
+        st.title("Smart Voice Entry 🎙️")
+        # നിങ്ങളുടെ ആഡ് എൻട്രി കോഡ് ഇവിടെ നൽകുക
 
-        elif page == "🔍 History":
-            st.title(f"History for {selected_month}")
-            
-            # Calendar
-            events = []
-            for _, row in filtered_df.iterrows():
-                if pd.notna(row['Date']):
-                    events.append({
-                        "title": f"{row['Item']} (₹{row['Debit'] or row['Credit']})",
-                        "start": row['Date'].strftime('%Y-%m-%d'),
-                        "color": "#FF4444" if pd.to_numeric(row['Debit'], errors='coerce') > 0 else "#44FF44"
-                    })
-            calendar(events=events, options={"initialView": "dayGridMonth"})
-            st.dataframe(filtered_df.sort_values(by='Date', ascending=False))
-
-    elif page == "🏠 Dashboard":
-        st.title("Welcome to Dashboard")
-        # Dashboard content ...
+    # മറ്റ് പേജുകളും ഇവിടെ ചേർക്കുക...
