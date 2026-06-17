@@ -8,3 +8,4 @@ plotly
 fpdf
 gspread
 oauth2client
+streamlit-calendar
