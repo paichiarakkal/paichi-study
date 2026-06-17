@@ -152,6 +152,7 @@ else:
         <span style="font-size:40px; color:#FFD700; font-weight:bold;">₹{balance:,.2f}</span>
     </div>''', unsafe_allow_html=True)
 
+    # മെനു ലിസ്റ്റ് ഇവിടെ കൃത്യമായി ലോഡ് ചെയ്തിട്ടുണ്ട്
     if curr_user == "shabana": menu_options = ["💰 Add Entry", "📊 Report", "🔍 History", "🤝 Debt Tracker"]
     else: menu_options = ["🏠 Dashboard", "💰 Add Entry", "📊 Report", "🔍 History", "🤝 Debt Tracker"]
 
@@ -267,7 +268,6 @@ else:
             a = st.number_input("Amount", min_value=0.0)
             t = st.selectbox("Category", ["vagiyade", "koduthade"])
             if st.form_submit_button("SAVE"):
-                # നിങ്ങളുടെ കണ്ടീഷൻ കൃത്യമായി ഇവിടെ മാറ്റിയിട്ടുണ്ട്
                 if "vagiyade" in t:
                     d, c = 0, a
                 else:
