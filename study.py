@@ -13,7 +13,7 @@ import urllib.parse
 import threading
 from streamlit_calendar import calendar
 
-# --- TWILIO CONFIG ---
+# --- TWILIO CONFIG (നിങ്ങളുടെ വിവരങ്ങൾ ഇവിടെ നൽകുക) ---
 TWILIO_SID = "YOUR_TWILIO_ACCOUNT_SID"  
 TWILIO_TOKEN = "YOUR_TWILIO_AUTH_TOKEN"  
 
@@ -26,7 +26,7 @@ WA_API_KEY = "7463030"
 
 USERS = {"faisal": "faisal147", "shabana": "shabana123", "admin": "paichi786"}
 
-# --- BACKGROUND TWILIO SERVER ---
+# --- BACKGROUND TWILIO SERVER (WHATSAPP RECEIVER) ---
 try:
     from flask import Flask, request
     from twilio.twiml.messaging_response import MessagingResponse
@@ -82,7 +82,7 @@ st.markdown("""
     .category-box { background: rgba(255, 255, 255, 0.08); padding: 15px; border-radius: 15px; text-align: center; border-bottom: 4px solid #FFD700; margin-bottom: 15px; }
     h1, h2, h3, p, label { color: white !important; font-weight: bold !important; }
     .stDataFrame { background: white; border-radius: 10px; color: black; }
-    /* FullCalendar Custom Dark Design to match Upstox style */
+    /* FullCalendar Custom Dark Design */
     .fc { background: rgba(255,255,255,0.02); border-radius: 15px; padding: 10px; }
     .fc-col-header-cell { background: rgba(75, 0, 130, 0.5); }
     .fc-daygrid-day { min-height: 90px !important; }
@@ -195,7 +195,6 @@ else:
         <span style="font-size:40px; color:#FFD700; font-weight:bold;">₹{balance:,.2f}</span>
     </div>''', unsafe_allow_html=True)
 
-    # കലണ്ടർ ഓപ്ഷൻ മെനുവിലേക്ക് കൂട്ടിച്ചേർത്തു
     if curr_user == "shabana": 
         menu_options = ["💰 Add Entry", "📅 Calendar", "📊 Report", "🔍 History", "🤝 Debt Tracker"]
     else: 
@@ -260,23 +259,22 @@ else:
             df['Debit'] = pd.to_numeric(df['Debit'], errors='coerce').fillna(0)
             df['Credit'] = pd.to_numeric(df['Credit'], errors='coerce').fillna(0)
             
-            # പ്രതിദിന കണക്കുകൾ ഗ്രൂപ്പ് ചെയ്യുന്നു
             daily_summary = df.groupby(df['Date'].dt.strftime('%Y-%m-%d')).agg({'Debit': 'sum', 'Credit': 'sum'}).reset_index()
             
             calendar_events = []
             for _, row in daily_summary.iterrows():
-                # ക്രെഡിറ്റ് ഉണ്ടെങ്കിൽ പച്ച നിറത്തിൽ കാണിക്കും
                 if row['Credit'] > 0:
                     calendar_events.append({
+                        "id": f"credit_{row['Date']}",
                         "title": f" +₹{row['Credit']:,.0f}",
                         "start": row['Date'],
                         "backgroundColor": "#198754",
                         "borderColor": "#198754",
                         "textColor": "white"
                     })
-                # ഡെബിറ്റ് ഉണ്ടെങ്കിൽ ചുവപ്പ് നിറത്തിൽ കാണിക്കും
                 if row['Debit'] > 0:
                     calendar_events.append({
+                        "id": f"debit_{row['Date']}",
                         "title": f" -₹{row['Debit']:,.0f}",
                         "start": row['Date'],
                         "backgroundColor": "#dc3545",
@@ -290,7 +288,25 @@ else:
                 "selectable": True,
             }
             
-            calendar(events=calendar_events, options=calendar_options, key="pnl_calendar")
+            cal_data = calendar(events=calendar_events, options=calendar_options, key="pnl_calendar")
+            
+            # --- 💡 CLICK EVENT DETAILS SECTION ---
+            if cal_data.get("eventClick"):
+                clicked_date = cal_data["eventClick"]["event"]["start"].split("T")[0]
+                clicked_dt = pd.to_datetime(clicked_date)
+                
+                st.markdown("---")
+                st.subheader(f"📋 Details for {clicked_dt.strftime('%d %B %Y')}")
+                
+                day_entries = df[df['Date'].dt.strftime('%Y-%m-%d') == clicked_date].copy()
+                
+                if not day_entries.empty:
+                    day_entries['Date'] = day_entries['Date'].dt.strftime('%d/%m/%Y')
+                    show_df = day_entries[['Date', 'Item', 'Debit', 'Credit']].reset_index(drop=True)
+                    st.dataframe(show_df, use_container_width=True)
+                else:
+                    st.info("No details found for this day.")
+                    
         except Exception as e:
             st.error("കലണ്ടർ ഡാറ്റ ലോഡ് ചെയ്യാൻ കഴിഞ്ഞില്ല!")
 
