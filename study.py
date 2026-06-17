@@ -13,7 +13,7 @@ import urllib.parse
 import threading
 from streamlit_calendar import calendar
 
-# --- TWILIO CONFIG ---
+# --- TWILIO CONFIG (നിങ്ങളുടെ വിവരങ്ങൾ ഇവിടെ നൽകുക) ---
 TWILIO_SID = "YOUR_TWILIO_ACCOUNT_SID"  
 TWILIO_TOKEN = "YOUR_TWILIO_AUTH_TOKEN"  
 
@@ -26,7 +26,7 @@ WA_API_KEY = "7463030"
 
 USERS = {"faisal": "faisal147", "shabana": "shabana123", "admin": "paichi786"}
 
-# --- BACKGROUND TWILIO SERVER ---
+# --- BACKGROUND TWILIO SERVER (WHATSAPP RECEIVER) ---
 try:
     from flask import Flask, request
     from twilio.twiml.messaging_response import MessagingResponse
@@ -64,6 +64,7 @@ try:
 except Exception as e:
     pass
 
+
 # --- STREAMLIT UI CODE START ---
 st.set_page_config(page_title="PAICHI EXPENSES v2.6", layout="wide")
 st_autorefresh(interval=60000, key="auto_refresh")
@@ -71,80 +72,20 @@ st_autorefresh(interval=60000, key="auto_refresh")
 if 'auth' not in st.session_state: st.session_state.auth = False
 if 'user' not in st.session_state: st.session_state.user = ""
 
-# --- 🎨 HIGH-END AI PREMIUM DESIGN ---
 st.markdown("""
     <style>
-    .stApp { background: linear-gradient(135deg, #0F0214, #1D062B, #05000B); color: #fff; }
-    [data-testid="stSidebar"] { background: rgba(10, 3, 18, 0.95) !important; border-right: 1px solid rgba(255, 215, 0, 0.1); }
-    .stButton>button { background: linear-gradient(90deg, #FFD700, #FFA500); color: #000; border-radius: 12px; font-weight: bold; width: 100%; border: none; box-shadow: 0px 4px 15px rgba(255, 215, 0, 0.2); transition: 0.3s; }
-    .stButton>button:hover { transform: scale(1.02); box-shadow: 0px 4px 20px rgba(255, 215, 0, 0.4); }
-    .balance-banner { background: linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01)); padding: 30px; border-radius: 20px; border: 1px solid rgba(255, 215, 0, 0.2); backdrop-filter: blur(10px); margin-bottom: 25px; text-align: center; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37); }
-    .purple-box { background: rgba(255, 255, 255, 0.02); padding: 20px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.05); text-align: center; margin-bottom: 20px; }
-    .category-box { background: rgba(255, 255, 255, 0.03); padding: 15px; border-radius: 15px; text-align: center; border-bottom: 3px solid #FFD700; margin-bottom: 15px; }
-    h1, h2, h3, p, label { color: white !important; font-weight: bold !important; font-family: 'Poppins', sans-serif; }
-    .stDataFrame { background: #12061C; border-radius: 12px; color: white; padding: 10px; }
-    
-    /* 🔥 ULTRA PREMIUM MODERN DARK CALENDAR STYLING */
-    .fc { 
-        background: rgba(25, 10, 40, 0.45) !important; 
-        border-radius: 16px !important; 
-        padding: 15px !important; 
-        border: 1px solid rgba(255, 215, 0, 0.25) !important; 
-        backdrop-filter: blur(12px);
-        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
-    }
-    .fc-header-toolbar { 
-        margin-bottom: 15px !important; 
-        padding: 5px !important;
-    }
-    .fc-toolbar-title {
-        font-size: 18px !important;
-        color: #FFD700 !important;
-        font-weight: bold !important;
-    }
-    .fc-button { 
-        background: linear-gradient(135deg, #2D0B4E, #140526) !important; 
-        border: 1px solid rgba(255, 215, 0, 0.4) !important; 
-        color: #fff !important; 
-        font-weight: bold !important; 
-        border-radius: 8px !important; 
-        text-transform: capitalize !important;
-    }
-    .fc-button-active { 
-        background: #FFD700 !important; 
-        color: #000 !important; 
-        box-shadow: 0 0 10px rgba(255, 215, 0, 0.5) !important;
-    }
-    .fc-col-header-cell { 
-        background: rgba(255, 215, 0, 0.08) !important; 
-        padding: 8px 0 !important; 
-        font-size: 13px !important; 
-        color: #FFD700 !important;
-        border: 1px solid rgba(255,255,255,0.08) !important; 
-    }
-    .fc-daygrid-day { 
-        min-height: 85px !important; 
-        border: 1px solid rgba(255,255,255,0.05) !important; 
-    }
-    .fc-day-today { 
-        background: rgba(255, 215, 0, 0.08) !important; 
-        border: 1px solid #FFD700 !important; 
-    }
-    .fc-event { 
-        border-radius: 6px !important; 
-        padding: 3px 6px !important; 
-        font-size: 11px !important; 
-        font-weight: bold !important; 
-        border: none !important; 
-        margin-top: 4px !important; 
-        box-shadow: 0px 4px 10px rgba(0,0,0,0.4);
-    }
-    .fc-daygrid-day-number { 
-        color: #fff !important; 
-        font-size: 13px !important; 
-        padding: 6px !important; 
-        font-weight: bold;
-    }
+    .stApp { background: linear-gradient(135deg, #1A0521, #4B0082, #0D0214); color: #fff; }
+    [data-testid="stSidebar"] { background: rgba(0,0,0,0.85) !important; }
+    .stButton>button { background-color: #FFD700; color: #000; border-radius: 10px; font-weight: bold; width: 100%; }
+    .balance-banner { background: rgba(255, 255, 255, 0.05); padding: 25px; border-radius: 15px; border-left: 10px solid #FFD700; margin-bottom: 25px; text-align: center; }
+    .purple-box { background: rgba(255, 255, 255, 0.05); padding: 20px; border-radius: 25px; border: 2px solid rgba(255, 215, 0, 0.3); text-align: center; margin-bottom: 20px; }
+    .category-box { background: rgba(255, 255, 255, 0.08); padding: 15px; border-radius: 15px; text-align: center; border-bottom: 4px solid #FFD700; margin-bottom: 15px; }
+    h1, h2, h3, p, label { color: white !important; font-weight: bold !important; }
+    .stDataFrame { background: white; border-radius: 10px; color: black; }
+    /* FullCalendar Custom Dark Design */
+    .fc { background: rgba(255,255,255,0.02); border-radius: 15px; padding: 10px; }
+    .fc-col-header-cell { background: rgba(75, 0, 130, 0.5); }
+    .fc-daygrid-day { min-height: 90px !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -250,8 +191,8 @@ else:
     t_in, t_out, balance = get_totals()
     
     st.markdown(f'''<div class="balance-banner">
-        <span style="font-size:22px; color: #E0B0FF; letter-spacing: 1px;">Available Balance</span><br>
-        <span style="font-size:45px; color:#FFD700; font-weight:bold; text-shadow: 0px 0px 10px rgba(255,215,0,0.3);">₹{balance:,.2f}</span>
+        <span style="font-size:20px; color: #E0B0FF;">Available Balance</span><br>
+        <span style="font-size:40px; color:#FFD700; font-weight:bold;">₹{balance:,.2f}</span>
     </div>''', unsafe_allow_html=True)
 
     if curr_user == "shabana": 
@@ -267,10 +208,9 @@ else:
     # --- PAGES ---
     if page == "🏠 Dashboard":
         st.title("Financial Overview")
-        st.markdown(f"""<div class="purple-box" style="display: flex; justify-content: space-around; align-items: center;">
-            <div><h4 style="color: #aaa; margin:0;">Total Credit</h4><h2 style="color: #2DE35A; margin:5px 0 0 0;">₹{t_in:,.2f}</h2></div>
-            <div style="border-left: 1px solid rgba(255,255,255,0.1); height: 50px;"></div>
-            <div><h4 style="color: #aaa; margin:0;">Total Debit</h4><h2 style="color: #FF4B4B; margin:5px 0 0 0;">₹{t_out:,.2f}</h2></div>
+        st.markdown(f"""<div class="purple-box">
+            <h2 style="color: #00FF00;">Total Credit: ₹{t_in:,.2f}</h2>
+            <h2 style="color: #FF3131;">Total Debit: ₹{t_out:,.2f}</h2>
         </div>""", unsafe_allow_html=True)
         
         st.subheader("🗂️ Categorywise Expense Breakdown")
@@ -310,7 +250,7 @@ else:
                 except: st.error("Error! Please enter a valid number for amount.")
 
     elif page == "📅 Calendar":
-        st.title("AI Premium P&L Calendar 📅")
+        st.title("P&L Calendar View 📅")
         try:
             df = pd.read_csv(f"{CSV_URL}&r={random.randint(1,999)}")
             df.columns = df.columns.str.strip()
@@ -326,30 +266,31 @@ else:
                 if row['Credit'] > 0:
                     calendar_events.append({
                         "id": f"credit_{row['Date']}",
-                        "title": f"📈 +₹{row['Credit']:,.0f}",
+                        "title": f" +₹{row['Credit']:,.0f}",
                         "start": row['Date'],
-                        "backgroundColor": "rgba(45, 227, 90, 0.15)",
-                        "borderColor": "#2DE35A",
-                        "textColor": "#2DE35A"
+                        "backgroundColor": "#198754",
+                        "borderColor": "#198754",
+                        "textColor": "white"
                     })
                 if row['Debit'] > 0:
                     calendar_events.append({
                         "id": f"debit_{row['Date']}",
-                        "title": f"📉 -₹{row['Debit']:,.0f}",
+                        "title": f" -₹{row['Debit']:,.0f}",
                         "start": row['Date'],
-                        "backgroundColor": "rgba(255, 75, 75, 0.15)",
-                        "borderColor": "#FF4B4B",
-                        "textColor": "#FF4B4B"
+                        "backgroundColor": "#dc3545",
+                        "borderColor": "#dc3545",
+                        "textColor": "white"
                     })
             
             calendar_options = {
-                "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""},
+                "headerToolbar": {"left": "prev,next today", "center": "title", "right": "dayGridMonth"},
                 "initialView": "dayGridMonth",
                 "selectable": True,
             }
             
-            cal_data = calendar(events=calendar_events, options=calendar_options, key="pnl_calendar_v2")
+            cal_data = calendar(events=calendar_events, options=calendar_options, key="pnl_calendar")
             
+            # --- 💡 CLICK EVENT DETAILS SECTION ---
             if cal_data.get("eventClick"):
                 clicked_date = cal_data["eventClick"]["event"]["start"].split("T")[0]
                 clicked_dt = pd.to_datetime(clicked_date)
@@ -358,9 +299,11 @@ else:
                 st.subheader(f"📋 Details for {clicked_dt.strftime('%d %B %Y')}")
                 
                 day_entries = df[df['Date'].dt.strftime('%Y-%m-%d') == clicked_date].copy()
+                
                 if not day_entries.empty:
                     day_entries['Date'] = day_entries['Date'].dt.strftime('%d/%m/%Y')
-                    st.dataframe(day_entries[['Date', 'Item', 'Debit', 'Credit']].reset_index(drop=True), use_container_width=True)
+                    show_df = day_entries[['Date', 'Item', 'Debit', 'Credit']].reset_index(drop=True)
+                    st.dataframe(show_df, use_container_width=True)
                 else:
                     st.info("No details found for this day.")
                     
@@ -371,13 +314,14 @@ else:
         df = pd.read_csv(f"{CSV_URL}&r={random.randint(1,999)}")
         df.columns = df.columns.str.strip()
         df['Date'] = parse_mixed_dates(df['Date'])
-        df = df.dropna(subset=['Date'])
+        df = df[(df['Date'].dt.year == 2026) & (df['Date'].dt.month >= 4)]
         df['Month'] = df['Date'].dt.strftime('%B %Y')
+        df = df.dropna(subset=['Month'])
         months = df.sort_values(by='Date', ascending=False)['Month'].unique()
 
         if page == "📊 Report":
             st.title("Monthly Expense Analysis")
-            if len(months) == 0: st.warning("No data found in Google Sheets!")
+            if len(months) == 0: st.warning("No data found in Google Sheets for April 2026 onwards!")
             else:
                 sel_month = st.selectbox("Select Month", months)
                 monthly_df = df[df['Month'] == sel_month].copy()
@@ -388,8 +332,8 @@ else:
                 m_savings = m_total_credit - m_total_debit
                 
                 col1, col2, col3 = st.columns(3)
-                with col1: st.markdown(f'<div class="purple-box"><h3 style="color: #2DE35A;">{sel_month} Total Credit</h3><h1 style="color: #2DE35A;">₹{m_total_credit:,.2f}</h1></div>', unsafe_allow_html=True)
-                with col2: st.markdown(f'<div class="purple-box"><h3 style="color: #FF4B4B;">{sel_month} Total Expense</h3><h1 style="color: #FF4B4B;">₹{m_total_debit:,.2f}</h1></div>', unsafe_allow_html=True)
+                with col1: st.markdown(f'<div class="purple-box"><h3 style="color: #00FF00;">{sel_month} Total Credit</h3><h1 style="color: #00FF00;">₹{m_total_credit:,.2f}</h1></div>', unsafe_allow_html=True)
+                with col2: st.markdown(f'<div class="purple-box"><h3 style="color: #FF3131;">{sel_month} Total Expense</h3><h1 style="color: #FF3131;">₹{m_total_debit:,.2f}</h1></div>', unsafe_allow_html=True)
                 with col3: st.markdown(f'<div class="purple-box"><h3 style="color: #FFD700;">{sel_month} Net Savings</h3><h1 style="color: #FFD700;">₹{m_savings:,.2f}</h1></div>', unsafe_allow_html=True)
 
                 if m_total_debit > 0:
@@ -407,7 +351,7 @@ else:
 
         elif page == "🔍 History":
             st.title("Transaction History")
-            if len(months) == 0: st.warning("No transactions found!")
+            if len(months) == 0: st.warning("No transactions found from April 2026 onwards!")
             else:
                 sel_hist_month = st.selectbox("Select Month for History", months, key="history_month_select")
                 filtered_history = df[df['Month'] == sel_hist_month].copy()
