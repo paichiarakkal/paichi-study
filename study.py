@@ -10,6 +10,12 @@ from fpdf import FPDF
 import io
 import re
 import urllib.parse
+import threading
+from streamlit_calendar import calendar
+
+# --- TWILIO CONFIG ---
+TWILIO_SID = "YOUR_TWILIO_ACCOUNT_SID"  
+TWILIO_TOKEN = "YOUR_TWILIO_AUTH_TOKEN"  
 
 # --- 1. CONFIG & SETTINGS ---
 CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRccfZch3jSdHqrScpqsR_j3FSd70NbELC1j6_nPi-MQXdrhVr3BPcKoI1nub4mQql727pQRPWYk9C-/pub?gid=1583146028&single=true&output=csv"
@@ -20,14 +26,52 @@ WA_API_KEY = "7463030"
 
 USERS = {"faisal": "faisal147", "shabana": "shabana123", "admin": "paichi786"}
 
+# --- BACKGROUND TWILIO SERVER ---
+try:
+    from flask import Flask, request
+    from twilio.twiml.messaging_response import MessagingResponse
+    
+    flask_app = Flask(__name__)
+
+    @flask_app.route("/whatsapp", methods=['POST'])
+    def whatsapp_reply():
+        incoming_msg = request.values.get('Body', '').lower().strip()
+        resp = MessagingResponse()
+        msg = resp.message()
+        
+        if "balance" in incoming_msg or "ബാലൻസ്" in incoming_msg:
+            try:
+                df = pd.read_csv(f"{CSV_URL}&r={random.randint(1,999)}")
+                df.columns = df.columns.str.strip()
+                t_in = pd.to_numeric(df['Credit'], errors='coerce').fillna(0).sum()
+                t_out = pd.to_numeric(df['Debit'], errors='coerce').fillna(0).sum()
+                bal = t_in - t_out
+                
+                reply_text = f"📊 *Paichi Finance Update*\n\n💰 Total Credit: ₹{t_in:,.2f}\n📉 Total Debit: ₹{t_out:,.2f}\n💵 *Available Balance: ₹{bal:,.2f}*"
+                msg.body(reply_text)
+            except:
+                msg.body("⚠️ ഷീറ്റിൽ നിന്ന് ഡാറ്റ എടുക്കാൻ കഴിഞ്ഞില്ല. ദയവായി അല്പം കഴിഞ്ഞ് ശ്രമിക്കൂ.")
+        else:
+            msg.body("🤖 ഹലോ! കറന്റ് ബാലൻസ് അറിയാൻ *Balance* അല്ലെങ്കിൽ *ബാലൻസ്* എന്ന് അയക്കൂ.")
+            
+        return str(resp)
+
+    def run_flask():
+        flask_app.run(port=5000, host="0.0.0.0")
+
+    if not any(t.name == "FlaskThread" for t in threading.enumerate()):
+        threading.Thread(target=run_flask, name="FlaskThread", daemon=True).start()
+except Exception as e:
+    pass
+
+
+# --- STREAMLIT UI CODE START ---
 st.set_page_config(page_title="PAICHI EXPENSES v2.6", layout="wide")
 st_autorefresh(interval=60000, key="auto_refresh")
 
-# Session State Initialization
 if 'auth' not in st.session_state: st.session_state.auth = False
 if 'user' not in st.session_state: st.session_state.user = ""
 
-# --- 2. 🎨 PREMIUM DESIGN ---
 st.markdown("""
     <style>
     .stApp { background: linear-gradient(135deg, #1A0521, #4B0082, #0D0214); color: #fff; }
@@ -38,10 +82,13 @@ st.markdown("""
     .category-box { background: rgba(255, 255, 255, 0.08); padding: 15px; border-radius: 15px; text-align: center; border-bottom: 4px solid #FFD700; margin-bottom: 15px; }
     h1, h2, h3, p, label { color: white !important; font-weight: bold !important; }
     .stDataFrame { background: white; border-radius: 10px; color: black; }
+    /* FullCalendar Custom Dark Design to match Upstox style */
+    .fc { background: rgba(255,255,255,0.02); border-radius: 15px; padding: 10px; }
+    .fc-col-header-cell { background: rgba(75, 0, 130, 0.5); }
+    .fc-daygrid-day { min-height: 90px !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. 📊 SMART ENGINES ---
 def send_whatsapp_auto(message):
     url = f"https://api.callmebot.com/whatsapp.php?phone={WA_PHONE}&text={urllib.parse.quote(message)}&apikey={WA_API_KEY}"
     try: requests.get(url, timeout=10)
@@ -68,12 +115,10 @@ def get_category_totals():
         
         def extract_cat(item_str):
             item_str = str(item_str)
-            if 'total' in item_str.lower():
-                return None
+            if 'total' in item_str.lower(): return None
             if ':' in item_str:
                 part = item_str.split(':')[0]
-                if ']' in part:
-                    return part.split(']')[1].strip().capitalize()
+                if ']' in part: return part.split(']')[1].strip().capitalize()
                 return part.strip().capitalize()
             return "Others"
             
@@ -81,8 +126,7 @@ def get_category_totals():
         df = df.dropna(subset=['Extracted_Category'])
         cat_summary = df.groupby('Extracted_Category')['Debit'].sum().to_dict()
         return cat_summary
-    except:
-        return {}
+    except: return {}
 
 def process_voice(text):
     if not text: return "Others", "", ""
@@ -133,7 +177,6 @@ def parse_mixed_dates(date_series):
         parsed_dates.append(dt)
     return pd.Series(parsed_dates)
 
-# --- 4. APP MAIN ---
 if not st.session_state.auth:
     st.title("🔐 PAICHI EXPENSES LOGIN")
     u = st.text_input("Username").lower()
@@ -152,9 +195,11 @@ else:
         <span style="font-size:40px; color:#FFD700; font-weight:bold;">₹{balance:,.2f}</span>
     </div>''', unsafe_allow_html=True)
 
-    # മെനു ലിസ്റ്റ് ഇവിടെ കൃത്യമായി ലോഡ് ചെയ്തിട്ടുണ്ട്
-    if curr_user == "shabana": menu_options = ["💰 Add Entry", "📊 Report", "🔍 History", "🤝 Debt Tracker"]
-    else: menu_options = ["🏠 Dashboard", "💰 Add Entry", "📊 Report", "🔍 History", "🤝 Debt Tracker"]
+    # കലണ്ടർ ഓപ്ഷൻ മെനുവിലേക്ക് കൂട്ടിച്ചേർത്തു
+    if curr_user == "shabana": 
+        menu_options = ["💰 Add Entry", "📅 Calendar", "📊 Report", "🔍 History", "🤝 Debt Tracker"]
+    else: 
+        menu_options = ["🏠 Dashboard", "💰 Add Entry", "📅 Calendar", "📊 Report", "🔍 History", "🤝 Debt Tracker"]
 
     page = st.sidebar.radio("Menu", menu_options)
     if st.sidebar.button("Logout"): 
@@ -204,6 +249,50 @@ else:
                     send_whatsapp_auto(f"✅ *Paichi Entry*\n📝 Item: {it}\n💰 Amt: ₹{am}\n👤 User: {curr_user}")
                     st.success("Saved! ✅")
                 except: st.error("Error! Please enter a valid number for amount.")
+
+    elif page == "📅 Calendar":
+        st.title("P&L Calendar View 📅")
+        try:
+            df = pd.read_csv(f"{CSV_URL}&r={random.randint(1,999)}")
+            df.columns = df.columns.str.strip()
+            df['Date'] = parse_mixed_dates(df['Date'])
+            df = df.dropna(subset=['Date'])
+            df['Debit'] = pd.to_numeric(df['Debit'], errors='coerce').fillna(0)
+            df['Credit'] = pd.to_numeric(df['Credit'], errors='coerce').fillna(0)
+            
+            # പ്രതിദിന കണക്കുകൾ ഗ്രൂപ്പ് ചെയ്യുന്നു
+            daily_summary = df.groupby(df['Date'].dt.strftime('%Y-%m-%d')).agg({'Debit': 'sum', 'Credit': 'sum'}).reset_index()
+            
+            calendar_events = []
+            for _, row in daily_summary.iterrows():
+                # ക്രെഡിറ്റ് ഉണ്ടെങ്കിൽ പച്ച നിറത്തിൽ കാണിക്കും
+                if row['Credit'] > 0:
+                    calendar_events.append({
+                        "title": f" +₹{row['Credit']:,.0f}",
+                        "start": row['Date'],
+                        "backgroundColor": "#198754",
+                        "borderColor": "#198754",
+                        "textColor": "white"
+                    })
+                # ഡെബിറ്റ് ഉണ്ടെങ്കിൽ ചുവപ്പ് നിറത്തിൽ കാണിക്കും
+                if row['Debit'] > 0:
+                    calendar_events.append({
+                        "title": f" -₹{row['Debit']:,.0f}",
+                        "start": row['Date'],
+                        "backgroundColor": "#dc3545",
+                        "borderColor": "#dc3545",
+                        "textColor": "white"
+                    })
+            
+            calendar_options = {
+                "headerToolbar": {"left": "prev,next today", "center": "title", "right": "dayGridMonth"},
+                "initialView": "dayGridMonth",
+                "selectable": True,
+            }
+            
+            calendar(events=calendar_events, options=calendar_options, key="pnl_calendar")
+        except Exception as e:
+            st.error("കലണ്ടർ ഡാറ്റ ലോഡ് ചെയ്യാൻ കഴിഞ്ഞില്ല!")
 
     elif page == "📊 Report" or page == "🔍 History":
         df = pd.read_csv(f"{CSV_URL}&r={random.randint(1,999)}")
@@ -268,10 +357,8 @@ else:
             a = st.number_input("Amount", min_value=0.0)
             t = st.selectbox("Category", ["vagiyade", "koduthade"])
             if st.form_submit_button("SAVE"):
-                if "vagiyade" in t:
-                    d, c = 0, a
-                else:
-                    d, c = a, 0
+                if "vagiyade" in t: d, c = 0, a
+                else: d, c = a, 0
                 payload = {
                     "entry.1044099436": datetime.now().strftime("%Y-%m-%d"), 
                     "entry.2013476337": f"[{curr_user.capitalize()}] DEBT: {t} - {n}", 
