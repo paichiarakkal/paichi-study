@@ -13,9 +13,10 @@ import urllib.parse
 import threading
 from streamlit_calendar import calendar
 
-# --- TWILIO CONFIG (നിങ്ങളുടെ വിവരങ്ങൾ ഇവിടെ നൽകുക) ---
-TWILIO_SID = "YOUR_TWILIO_ACCOUNT_SID"  
-TWILIO_TOKEN = "YOUR_TWILIO_AUTH_TOKEN"  
+# --- TWILIO CONFIG ---
+# സുരക്ഷയ്ക്കായി ഇവ Streamlit Secrets-ലേക്ക് മാറ്റുന്നതാണ് നല്ലത്
+TWILIO_SID = st.secrets.get("TWILIO_SID", "YOUR_TWILIO_ACCOUNT_SID")  
+TWILIO_TOKEN = st.secrets.get("TWILIO_TOKEN", "YOUR_TWILIO_AUTH_TOKEN")  
 
 # --- 1. CONFIG & SETTINGS ---
 CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRccfZch3jSdHqrScpqsR_j3FSd70NbELC1j6_nPi-MQXdrhVr3BPcKoI1nub4mQql727pQRPWYk9C-/pub?gid=1583146028&single=true&output=csv"
@@ -57,10 +58,12 @@ try:
         return str(resp)
 
     def run_flask():
-        flask_app.run(port=5000, host="0.0.0.0")
+        flask_app.run(port=5000, host="0.0.0.0", debug=False, use_reloader=False)
 
+    # ആപ്പ് റീഫ്രഷ് ചെയ്യുമ്പോൾ ഡ്യൂപ്ലിക്കേറ്റ് ത്രെഡ് വരുന്നത് തടയുന്നു
     if not any(t.name == "FlaskThread" for t in threading.enumerate()):
-        threading.Thread(target=run_flask, name="FlaskThread", daemon=True).start()
+        flask_thread = threading.Thread(target=run_flask, name="FlaskThread", daemon=True)
+        flask_thread.start()
 except Exception as e:
     pass
 
@@ -68,9 +71,6 @@ except Exception as e:
 # --- STREAMLIT UI CODE START ---
 st.set_page_config(page_title="PAICHI EXPENSES v2.6", layout="wide")
 st_autorefresh(interval=60000, key="auto_refresh")
-
-if 'auth' not in st.session_state: st.session_state.auth = False
-if 'user' not in st.session_state: st.session_state.user = ""
 
 st.markdown("""
     <style>
@@ -82,12 +82,14 @@ st.markdown("""
     .category-box { background: rgba(255, 255, 255, 0.08); padding: 15px; border-radius: 15px; text-align: center; border-bottom: 4px solid #FFD700; margin-bottom: 15px; }
     h1, h2, h3, p, label { color: white !important; font-weight: bold !important; }
     .stDataFrame { background: white; border-radius: 10px; color: black; }
-    /* FullCalendar Custom Dark Design */
     .fc { background: rgba(255,255,255,0.02); border-radius: 15px; padding: 10px; }
     .fc-col-header-cell { background: rgba(75, 0, 130, 0.5); }
     .fc-daygrid-day { min-height: 90px !important; }
     </style>
     """, unsafe_allow_html=True)
+
+if 'auth' not in st.session_state: st.session_state.auth = False
+if 'user' not in st.session_state: st.session_state.user = ""
 
 def send_whatsapp_auto(message):
     url = f"https://api.callmebot.com/whatsapp.php?phone={WA_PHONE}&text={urllib.parse.quote(message)}&apikey={WA_API_KEY}"
@@ -116,10 +118,11 @@ def get_category_totals():
         def extract_cat(item_str):
             item_str = str(item_str)
             if 'total' in item_str.lower(): return None
+            # [User] Category: Description എന്ന ഫോർമാറ്റിൽ നിന്നും കാറ്റഗറി എടുക്കാൻ
+            if ']' in item_str:
+                item_str = item_str.split(']')[1].strip()
             if ':' in item_str:
-                part = item_str.split(':')[0]
-                if ']' in part: return part.split(']')[1].strip().capitalize()
-                return part.strip().capitalize()
+                return item_str.split(':')[0].strip().capitalize()
             return "Others"
             
         df['Extracted_Category'] = df['Item'].apply(extract_cat)
@@ -135,10 +138,10 @@ def process_voice(text):
     amt = nums[0] if nums else ""
     desc = re.sub(r'\d+', '', raw).strip()
     category = "Others"
-    if any(x in raw for x in ["food", "ഭക്ഷണം", "ചായ"]): category = "Food"
-    elif any(x in raw for x in ["shop", "കട"]): category = "Shop"
-    elif any(x in raw for x in ["fish", "മീൻ"]): category = "Fish"
-    elif any(x in raw for x in ["travel", "യാത്ര"]): category = "Travel"
+    if any(x in raw for x in ["food", "ഭക്ഷണം", "ചായ", "ഹോട്ടൽ"]): category = "Food"
+    elif any(x in raw for x in ["shop", "കട", "സാധനങ്ങൾ"]): category = "Shop"
+    elif any(x in raw for x in ["fish", "മീൻ", "ഇറച്ചി"]): category = "Fish"
+    elif any(x in raw for x in ["travel", "യാത്ര", "പെട്രോൾ", "വണ്ടി"]): category = "Travel"
     return category, amt, desc
 
 def create_pdf(df):
@@ -146,20 +149,23 @@ def create_pdf(df):
         pdf = FPDF()
         pdf.add_page()
         pdf.set_font("Arial", 'B', 16)
-        pdf.cell(190, 10, txt="PAICHI FINANCE REPORT", ln=True, align='C')
+        pdf.cell(190, 10, text="PAICHI FINANCE REPORT", ln=True, align='C')
         pdf.ln(10)
         cols = df.columns.tolist()
         pdf.set_font("Arial", 'B', 10)
-        for col in cols: pdf.cell(38, 10, txt=str(col), border=1)
+        for col in cols: pdf.cell(38, 10, text=str(col), border=1)
         pdf.ln()
         pdf.set_font("Arial", size=9)
         for _, row in df.iterrows():
             for col in cols:
                 val = str(row[col]).encode('ascii', 'ignore').decode('ascii')
-                pdf.cell(38, 10, txt=val, border=1)
+                pdf.cell(38, 10, text=val, border=1)
             pdf.ln()
-        return pdf.output(dest='S').encode('latin-1')
-    except: return None
+        
+        # FPDF പുതിയ വേർഷൻ അനുസരിച്ച് ഫിക്സ് ചെയ്തത്
+        return bytes(pdf.output())
+    except Exception as e: 
+        return None
 
 def parse_mixed_dates(date_series):
     parsed_dates = []
@@ -232,7 +238,7 @@ else:
         with st.form("entry_form", clear_on_submit=True):
             it = st.text_input("Description", value=v_desc)
             am_str = st.text_input("Amount", value=str(v_amt))
-            cat = st.selectbox("Category", ["Food", "Shop", "Fish", "Travel", "Rent", "Others"])
+            cat = st.selectbox("Category", ["Food", "Shop", "Fish", "Travel", "Rent", "Others"], index=["Food", "Shop", "Fish", "Travel", "Rent", "Others"].index(v_cat))
             ty = st.radio("Type", ["Debit", "Credit"], horizontal=True)
             if st.form_submit_button("SAVE & NOTIFY"):
                 try:
@@ -247,6 +253,7 @@ else:
                     send_to_google_async(payload)
                     send_whatsapp_auto(f"✅ *Paichi Entry*\n📝 Item: {it}\n💰 Amt: ₹{am}\n👤 User: {curr_user}")
                     st.success("Saved! ✅")
+                    st.rerun()
                 except: st.error("Error! Please enter a valid number for amount.")
 
     elif page == "📅 Calendar":
@@ -290,7 +297,6 @@ else:
             
             cal_data = calendar(events=calendar_events, options=calendar_options, key="pnl_calendar")
             
-            # --- 💡 CLICK EVENT DETAILS SECTION ---
             if cal_data.get("eventClick"):
                 clicked_date = cal_data["eventClick"]["event"]["start"].split("T")[0]
                 clicked_dt = pd.to_datetime(clicked_date)
@@ -304,7 +310,6 @@ else:
                     day_entries['Date'] = day_entries['Date'].dt.strftime('%d/%m/%Y')
                     show_df = day_entries[['Date', 'Item', 'Debit', 'Credit']].reset_index(drop=True)
                     
-                    # 🔥 ഇതാ ഇവിടെ ഡൗൺലോഡ് ബട്ടൺ ചേർത്തിട്ടുണ്ട് ഭായ്!
                     csv_day_data = show_df.to_csv(index=False).encode('utf-8')
                     st.download_button(
                         label="📥 Download This Day's Data", 
