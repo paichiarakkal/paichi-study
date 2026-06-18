@@ -4,14 +4,12 @@ import requests
 import random
 import re
 import urllib.parse
-import threading
 from datetime import datetime
 import google.generativeai as genai
 from PIL import Image
 from streamlit_mic_recorder import speech_to_text
 from streamlit_autorefresh import st_autorefresh
 from streamlit_calendar import calendar
-from fpdf import FPDF
 
 # --- CONFIGS & API KEYS ---
 TWILIO_SID, TWILIO_TOKEN = "YOUR_TWILIO_ACCOUNT_SID", "YOUR_TWILIO_AUTH_TOKEN"  
@@ -168,8 +166,8 @@ else:
                 day_df = df_c[df_c['Date'].dt.strftime('%Y-%m-%d') == c_date].copy()
                 if not day_df.empty:
                     day_df['Date'] = day_df['Date'].dt.strftime('%d/%m/%Y')
+                    # 💡 നേരിട്ട് ഡൗൺലോഡ് ആവാൻ വേണ്ടി മാത്രം സെറ്റ് ചെയ്തത്
                     st.download_button("📥 Download Day Data", day_df[['Date','Item','Debit','Credit']].to_csv(index=False), f"Trans_{c_date}.csv", "text/csv")
-                    st.toast("📥 ഫയൽ റെഡിയാണ്!", icon="✅")
                     st.dataframe(day_df[['Date','Item','Debit','Credit']], use_container_width=True)
 
     elif page in ["📊 Report", "🔍 History"]:
@@ -196,12 +194,12 @@ else:
                         m_df['Cat'] = m_df['Item'].apply(lambda x: str(x).split(':')[0] if ':' in x else 'Others')
                         st.plotly_chart(px.pie(m_df[m_df['Debit'] > 0], values='Debit', names='Cat', hole=0.4), use_container_width=True)
                     
+                    # 💡 നേരിട്ട് ഡൗൺലോഡ്
                     st.download_button("📥 Download CSV Report", m_df.drop(columns=['Month']).to_csv(index=False), f"Report_{m_sel}.csv", "text/csv")
-                    st.toast("📥 റിപ്പോർട്ട് റെഡിയാണ്!", icon="📊")
                 else:
                     st.title("Transaction History")
+                    # 💡 നേരിട്ട് ഡൗൺലോഡ്
                     st.download_button("📥 Download CSV History", m_df.drop(columns=['Month']).to_csv(index=False), f"History_{m_sel}.csv", "text/csv")
-                    st.toast("📥 CSV ഫയൽ റെഡിയാണ്!", icon="✅")
                 
                 m_df['Date'] = m_df['Date'].dt.strftime('%d/%m/%Y')
                 st.dataframe(m_df.drop(columns=['Month']).iloc[::-1], use_container_width=True)
