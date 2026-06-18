@@ -9,3 +9,4 @@ fpdf
 gspread
 oauth2client
 streamlit-calendar
+google-generativeai
