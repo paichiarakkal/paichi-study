@@ -7,71 +7,47 @@ import plotly.express as px
 from streamlit_mic_recorder import speech_to_text
 from streamlit_autorefresh import st_autorefresh
 from fpdf import FPDF
-import io
 import re
 import urllib.parse
 import threading
 from streamlit_calendar import calendar
 
-# --- TWILIO CONFIG ---
-TWILIO_SID = st.secrets.get("TWILIO_SID", "YOUR_TWILIO_ACCOUNT_SID")  
-TWILIO_TOKEN = st.secrets.get("TWILIO_TOKEN", "YOUR_TWILIO_AUTH_TOKEN")  
-
-# --- 1. CONFIG & SETTINGS ---
+# --- CONFIG & SETTINGS ---
 CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRccfZch3jSdHqrScpqsR_j3FSd70NbELC1j6_nPi-MQXdrhVr3BPcKoI1nub4mQql727pQRPWYk9C-/pub?gid=1583146028&single=true&output=csv"
 FORM_API = "https://docs.google.com/forms/d/e/1FAIpQLSfLySolQSiRXV0wELNPhUBlKJh77RnJKWc2-uqAM0TPNG3Q5A/formResponse"
-
-WA_PHONE = "971551347989"
-WA_API_KEY = "7463030"
-
+WA_PHONE, WA_API_KEY = "971551347989", "7463030"
 USERS = {"faisal": "faisal147", "shabana": "shabana123", "admin": "paichi786"}
 
-# --- BACKGROUND TWILIO SERVER (WHATSAPP RECEIVER) ---
+# --- TWILIO WHATSAPP RECEIVER BACKGROUND SERVER ---
 try:
     from flask import Flask, request
     from twilio.twiml.messaging_response import MessagingResponse
-    
     flask_app = Flask(__name__)
 
     @flask_app.route("/whatsapp", methods=['POST'])
     def whatsapp_reply():
-        incoming_msg = request.values.get('Body', '').lower().strip()
+        incoming = request.values.get('Body', '').lower().strip()
         resp = MessagingResponse()
         msg = resp.message()
-        
-        if "balance" in incoming_msg or "ബാലൻസ്" in incoming_msg:
+        if "balance" in incoming or "ബാലൻസ്" in incoming:
             try:
                 df = pd.read_csv(f"{CSV_URL}&r={random.randint(1,999)}")
-                df.columns = df.columns.str.strip()
-                t_in = pd.to_numeric(df['Credit'], errors='coerce').fillna(0).sum()
-                t_out = pd.to_numeric(df['Debit'], errors='coerce').fillna(0).sum()
-                bal = t_in - t_out
-                
-                reply_text = f"📊 *Paichi Finance Update*\n\n💰 Total Credit: ₹{t_in:,.2f}\n📉 Total Debit: ₹{t_out:,.2f}\n💵 *Available Balance: ₹{bal:,.2f}*"
-                msg.body(reply_text)
-            except:
-                msg.body("⚠️ ഷീറ്റിൽ നിന്ന് ഡാറ്റ എടുക്കാൻ കഴിഞ്ഞില്ല. ദയവായി അല്പം കഴിഞ്ഞ് ശ്രമിക്കൂ.")
-        else:
-            msg.body("🤖 ഹലോ! കറന്റ് ബാലൻസ് അറിയാൻ *Balance* അല്ലെങ്കിൽ *ബാലൻസ്* എന്ന് അയക്കൂ.")
-            
+                t_in = pd.to_numeric(df.iloc[:, 3], errors='coerce').fillna(0).sum() # Credit column index
+                t_out = pd.to_numeric(df.iloc[:, 2], errors='coerce').fillna(0).sum() # Debit column index
+                msg.body(f"📊 *Paichi Finance Update*\n\n💰 Total Credit: ₹{t_in:,.2f}\n📉 Total Debit: ₹{t_out:,.2f}\n💵 *Available Balance: ₹{t_in - t_out:,.2f}*")
+            except: msg.body("⚠️ ഡാറ്റ എടുക്കാൻ കഴിഞ്ഞില്ല.")
+        else: msg.body("🤖 ഹലോ! ബാലൻസ് അറിയാൻ *Balance* എന്ന് അയക്കൂ.")
         return str(resp)
 
-    def run_flask():
-        flask_app.run(port=5000, host="0.0.0.0", debug=False, use_reloader=False)
-
     if not any(t.name == "FlaskThread" for t in threading.enumerate()):
-        flask_thread = threading.Thread(target=run_flask, name="FlaskThread", daemon=True)
-        flask_thread.start()
-except Exception as e:
-    pass
+        threading.Thread(target=lambda: flask_app.run(port=5000, host="0.0.0.0", debug=False, use_reloader=False), name="FlaskThread", daemon=True).start()
+except: pass
 
-
-# --- STREAMLIT UI CODE START ---
+# --- STREAMLIT UI & THEME ---
 st.set_page_config(page_title="PAICHI EXPENSES v2.6", layout="wide")
 st_autorefresh(interval=60000, key="auto_refresh")
 
-st.markdown("""
-    <style>
+st.markdown("""<style>
     .stApp { background: linear-gradient(135deg, #1A0521, #4B0082, #0D0214); color: #fff; }
     [data-testid="stSidebar"] { background: rgba(0,0,0,0.85) !important; }
     .stButton>button { background-color: #FFD700; color: #000; border-radius: 10px; font-weight: bold; width: 100%; }
@@ -80,68 +56,33 @@ st.markdown("""
     .category-box { background: rgba(255, 255, 255, 0.08); padding: 15px; border-radius: 15px; text-align: center; border-bottom: 4px solid #FFD700; margin-bottom: 15px; }
     h1, h2, h3, p, label { color: white !important; font-weight: bold !important; }
     .stDataFrame { background: white; border-radius: 10px; color: black; }
-    .fc { background: rgba(255,255,255,0.02); border-radius: 15px; padding: 10px; }
-    .fc-col-header-cell { background: rgba(75, 0, 130, 0.5); }
-    .fc-daygrid-day { min-height: 90px !important; }
-    </style>
-    """, unsafe_allow_html=True)
+</style>""", unsafe_allow_html=True)
 
-if 'auth' not in st.session_state: st.session_state.auth = False
-if 'user' not in st.session_state: st.session_state.user = ""
+if 'auth' not in st.session_state: st.session_state.auth, st.session_state.user = False, ""
 
-def send_whatsapp_auto(message):
-    url = f"https://api.callmebot.com/whatsapp.php?phone={WA_PHONE}&text={urllib.parse.quote(message)}&apikey={WA_API_KEY}"
-    try: requests.get(url, timeout=10)
-    except: pass
+# --- HELPER FUNCTIONS ---
+def send_whatsapp_auto(msg):
+    threading.Thread(target=lambda: requests.get(f"https://api.callmebot.com/whatsapp.php?phone={WA_PHONE}&text={urllib.parse.quote(msg)}&apikey={WA_API_KEY}", timeout=10)).start()
 
-def send_to_google_async(data):
-    def run():
-        try: requests.post(FORM_API, data=data, timeout=10)
-        except: pass
-    threading.Thread(target=run).start()
+def parse_mixed_dates(date_series):
+    parsed = []
+    for val in date_series:
+        dt = pd.to_datetime(str(val).strip(), errors='coerce')
+        if not pd.isna(dt) and dt.year == 2026 and dt.month < 4: dt = datetime(2026, dt.day, dt.month)
+        if pd.isna(dt): dt = pd.to_datetime(str(val).strip(), dayfirst=True, errors='coerce')
+        parsed.append(dt)
+    return pd.Series(parsed)
 
-def get_totals():
+@st.cache_data(ttl=10)
+def load_data():
     try:
         df = pd.read_csv(f"{CSV_URL}&r={random.randint(1,999)}")
         df.columns = df.columns.str.strip()
-        t_in = pd.to_numeric(df['Credit'], errors='coerce').fillna(0).sum()
-        t_out = pd.to_numeric(df['Debit'], errors='coerce').fillna(0).sum()
-        return t_in, t_out, (t_in - t_out)
-    except: return 0.0, 0.0, 0.0
-
-def get_category_totals():
-    try:
-        df = pd.read_csv(f"{CSV_URL}&r={random.randint(1,999)}")
-        df.columns = df.columns.str.strip()
+        df['Date'] = parse_mixed_dates(df['Date'])
         df['Debit'] = pd.to_numeric(df['Debit'], errors='coerce').fillna(0)
-        
-        def extract_cat(item_str):
-            item_str = str(item_str)
-            if 'total' in item_str.lower(): return None
-            if ']' in item_str:
-                item_str = item_str.split(']')[1].strip()
-            if ':' in item_str:
-                return item_str.split(':')[0].strip().capitalize()
-            return "Others"
-            
-        df['Extracted_Category'] = df['Item'].apply(extract_cat)
-        df = df.dropna(subset=['Extracted_Category'])
-        cat_summary = df.groupby('Extracted_Category')['Debit'].sum().to_dict()
-        return cat_summary
-    except: return {}
-
-def process_voice(text):
-    if not text: return "Others", "", ""
-    raw = text.lower().replace('.', '').replace(',', '')
-    nums = re.findall(r'\d+', raw)
-    amt = nums[0] if nums else ""
-    desc = re.sub(r'\d+', '', raw).strip()
-    category = "Others"
-    if any(x in raw for x in ["food", "ഭക്ഷണം", "ചായ", "ഹോട്ടൽ"]): category = "Food"
-    elif any(x in raw for x in ["shop", "കട", "സാധനങ്ങൾ"]): category = "Shop"
-    elif any(x in raw for x in ["fish", "മീൻ", "ഇറച്ചി"]): category = "Fish"
-    elif any(x in raw for x in ["travel", "യാത്ര", "പെട്രോൾ", "വണ്ടി"]): category = "Travel"
-    return category, amt, desc
+        df['Credit'] = pd.to_numeric(df['Credit'], errors='coerce').fillna(0)
+        return df
+    except: return pd.DataFrame()
 
 def create_pdf(df):
     try:
@@ -150,119 +91,75 @@ def create_pdf(df):
         pdf.set_font("Arial", 'B', 14)
         pdf.cell(190, 10, txt="PAICHI FINANCE REPORT", ln=True, align='C')
         pdf.ln(10)
-        
-        cols = ['Date', 'Item', 'Debit', 'Credit']
         pdf.set_font("Arial", 'B', 10)
-        
-        col_widths = {"Date": 30, "Item": 85, "Debit": 35, "Credit": 35}
-        for col in cols:
-            pdf.cell(col_widths[col], 10, txt=str(col), border=1, align='C')
+        widths = {"Date": 30, "Item": 85, "Debit": 35, "Credit": 35}
+        for col in widths: pdf.cell(widths[col], 10, txt=col, border=1, align='C')
         pdf.ln()
-        
         pdf.set_font("Arial", size=9)
         for _, row in df.iterrows():
-            if pdf.get_y() > 260:
-                pdf.add_page()
-                
-            dt_str = str(row.get('Date', ''))
-            item_str = str(row.get('Item', '')).encode('ascii', 'ignore').decode('ascii')
-            deb_str = str(row.get('Debit', '0'))
-            crd_str = str(row.get('Credit', '0'))
-            
+            if pdf.get_y() > 260: pdf.add_page()
             y_start = pdf.get_y()
-            
-            pdf.cell(30, 10, txt=dt_str, border=0)
-            
+            pdf.cell(30, 10, txt=str(row['Date']), border=0)
             x_after_date = pdf.get_x()
-            pdf.multi_cell(85, 5, txt=item_str, border=0)
-            y_after_item = pdf.get_y()
-            
-            cell_height = max(10, y_after_item - y_start)
-            
+            pdf.multi_cell(85, 5, txt=str(row['Item']).encode('ascii', 'ignore').decode('ascii'), border=0)
+            h = max(10, pdf.get_y() - y_start)
             pdf.set_xy(x_after_date + 85, y_start)
-            pdf.cell(35, cell_height, txt=deb_str, border=0, align='R')
-            pdf.cell(35, cell_height, txt=crd_str, border=0, align='R')
-            
+            pdf.cell(35, h, txt=str(row['Debit']), border=0, align='R')
+            pdf.cell(35, h, txt=str(row['Credit']), border=0, align='R')
             pdf.set_xy(10, y_start)
-            pdf.cell(30, cell_height, txt="", border=1)
-            pdf.cell(85, cell_height, txt="", border=1)
-            pdf.cell(35, cell_height, txt="", border=1)
-            pdf.cell(35, cell_height, txt="", border=1)
-            
-            pdf.set_y(y_start + cell_height)
-            
+            for w in widths.values(): pdf.cell(w, h, txt="", border=1)
+            pdf.set_y(y_start + h)
         return bytes(pdf.output())
-    except Exception as e: 
-        return None
+    except: return None
 
-def parse_mixed_dates(date_series):
-    parsed_dates = []
-    for val in date_series:
-        val_str = str(val).strip()
-        dt = pd.NaT
-        try:
-            dt = pd.to_datetime(val_str, errors='coerce')
-            if not pd.isna(dt) and dt.year == 2026 and dt.month < 4:
-                dt = datetime(2026, dt.day, dt.month)
-        except: pass
-        if pd.isna(dt):
-            try: dt = pd.to_datetime(val_str, dayfirst=True, errors='coerce')
-            except: pass
-        parsed_dates.append(dt)
-    return pd.Series(parsed_dates)
-
+# --- AUTH LOGIN ---
 if not st.session_state.auth:
     st.title("🔐 PAICHI EXPENSES LOGIN")
-    u = st.text_input("Username").lower()
-    p = st.text_input("Password", type="password")
-    if st.button("LOGIN"):
-        if USERS.get(u) == p:
-            st.session_state.auth, st.session_state.user = True, u
-            st.rerun()
-        else: st.error("Access Denied!")
-else:
-    curr_user = st.session_state.user
-    t_in, t_out, balance = get_totals()
-    
-    st.markdown(f'''<div class="balance-banner">
-        <span style="font-size:20px; color: #E0B0FF;">Available Balance</span><br>
-        <span style="font-size:40px; color:#FFD700; font-weight:bold;">₹{balance:,.2f}</span>
-    </div>''', unsafe_allow_html=True)
-
-    if curr_user == "shabana": 
-        menu_options = ["💰 Add Entry", "📅 Calendar", "📊 Report", "🔍 History", "🤝 Debt Tracker"]
-    else: 
-        menu_options = ["🏠 Dashboard", "💰 Add Entry", "📅 Calendar", "📊 Report", "🔍 History", "🤝 Debt Tracker"]
-
-    page = st.sidebar.radio("Menu", menu_options)
-    if st.sidebar.button("Logout"): 
-        st.session_state.auth = False
+    u, p = st.text_input("Username").lower(), st.text_input("Password", type="password")
+    if st.button("LOGIN") and USERS.get(u) == p:
+        st.session_state.auth, st.session_state.user = True, u
         st.rerun()
+    elif p: st.error("Access Denied!")
+else:
+    df = load_data()
+    t_in, t_out = (df['Credit'].sum(), df['Debit'].sum()) if not df.empty else (0.0, 0.0)
+    bal = t_in - t_out
+    
+    st.markdown(f'<div class="balance-banner"><span style="font-size:20px; color:#E0B0FF;">Available Balance</span><br><span style="font-size:40px; color:#FFD700; font-weight:bold;">₹{bal:,.2f}</span></div>', unsafe_allow_html=True)
+    
+    menu = ["💰 Add Entry", "📅 Calendar", "📊 Report", "🔍 History", "🤝 Debt Tracker"]
+    if st.session_state.user != "shabana": menu.insert(0, "🏠 Dashboard")
+    page = st.sidebar.radio("Menu", menu)
+    if st.sidebar.button("Logout"): st.session_state.auth = False; st.rerun()
 
     # --- PAGES ---
-    if page == "🏠 Dashboard":
+    if page == "🏠 Dashboard" and not df.empty:
         st.title("Financial Overview")
-        st.markdown(f"""<div class="purple-box">
-            <h2 style="color: #00FF00;">Total Credit: ₹{t_in:,.2f}</h2>
-            <h2 style="color: #FF3131;">Total Debit: ₹{t_out:,.2f}</h2>
-        </div>""", unsafe_allow_html=True)
+        st.markdown(f'<div class="purple-box"><h2 style="color:#00FF00;">Total Credit: ₹{t_in:,.2f}</h2><h2 style="color:#FF3131;">Total Debit: ₹{t_out:,.2f}</h2></div>', unsafe_allow_html=True)
         
         st.subheader("🗂️ Categorywise Expense Breakdown")
-        cat_data = get_category_totals()
-        if cat_data:
-            cols = st.columns(3)
-            for idx, (c_name, c_amount) in enumerate(cat_data.items()):
-                if c_amount > 0 and c_name:
-                    with cols[idx % 3]:
-                        st.markdown(f"""<div class="category-box">
-                            <span style="font-size:16px; color:#aaa;">Total {c_name}</span><br>
-                            <span style="font-size:24px; color:#FFF; font-weight:bold;">₹{c_amount:,.2f}</span>
-                        </div>""", unsafe_allow_html=True)
+        def extract_cat(x): return x.split(']')[1].split(':')[0].strip().capitalize() if ']' in str(x) and ':' in str(x) else (str(x).split(':')[0].strip().capitalize() if ':' in str(x) else "Others")
+        df['Cat'] = df['Item'].apply(extract_cat)
+        cats = df[~df['Item'].str.contains('total', case=False, na=False)].groupby('Cat')['Debit'].sum().to_dict()
+        cols = st.columns(3)
+        for idx, (c_name, c_amt) in enumerate(cats.items()):
+            if c_amt > 0:
+                with cols[idx % 3]: st.markdown(f'<div class="category-box"><span style="font-size:16px; color:#aaa;">Total {c_name}</span><br><span style="font-size:24px; color:#FFF; font-weight:bold;">₹{c_amt:,.2f}</span></div>', unsafe_allow_html=True)
 
     elif page == "💰 Add Entry":
         st.title("Smart Voice Entry 🎙️")
         v_raw = speech_to_text(language='ml', key='voice_v8')
-        v_cat, v_amt, v_desc = process_voice(v_raw)
+        v_cat, v_amt, v_desc = "Others", "", ""
+        if v_raw:
+            raw = v_raw.lower().replace('.', '').replace(',', '')
+            nums = re.findall(r'\d+', raw)
+            v_amt = nums[0] if nums else ""
+            v_desc = re.sub(r'\d+', '', raw).strip()
+            if any(x in raw for x in ["food", "ഭക്ഷണം", "ചായ", "ഹോട്ടൽ"]): v_cat = "Food"
+            elif any(x in raw for x in ["shop", "കട", "സാധനങ്ങൾ"]): v_cat = "Shop"
+            elif any(x in raw for x in ["fish", "മീൻ", "ഇറച്ചി"]): v_cat = "Fish"
+            elif any(x in raw for x in ["travel", "യാത്ര", "പെട്രോൾ", "വണ്ടി"]): v_cat = "Travel"
+
         with st.form("entry_form", clear_on_submit=True):
             it = st.text_input("Description", value=v_desc)
             am_str = st.text_input("Amount", value=str(v_amt))
@@ -271,167 +168,65 @@ else:
             if st.form_submit_button("SAVE & NOTIFY"):
                 try:
                     am = float(am_str.strip().replace(',', ''))
-                    d, c = (am, 0) if ty == "Debit" else (0, am)
-                    payload = {
-                        "entry.1044099436": datetime.now().strftime("%Y-%m-%d"), 
-                        "entry.2013476337": f"[{curr_user.capitalize()}] {cat}: {it}", 
-                        "entry.1460982454": d, 
-                        "entry.1221658767": c
-                    }
-                    send_to_google_async(payload)
-                    send_whatsapp_auto(f"✅ *Paichi Entry*\n📝 Item: {it}\n💰 Amt: ₹{am}\n👤 User: {curr_user}")
-                    st.success("Saved! ✅")
-                    st.rerun()
-                except: st.error("Error! Please enter a valid number for amount.")
+                    payload = {"entry.1044099436": datetime.now().strftime("%Y-%m-%d"), "entry.2013476337": f"[{st.session_state.user.capitalize()}] {cat}: {it}", "entry.1460982454": am if ty=="Debit" else 0, "entry.1221658767": 0 if ty=="Debit" else am}
+                    threading.Thread(target=lambda: requests.post(FORM_API, data=payload, timeout=10)).start()
+                    send_whatsapp_auto(f"✅ *Paichi Entry*\n📝 Item: {it}\n💰 Amt: ₹{am}\n👤 User: {st.session_state.user}")
+                    st.success("Saved! ✅"); st.rerun()
+                except: st.error("Error! Valid amount required.")
 
-    elif page == "📅 Calendar":
+    elif page == "📅 Calendar" and not df.empty:
         st.title("P&L Calendar View 📅")
-        try:
-            df = pd.read_csv(f"{CSV_URL}&r={random.randint(1,999)}")
-            df.columns = df.columns.str.strip()
-            df['Date'] = parse_mixed_dates(df['Date'])
-            df = df.dropna(subset=['Date'])
-            df['Debit'] = pd.to_numeric(df['Debit'], errors='coerce').fillna(0)
-            df['Credit'] = pd.to_numeric(df['Credit'], errors='coerce').fillna(0)
-            
-            daily_summary = df.groupby(df['Date'].dt.strftime('%Y-%m-%d')).agg({'Debit': 'sum', 'Credit': 'sum'}).reset_index()
-            
-            calendar_events = []
-            for _, row in daily_summary.iterrows():
-                if row['Credit'] > 0:
-                    calendar_events.append({
-                        "id": f"credit_{row['Date']}",
-                        "title": f" +₹{row['Credit']:,.0f}",
-                        "start": row['Date'],
-                        "backgroundColor": "#198754",
-                        "borderColor": "#198754",
-                        "textColor": "white"
-                    })
-                if row['Debit'] > 0:
-                    calendar_events.append({
-                        "id": f"debit_{row['Date']}",
-                        "title": f" -₹{row['Debit']:,.0f}",
-                        "start": row['Date'],
-                        "backgroundColor": "#dc3545",
-                        "borderColor": "#dc3545",
-                        "textColor": "white"
-                    })
-            
-            calendar_options = {
-                "headerToolbar": {"left": "prev,next today", "center": "title", "right": "dayGridMonth"},
-                "initialView": "dayGridMonth",
-                "selectable": True,
-            }
-            
-            cal_data = calendar(events=calendar_events, options=calendar_options, key="pnl_calendar")
-            
-            if cal_data.get("eventClick"):
-                clicked_date = cal_data["eventClick"]["event"]["start"].split("T")[0]
-                clicked_dt = pd.to_datetime(clicked_date)
-                
-                st.markdown("---")
-                st.subheader(f"📋 Details for {clicked_dt.strftime('%d %B %Y')}")
-                
-                day_entries = df[df['Date'].dt.strftime('%Y-%m-%d') == clicked_date].copy()
-                
-                if not day_entries.empty:
-                    day_entries['Date'] = day_entries['Date'].dt.strftime('%d/%m/%Y')
-                    show_df = day_entries[['Date', 'Item', 'Debit', 'Credit']].reset_index(drop=True)
-                    
-                    csv_day_data = show_df.to_csv(index=False).encode('utf-8')
-                    st.download_button(
-                        label="📥 Download This Day's Data", 
-                        data=csv_day_data, 
-                        file_name=f"Transactions_{clicked_date}.csv", 
-                        mime="text/csv"
-                    )
-                    
-                    st.dataframe(show_df, use_container_width=True)
-                else:
-                    st.info("No details found for this day.")
-                    
-        except Exception as e:
-            st.error("കലണ്ടർ ഡാറ്റ ലോഡ് ചെയ്യാൻ കഴിഞ്ഞില്ല!")
+        df_cal = df.dropna(subset=['Date'])
+        summary = df_cal.groupby(df_cal['Date'].dt.strftime('%Y-%m-%d')).agg({'Debit': 'sum', 'Credit': 'sum'}).reset_index()
+        events = []
+        for _, row in summary.iterrows():
+            if row['Credit'] > 0: events.append({"title": f" +₹{row['Credit']:,.0f}", "start": row['Date'], "backgroundColor": "#198754", "borderColor": "#198754", "textColor": "white"})
+            if row['Debit'] > 0: events.append({"title": f" -₹{row['Debit']:,.0f}", "start": row['Date'], "backgroundColor": "#dc3545", "borderColor": "#dc3545", "textColor": "white"})
+        
+        cal_data = calendar(events=events, options={"headerToolbar": {"left": "prev,next today", "center": "title", "right": "dayGridMonth"}, "initialView": "dayGridMonth", "selectable": True}, key="pnl_calendar")
+        if cal_data.get("eventClick"):
+            dt_click = cal_data["eventClick"]["event"]["start"].split("T")[0]
+            st.markdown("---"); st.subheader(f"📋 Details for {pd.to_datetime(dt_click).strftime('%d %B %Y')}")
+            day_df = df_cal[df_cal['Date'].dt.strftime('%Y-%m-%d') == dt_click].copy()
+            if not day_df.empty:
+                day_df['Date'] = day_df['Date'].dt.strftime('%d/%m/%Y')
+                st.download_button("📥 Download This Day's Data", day_df[['Date', 'Item', 'Debit', 'Credit']].to_csv(index=False).encode('utf-8'), f"Transactions_{dt_click}.csv", "text/csv")
+                st.dataframe(day_df[['Date', 'Item', 'Debit', 'Credit']], use_container_width=True)
 
-    elif page == "📊 Report" or page == "🔍 History":
-        df = pd.read_csv(f"{CSV_URL}&r={random.randint(1,999)}")
-        df.columns = df.columns.str.strip()
-        df['Date'] = parse_mixed_dates(df['Date'])
-        df = df[(df['Date'].dt.year == 2026) & (df['Date'].dt.month >= 4)]
-        df['Month'] = df['Date'].dt.strftime('%B %Y')
-        df = df.dropna(subset=['Month'])
-        months = df.sort_values(by='Date', ascending=False)['Month'].unique()
+    elif (page == "📊 Report" or page == "🔍 History") and not df.empty:
+        df_rep = df[(df['Date'].dt.year == 2026) & (df['Date'].dt.month >= 4)].copy()
+        df_rep['Month'] = df_rep['Date'].dt.strftime('%B %Y')
+        months = df_rep.dropna(subset=['Month']).sort_values(by='Date', ascending=False)['Month'].unique()
+        
+        if len(months) == 0: st.warning("No data found from April 2026 onwards!")
+        else:
+            sel_m = st.selectbox("Select Month", months, key=f"{page}_select")
+            m_df = df_rep[df_rep['Month'] == sel_m].copy()
+            m_deb, m_crd = m_df['Debit'].sum(), m_df['Credit'].sum()
+            
+            if page == "📊 Report":
+                st.title("Monthly Expense Analysis")
+                c1, c2, c3 = st.columns(3)
+                c1.markdown(f'<div class="purple-box"><h3 style="color:#00FF00;">Total Credit</h3><h1 style="color:#00FF00;">₹{m_crd:,.2f}</h1></div>', unsafe_allow_html=True)
+                c2.markdown(f'<div class="purple-box"><h3 style="color:#FF3131;">Total Expense</h3><h1 style="color:#FF3131;">₹{m_deb:,.2f}</h1></div>', unsafe_allow_html=True)
+                c3.markdown(f'<div class="purple-box"><h3 style="color:#FFD700;">Net Savings</h3><h1 style="color:#FFD700;">₹{m_crd - m_deb:,.2f}</h1></div>', unsafe_allow_html=True)
+                if m_deb > 0:
+                    m_df['Cat'] = m_df['Item'].apply(lambda x: x.split(':')[0] if ':' in str(x) else 'Others')
+                    st.plotly_chart(px.pie(m_df[m_df['Debit'] > 0], values='Debit', names='Cat', hole=0.4, title=f"{sel_m} Expense Split").update_traces(textposition='inside', textinfo='percent+label'), use_container_width=True)
 
-        if page == "📊 Report":
-            st.title("Monthly Expense Analysis")
-            if len(months) == 0: st.warning("No data found in Google Sheets for April 2026 onwards!")
+            clean_df = m_df.drop(columns=['Month'], errors='ignore')
+            pdf_df = clean_df.copy()
+            pdf_df['Date'] = pdf_df['Date'].dt.strftime('%d/%m/%Y')
+            csv_bytes = clean_df.to_csv(index=False).encode('utf-8')
+            
+            if page == "📊 Report":
+                st.download_button("📥 Download Excel/CSV Report", csv_bytes, f"Report_{sel_m.replace(' ', '_')}.csv", "text/csv")
             else:
-                sel_month = st.selectbox("Select Month", months)
-                monthly_df = df[df['Month'] == sel_month].copy()
-                monthly_df['Debit'] = pd.to_numeric(monthly_df['Debit'], errors='coerce').fillna(0)
-                monthly_df['Credit'] = pd.to_numeric(monthly_df['Credit'], errors='coerce').fillna(0)
-                m_total_debit = monthly_df['Debit'].sum()
-                m_total_credit = monthly_df['Credit'].sum()
-                m_savings = m_total_credit - m_total_debit
-                
-                col1, col2, col3 = st.columns(3)
-                with col1: st.markdown(f'<div class="purple-box"><h3 style="color: #00FF00;">{sel_month} Total Credit</h3><h1 style="color: #00FF00;">₹{m_total_credit:,.2f}</h1></div>', unsafe_allow_html=True)
-                with col2: st.markdown(f'<div class="purple-box"><h3 style="color: #FF3131;">{sel_month} Total Expense</h3><h1 style="color: #FF3131;">₹{m_total_debit:,.2f}</h1></div>', unsafe_allow_html=True)
-                with col3: st.markdown(f'<div class="purple-box"><h3 style="color: #FFD700;">{sel_month} Net Savings</h3><h1 style="color: #FFD700;">₹{m_savings:,.2f}</h1></div>', unsafe_allow_html=True)
-
-                if m_total_debit > 0:
-                    monthly_df['Category_Label'] = monthly_df['Item'].apply(lambda x: x.split(':')[0] if ':' in x else 'Others')
-                    fig = px.pie(monthly_df[monthly_df['Debit'] > 0], values='Debit', names='Category_Label', hole=0.4, title=f"{sel_month} Expense Split")
-                    fig.update_traces(textposition='inside', textinfo='percent+label')
-                    st.plotly_chart(fig, use_container_width=True)
-                    
-                st.subheader(f"📋 {sel_month} Detailed Transactions")
-                clean_table_df = monthly_df.drop(columns=['Month'], errors='ignore')
-                
-                pdf_df_input = clean_table_df.copy()
-                pdf_df_input['Date'] = pdf_df_input['Date'].dt.strftime('%d/%m/%Y')
-                
-                csv_data = clean_table_df.to_csv(index=False).encode('utf-8')
-                st.download_button(label="📥 Download Excel/CSV Report", data=csv_data, file_name=f"Report_{sel_month.replace(' ', '_')}.csv", mime="text/csv")
-                clean_table_df['Date'] = clean_table_df['Date'].dt.strftime('%d/%m/%Y')
-                st.dataframe(clean_table_df.iloc[::-1], use_container_width=True)
-
-        elif page == "🔍 History":
-            st.title("Transaction History")
-            if len(months) == 0: st.warning("No transactions found from April 2026 onwards!")
-            else:
-                sel_hist_month = st.selectbox("Select Month for History", months, key="history_month_select")
-                filtered_history = df[df['Month'] == sel_hist_month].copy()
-                clean_hist_df = filtered_history.drop(columns=['Month'], errors='ignore')
-                
-                pdf_df_input = clean_hist_df.copy()
-                pdf_df_input['Date'] = pdf_df_input['Date'].dt.strftime('%d/%m/%Y')
-                
-                csv_hist_data = clean_hist_df.to_csv(index=False).encode('utf-8')
-                
-                col_pdf, col_csv = st.columns(2)
-                with col_pdf:
-                    pdf_bytes = create_pdf(pdf_df_input)
-                    if pdf_bytes: st.download_button(f"📄 Download {sel_hist_month} PDF", pdf_bytes, f"History_{sel_hist_month.replace(' ', '_')}.pdf", "application/pdf")
-                    else: st.error("Could not generate PDF")
-                with col_csv: st.download_button(label=f"📥 Download {sel_hist_month} CSV (Excel)", data=csv_hist_data, file_name=f"History_{sel_hist_month.replace(' ', '_')}.csv", mime="text/csv")
-    clean_hist_df['Date'] = clean_hist_df['Date'].dt.strftime('%d/%m/%Y')
-                st.dataframe(clean_hist_df.iloc[::-1], use_container_width=True)
-
-    elif page == "🤝 Debt Tracker":
-        st.title("Debt Management")
-        with st.form("debt_form"):
-            n = st.text_input("Name")
-            a = st.number_input("Amount", min_value=0.0)
-            t = st.selectbox("Category", ["vagiyade", "koduthade"])
-            if st.form_submit_button("SAVE"):
-                if "vagiyade" in t: d, c = 0, a
-                else: d, c = a, 0
-                payload = {
-                    "entry.1044099436": datetime.now().strftime("%Y-%m-%d"), 
-                    "entry.2013476337": f"[{curr_user.capitalize()}] DEBT: {t} - {n}", 
-                    "entry.1460982454": d, 
-                    "entry.1221658767": c
-                }
-                send_to_google_async(payload)
-                st.success("Saved! ✅")
+                st.title("Transaction History")
+                col_p, col_c = st.columns(2)
+                pdf_b = create_pdf(pdf_df)
+                if pdf_b: col_p.download_button(f"📄 Download PDF", pdf_b, f"History_{sel_m.replace(' ', '_')}.pdf", "application/pdf")
+                col_c.download_button("📥 Download CSV (Excel)", csv_bytes, f"History_{sel_m.replace(' ', '_')}.csv", "text/csv")
+            
+            clean_df['Date'] = clean_df['Date'].dt.strftime('%d/%m/%Y')
+            st.dataframe(clean_df.iloc[::-1], use_container_width=True)
