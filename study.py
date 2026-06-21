@@ -14,7 +14,6 @@ import threading
 from streamlit_calendar import calendar
 
 # --- TWILIO CONFIG ---
-# സുരക്ഷയ്ക്കായി ഇവ Streamlit Secrets-ലേക്ക് മാറ്റുന്നതാണ് നല്ലത്
 TWILIO_SID = st.secrets.get("TWILIO_SID", "YOUR_TWILIO_ACCOUNT_SID")  
 TWILIO_TOKEN = st.secrets.get("TWILIO_TOKEN", "YOUR_TWILIO_AUTH_TOKEN")  
 
@@ -60,7 +59,6 @@ try:
     def run_flask():
         flask_app.run(port=5000, host="0.0.0.0", debug=False, use_reloader=False)
 
-    # ആപ്പ് റീഫ്രഷ് ചെയ്യുമ്പോൾ ഡ്യൂപ്ലിക്കേറ്റ് ത്രെഡ് വരുന്നത് തടയുന്നു
     if not any(t.name == "FlaskThread" for t in threading.enumerate()):
         flask_thread = threading.Thread(target=run_flask, name="FlaskThread", daemon=True)
         flask_thread.start()
@@ -97,8 +95,10 @@ def send_whatsapp_auto(message):
     except: pass
 
 def send_to_google_async(data):
-    try: requests.post(FORM_API, data=data, timeout=10)
-    except: pass
+    def run():
+        try: requests.post(FORM_API, data=data, timeout=10)
+        except: pass
+    threading.Thread(target=run).start()
 
 def get_totals():
     try:
@@ -118,7 +118,6 @@ def get_category_totals():
         def extract_cat(item_str):
             item_str = str(item_str)
             if 'total' in item_str.lower(): return None
-            # [User] Category: Description എന്ന ഫോർമാറ്റിൽ നിന്നും കാറ്റഗറി എടുക്കാൻ
             if ']' in item_str:
                 item_str = item_str.split(']')[1].strip()
             if ':' in item_str:
@@ -148,21 +147,50 @@ def create_pdf(df):
     try:
         pdf = FPDF()
         pdf.add_page()
-        pdf.set_font("Arial", 'B', 16)
-        pdf.cell(190, 10, text="PAICHI FINANCE REPORT", ln=True, align='C')
+        pdf.set_font("Arial", 'B', 14)
+        pdf.cell(190, 10, txt="PAICHI FINANCE REPORT", ln=True, align='C')
         pdf.ln(10)
-        cols = df.columns.tolist()
+        
+        cols = ['Date', 'Item', 'Debit', 'Credit']
         pdf.set_font("Arial", 'B', 10)
-        for col in cols: pdf.cell(38, 10, text=str(col), border=1)
+        
+        col_widths = {"Date": 30, "Item": 85, "Debit": 35, "Credit": 35}
+        for col in cols:
+            pdf.cell(col_widths[col], 10, txt=str(col), border=1, align='C')
         pdf.ln()
+        
         pdf.set_font("Arial", size=9)
         for _, row in df.iterrows():
-            for col in cols:
-                val = str(row[col]).encode('ascii', 'ignore').decode('ascii')
-                pdf.cell(38, 10, text=val, border=1)
-            pdf.ln()
-        
-        # FPDF പുതിയ വേർഷൻ അനുസരിച്ച് ഫിക്സ് ചെയ്തത്
+            if pdf.get_y() > 260:
+                pdf.add_page()
+                
+            dt_str = str(row.get('Date', ''))
+            item_str = str(row.get('Item', '')).encode('ascii', 'ignore').decode('ascii')
+            deb_str = str(row.get('Debit', '0'))
+            crd_str = str(row.get('Credit', '0'))
+            
+            y_start = pdf.get_y()
+            
+            pdf.cell(30, 10, txt=dt_str, border=0)
+            
+            x_after_date = pdf.get_x()
+            pdf.multi_cell(85, 5, txt=item_str, border=0)
+            y_after_item = pdf.get_y()
+            
+            cell_height = max(10, y_after_item - y_start)
+            
+            pdf.set_xy(x_after_date + 85, y_start)
+            pdf.cell(35, cell_height, txt=deb_str, border=0, align='R')
+            pdf.cell(35, cell_height, txt=crd_str, border=0, align='R')
+            
+            pdf.set_xy(10, y_start)
+            pdf.cell(30, cell_height, txt="", border=1)
+            pdf.cell(85, cell_height, txt="", border=1)
+            pdf.cell(35, cell_height, txt="", border=1)
+            pdf.cell(35, cell_height, txt="", border=1)
+            
+            pdf.set_y(y_start + cell_height)
+            
         return bytes(pdf.output())
     except Exception as e: 
         return None
@@ -359,6 +387,10 @@ else:
                     
                 st.subheader(f"📋 {sel_month} Detailed Transactions")
                 clean_table_df = monthly_df.drop(columns=['Month'], errors='ignore')
+                
+                pdf_df_input = clean_table_df.copy()
+                pdf_df_input['Date'] = pdf_df_input['Date'].dt.strftime('%d/%m/%Y')
+                
                 csv_data = clean_table_df.to_csv(index=False).encode('utf-8')
                 st.download_button(label="📥 Download Excel/CSV Report", data=csv_data, file_name=f"Report_{sel_month.replace(' ', '_')}.csv", mime="text/csv")
                 clean_table_df['Date'] = clean_table_df['Date'].dt.strftime('%d/%m/%Y')
@@ -371,14 +403,19 @@ else:
                 sel_hist_month = st.selectbox("Select Month for History", months, key="history_month_select")
                 filtered_history = df[df['Month'] == sel_hist_month].copy()
                 clean_hist_df = filtered_history.drop(columns=['Month'], errors='ignore')
+                
+                pdf_df_input = clean_hist_df.copy()
+                pdf_df_input['Date'] = pdf_df_input['Date'].dt.strftime('%d/%m/%Y')
+                
                 csv_hist_data = clean_hist_df.to_csv(index=False).encode('utf-8')
                 
                 col_pdf, col_csv = st.columns(2)
                 with col_pdf:
-                    pdf_bytes = create_pdf(clean_hist_df)
+                    pdf_bytes = create_pdf(pdf_df_input)
                     if pdf_bytes: st.download_button(f"📄 Download {sel_hist_month} PDF", pdf_bytes, f"History_{sel_hist_month.replace(' ', '_')}.pdf", "application/pdf")
+                    else: st.error("Could not generate PDF")
                 with col_csv: st.download_button(label=f"📥 Download {sel_hist_month} CSV (Excel)", data=csv_hist_data, file_name=f"History_{sel_hist_month.replace(' ', '_')}.csv", mime="text/csv")
-                clean_hist_df['Date'] = clean_hist_df['Date'].dt.strftime('%d/%m/%Y')
+    clean_hist_df['Date'] = clean_hist_df['Date'].dt.strftime('%d/%m/%Y')
                 st.dataframe(clean_hist_df.iloc[::-1], use_container_width=True)
 
     elif page == "🤝 Debt Tracker":
