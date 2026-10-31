@@ -309,7 +309,7 @@ if prompt := st.sidebar.chat_input("Ask or tell me to add an expense..."):
             messages_for_api = [{"role": "system", "content": system_instruction}] + [{"role": m["role"], "content": m["content"]} for m in st.session_state.messages[-5:]]
 
             response = client.chat.completions.create(
-                model="llama3-70b-8192", # Groq-ൽ ടൂൾസ് വർക്ക് ചെയ്യുന്ന മികച്ച മോഡൽ
+                model="openai/gpt-oss-120b", # Groq-ൽ ടൂൾസ് വർക്ക് ചെയ്യുന്ന മികച്ച മോഡൽ
                 messages=messages_for_api,
                 tools=tools,
                 tool_choice="auto"
