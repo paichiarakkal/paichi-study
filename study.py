@@ -1,5 +1,5 @@
 # ============================================
-# PAICHI EXPENSES v5.0 - Ultimate AI Agent
+# PAICHI EXPENSES v6.0 - Ultimate AI Agent
 # ============================================
 
 import streamlit as st
@@ -9,16 +9,17 @@ import random
 import re
 import urllib.parse
 import threading
+import datetime
+import json
 from datetime import datetime
 from io import BytesIO
-import json
 
 import plotly.express as px
 from streamlit_mic_recorder import speech_to_text
 from streamlit_autorefresh import st_autorefresh
 from streamlit_calendar import calendar
 from fpdf import FPDF
-from groq import Groq # AI-ക്ക് വേണ്ടി
+from groq import Groq
 
 # --- CONFIG & SETTINGS ---
 CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRccfZch3jSdHqrScpqsR_j3FSd70NbELC1j6_nPi-MQXdrhVr3BPcKoI1nub4mQql727pQRPWYk9C-/pub?gid=1583146028&single=true&output=csv"
@@ -29,6 +30,7 @@ BG_IMAGE_URL = "https://raw.githubusercontent.com/paichiarakkal/paichiarakkal/ma
 WA_PHONE = st.secrets.get("WA_PHONE", "")
 WA_API_KEY = st.secrets.get("WA_API_KEY", "")
 GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "")
+
 USER_PINS = {
     "faisal": st.secrets.get("PIN_FAISAL", ""),
     "shabana": st.secrets.get("PIN_SHABANA", ""),
@@ -42,16 +44,84 @@ if st.session_state.get("page") == "🏠 Dashboard":
 
 st.markdown(f"""
     <style>
+    /* Background Image */
     [data-testid="stAppViewContainer"] {{
-        background-image: linear-gradient(rgba(0,0,0,0.70), rgba(0,0,0,0.70)), url("{BG_IMAGE_URL}");
-        background-size: cover; background-position: center; background-attachment: fixed;
+        background-image: linear-gradient(rgba(0,0,0,0.75), rgba(0,0,0,0.75)), url("{BG_IMAGE_URL}");
+        background-size: cover; 
+        background-position: center; 
+        background-attachment: fixed;
     }}
-    [data-testid="stSidebar"] {{ background: rgba(0,0,0,0.85) !important; }}
-    .balance-banner {{ background: rgba(0,0,0,0.65); backdrop-filter: blur(10px); padding: 25px; border-radius: 15px; border-left: 10px solid #FFD700; text-align: center; margin-bottom: 25px; }}
-    .purple-box {{ background: rgba(0,0,0,0.65); padding: 20px; border-radius: 25px; border: 2px solid rgba(255,215,0,0.3); text-align: center; margin-bottom: 20px; }}
-    .category-box {{ background: rgba(0,0,0,0.65); padding: 15px; border-radius: 15px; text-align: center; border-bottom: 4px solid #FFD700; margin-bottom: 15px; }}
-    .alert-banner {{ background-color: #ff4d4d; color: white; padding: 10px; border-radius: 10px; text-align: center; font-weight: bold; margin-bottom: 20px; }}
-    .login-card {{ background: rgba(0,0,0,0.7); padding: 25px; border-radius: 20px; border: 1px solid #FFD700; max-width: 450px; margin: auto; margin-top: 30px; }}
+    
+    /* Solid Sidebar (Fixes transparency issue) */
+    [data-testid="stSidebar"] {{ 
+        background-color: #0E1117 !important; 
+        border-right: 1px solid #FFD700;
+    }}
+    
+    /* Solid Chat Messages */
+    [data-testid="stChatMessage"] {{
+        background-color: #262730 !important; 
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 10px;
+        border: 1px solid #444;
+    }}
+
+    /* Calendar Fixes (Fixes text cutting off) */
+    .fc-event-title {{
+        font-size: 11px !important;
+        white-space: normal !important;
+        word-wrap: break-word !important;
+        line-height: 1.2 !important;
+    }}
+    .fc-daygrid-event {{
+        padding: 2px !important;
+    }}
+
+    /* Custom UI Boxes */
+    .balance-banner {{ 
+        background: rgba(0,0,0,0.8); 
+        backdrop-filter: blur(10px); 
+        padding: 25px; 
+        border-radius: 15px; 
+        border-left: 10px solid #FFD700; 
+        text-align: center; 
+        margin-bottom: 25px; 
+    }}
+    .purple-box {{ 
+        background: rgba(0,0,0,0.8); 
+        padding: 20px; 
+        border-radius: 25px; 
+        border: 2px solid rgba(255,215,0,0.3); 
+        text-align: center; 
+        margin-bottom: 20px; 
+    }}
+    .category-box {{ 
+        background: rgba(0,0,0,0.8); 
+        padding: 15px; 
+        border-radius: 15px; 
+        text-align: center; 
+        border-bottom: 4px solid #FFD700; 
+        margin-bottom: 15px; 
+    }}
+    .alert-banner {{ 
+        background-color: #ff4d4d; 
+        color: white; 
+        padding: 10px; 
+        border-radius: 10px; 
+        text-align: center; 
+        font-weight: bold; 
+        margin-bottom: 20px; 
+    }}
+    .login-card {{ 
+        background: rgba(0,0,0,0.85); 
+        padding: 25px; 
+        border-radius: 20px; 
+        border: 1px solid #FFD700; 
+        max-width: 450px; 
+        margin: auto; 
+        margin-top: 30px; 
+    }}
     h1, h2, h3, p, label {{ color: white !important; font-weight: bold !important; }}
     .stDataFrame {{ background: white; border-radius: 10px; color: black; }}
     </style>
@@ -65,11 +135,12 @@ if "custom_alert_text" not in st.session_state:
     st.session_state.custom_alert_text = "Shop kuri book"
 if "low_limit" not in st.session_state:
     st.session_state.low_limit = 6000
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
 # ============================================
 # 🤖 AI AGENT TOOLS & FUNCTIONS
 # ============================================
-# 1. AI-ക്ക് നൽകാൻ പോകുന്ന ടൂളുകൾ ഡിഫൈൻ ചെയ്യുന്നു
 tools = [
     {
         "type": "function",
@@ -89,7 +160,6 @@ tools = [
     }
 ]
 
-# 2. ടൂൾ പ്രവർത്തിപ്പിക്കാനുള്ള യഥാർത്ഥ ഫംഗ്ഷൻ
 def execute_add_entry(item, amount, entry_type):
     try:
         payload = {
@@ -99,7 +169,6 @@ def execute_add_entry(item, amount, entry_type):
             "entry.1221658767": 0 if entry_type == "Debit" else amount,
         }
         requests.post(FORM_API, data=payload, timeout=10)
-        
         wa_msg = f"✅ *AI Agent Entry*\n📝 Item: {item}\n💰 Amt: {amount}\n👤 User: {st.session_state.user}"
         send_whatsapp_auto(wa_msg)
         st.cache_data.clear()
@@ -116,7 +185,16 @@ def send_whatsapp_auto(msg):
     threading.Thread(target=_send, daemon=True).start()
 
 def parse_mixed_dates(date_series):
-    return pd.Series([pd.to_datetime(str(val).strip(), dayfirst=True, errors="coerce") for val in date_series])
+    parsed = []
+    for val in date_series:
+        s = str(val).strip()
+        # ആദ്യം YYYY-MM-DD അല്ലെങ്കിൽ MM/DD/YYYY ശ്രമിക്കുന്നു
+        dt = pd.to_datetime(s, errors="coerce")
+        # പരാജയപ്പെട്ടാൽ DD/MM/YYYY (dayfirst) ശ്രമിക്കുന്നു
+        if pd.isna(dt):
+            dt = pd.to_datetime(s, dayfirst=True, errors="coerce")
+        parsed.append(dt)
+    return pd.Series(parsed)
 
 @st.cache_data(ttl=30)
 def load_data():
@@ -174,7 +252,7 @@ if not st.session_state.auth:
     st.stop()
 
 # ============================================
-# MAIN APP
+# MAIN APP HEADER & SIDEBAR
 # ============================================
 df = load_data()
 t_in = df["Credit"].sum() if not df.empty else 0.0
@@ -191,14 +269,17 @@ if bal < st.session_state.low_limit:
 
 st.markdown(f'<div class="balance-banner"><span style="font-size:20px; color:#E0B0FF;">Available Balance</span><br><span style="font-size:40px; color:#FFD700; font-weight:bold;">₹{bal:,.2f}</span></div>', unsafe_allow_html=True)
 
-menu = ["💰 Add Entry", "📅 Calendar", "📊 Report", "🔍 History"]
+menu = ["💰 Add Entry", "🤖 AI Chat", "📅 Calendar", "📊 Report", "🔍 History"]
 if st.session_state.user != "shabana": menu.insert(0, "🏠 Dashboard")
 page = st.sidebar.radio("Menu", menu)
 st.session_state.page = page
+
 if st.sidebar.button("Logout"):
     st.session_state.clear(); st.rerun()
 
-# --- PAGES ---
+# ============================================
+# PAGES
+# ============================================
 if page == "🏠 Dashboard" and not df.empty:
     st.title("Financial Overview")
     st.markdown(f'<div class="purple-box"><h2 style="color:#00FF00;">Total Credit: ₹{t_in:,.2f}</h2><h2 style="color:#FF3131;">Total Debit: ₹{t_out:,.2f}</h2></div>', unsafe_allow_html=True)
@@ -234,6 +315,84 @@ elif page == "💰 Add Entry":
                 st.session_state["voice_data"] = ""; st.session_state["flash"] = "Saved! ✅"; st.cache_data.clear(); st.rerun()
             except: st.error("Valid amount required!")
 
+elif page == "🤖 AI Chat":
+    st.title("🤖 AI Agent & Assistant")
+    st.write("നിങ്ങൾക്ക് ടൈപ്പ് ചെയ്യാം, അല്ലെങ്കിൽ മൈക്ക് അമർത്തി സംസാരിക്കാം. 'ബിരിയാണി 150' എന്ന് പറഞ്ഞാൽ അത് ഷീറ്റിൽ എൻട്രി ഇടും.")
+    
+    if not GROQ_API_KEY: st.error("Groq API Key ലഭ്യമല്ല!")
+
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+
+    st.markdown("##### 🎙️ Voice Input")
+    v_raw = speech_to_text(language='ml', key='ai_voice_input')
+    prompt = st.chat_input("Ask anything or tell me to add an expense...")
+
+    final_prompt = ""
+    if v_raw: final_prompt = v_raw
+    elif prompt: final_prompt = prompt
+
+    if final_prompt:
+        st.session_state.messages.append({"role": "user", "content": final_prompt})
+        with st.chat_message("user"):
+            st.markdown(final_prompt)
+
+        with st.spinner("AI ആലോചിക്കുന്നു..."):
+            try:
+                client = Groq(api_key=GROQ_API_KEY)
+                try:
+                    with open("app.py", "r", encoding="utf-8") as f: my_code = f.read()
+                except: my_code = "Code not available."
+
+                utc_now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+                df_summary = df[['Date', 'Item', 'Debit', 'Credit']].tail(20).to_string() if not df.empty else "No data"
+                
+                system_instruction = f"""
+                നീ ഒരു വളരെ മികച്ച AI അസിസ്റ്റന്റും, ഫിനാൻസ് ഏജന്റുമാണ്. 
+                ലോകത്തിലെ എല്ലാ കാര്യങ്ങളെക്കുറിച്ചും നിനക്ക് അറിയാം. യൂസർ എന്ത് ചോദിച്ചാലും മലയാളത്തിൽ കൃത്യമായി മറുപടി നൽകുക.
+                
+                ഇപ്പോഴത്തെ ലോക സമയം (UTC): {utc_now}
+                (യൂസർ സമയം ചോദിച്ചാൽ ടൈംസോൺ കണക്കാക്കി കൃത്യമായി പറയുക. ദുബായ് = UTC+4, കേരളം = UTC+5:30).
+                
+                നിലവിലെ ബാലൻസ്: {bal} Rs. Data: {df_summary}
+                
+                യൂസർ എന്തെങ്കിലും ചെലവ് ചേർക്കാൻ പറഞ്ഞാൽ (ഉദാ: 'ബിരിയാണി 150'), നീ നിർബന്ധമായും add_new_entry എന്ന ടൂൾ ഉപയോഗിക്കണം.
+                """
+                
+                messages_for_api = [{"role": "system", "content": system_instruction}] + [{"role": m["role"], "content": m["content"]} for m in st.session_state.messages[-5:]]
+
+                response = client.chat.completions.create(
+                    model="openai/gpt-oss-120b", 
+                    messages=messages_for_api,
+                    tools=tools,
+                    tool_choice="auto"
+                )
+
+                response_message = response.choices[0].message
+                
+                if response_message.tool_calls:
+                    for tool_call in response_message.tool_calls:
+                        if tool_call.function.name == "add_new_entry":
+                            args = json.loads(tool_call.function.arguments)
+                            result = execute_add_entry(args["item"], args["amount"], args["type"])
+                            if result == "Success":
+                                ai_reply = f"✅ ചേട്ടാ, {args['item']}-ന് വേണ്ടി {args['amount']} Rs ഞാൻ ഷീറ്റിൽ എൻട്രി ഇട്ടിട്ടുണ്ട്! (Action Completed)"
+                            else: 
+                                ai_reply = f"❌ എൻട്രി ഇടാൻ പറ്റിയില്ല: {result}"
+                else:
+                    ai_reply = response_message.content
+
+                st.session_state.messages.append({"role": "assistant", "content": ai_reply})
+                with st.chat_message("assistant"):
+                    st.markdown(ai_reply)
+                    
+                if response_message.tool_calls and result == "Success":
+                    st.rerun()
+
+            except Exception as e:
+                st.error(f"AI Error: {str(e)}")
+
 elif page == "📅 Calendar" and not df.empty:
     st.title("P&L Calendar 📅")
     df_cal = df.dropna(subset=["Date"])
@@ -258,84 +417,3 @@ elif page in ("📊 Report", "🔍 History"):
 
 if "flash" in st.session_state:
     st.success(st.session_state.flash); del st.session_state.flash
-
-# ============================================
-# 🚀 AI AGENT & ASSISTANT (Sidebar)
-# ============================================
-st.sidebar.markdown("---")
-st.sidebar.subheader("🤖 AI Agent & Assistant")
-
-if not GROQ_API_KEY:
-    st.sidebar.error("Groq API Key ലഭ്യമല്ല!")
-
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-
-for message in st.session_state.messages:
-    with st.sidebar.chat_message(message["role"]):
-        st.markdown(message["content"])
-
-if prompt := st.sidebar.chat_input("Ask or tell me to add an expense..."):
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.sidebar.chat_message("user"):
-        st.markdown(prompt)
-
-    with st.sidebar.spinner("AI ആലോചിക്കുന്നു..."):
-        try:
-            client = Groq(api_key=GROQ_API_KEY)
-            
-            # സ്വന്തം കോഡ് വായിക്കാൻ ശ്രമിക്കുന്നു
-            try:
-                with open("app.py", "r", encoding="utf-8") as f: my_code = f.read()
-            except: my_code = "Code not available."
-
-            df_summary = df[['Date', 'Item', 'Debit', 'Credit']].tail(20).to_string() if not df.empty else "No data"
-            
-            system_instruction = f"""
-            നീ ഒരു സ്മാർട്ട് ഫിനാൻസ് AI ഏജന്റും, സഹായിയുമാണ്. 
-            നിലവിലെ ബാലൻസ്: {bal} Rs.
-            Data: {df_summary}
-            
-            നിനക്ക് പൊതുവായ അറിവുള്ള ചോദ്യങ്ങൾക്കും മലയാളത്തിൽ വിശദമായി മറുപടി നൽകാം.
-            യൂസർ എന്തെങ്കിലും ചെലവ് ചേർക്കാൻ പറഞ്ഞാൽ (ഉദാ: 'ബിരിയാണി 150'), നീ നിർബന്ധമായും add_new_entry എന്ന ടൂൾ ഉപയോഗിക്കണം.
-            
-            ഇതാ നിന്റെ സ്വന്തം സോഴ്സ് കോഡ് (app.py):
-            ```python
-            {my_code[:5000]} # കോഡ് വളരെ വലുതാണെങ്കിൽ ആദ്യത്തെ 5000 അക്ഷരങ്ങൾ മാത്രം
-            ```
-            യൂസർ കോഡിനെക്കുറിച്ച് ചോദിച്ചാൽ ഈ കോഡ് വായിച്ച് മറുപടി നൽകുക.
-            """
-            
-            messages_for_api = [{"role": "system", "content": system_instruction}] + [{"role": m["role"], "content": m["content"]} for m in st.session_state.messages[-5:]]
-
-            response = client.chat.completions.create(
-                model="openai/gpt-oss-120b", # Groq-ൽ ടൂൾസ് വർക്ക് ചെയ്യുന്ന മികച്ച മോഡൽ
-                messages=messages_for_api,
-                tools=tools,
-                tool_choice="auto"
-            )
-
-            response_message = response.choices[0].message
-            
-            # AI ടൂൾ ഉപയോഗിക്കാൻ തീരുമാനിച്ചാൽ
-            if response_message.tool_calls:
-                for tool_call in response_message.tool_calls:
-                    if tool_call.function.name == "add_new_entry":
-                        args = json.loads(tool_call.function.arguments)
-                        result = execute_add_entry(args["item"], args["amount"], args["type"])
-                        if result == "Success":
-                            ai_reply = f"✅ ചേട്ടാ, {args['item']}-ന് വേണ്ടി {args['amount']} Rs ഞാൻ ഷീറ്റിൽ എൻട്രി ഇട്ടിട്ടുണ്ട്! (Action Completed)"
-                        else: ai_reply = f"❌ എൻട്രി ഇടാൻ പറ്റിയില്ല: {result}"
-            else:
-                # സാധാരണ ചോദ്യങ്ങൾക്കുള്ള മറുപടി
-                ai_reply = response_message.content
-
-            st.session_state.messages.append({"role": "assistant", "content": ai_reply})
-            with st.sidebar.chat_message("assistant"):
-                st.markdown(ai_reply)
-                
-            if response_message.tool_calls and result == "Success":
-                st.rerun()
-
-        except Exception as e:
-            st.sidebar.error(f"AI Error: {str(e)}")
