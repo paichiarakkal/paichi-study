@@ -11,7 +11,7 @@ import urllib.parse
 import threading
 import datetime
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from io import BytesIO
 
 import plotly.express as px
@@ -345,7 +345,11 @@ elif page == "🤖 AI Chat":
                     with open("app.py", "r", encoding="utf-8") as f: my_code = f.read()
                 except: my_code = "Code not available."
 
-                utc_now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+                # ഇത് കണ്ടെത്തുക:
+utc_now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+
+# ഇതാക്കി മാറ്റുക:
+utc_now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
                 df_summary = df[['Date', 'Item', 'Debit', 'Credit']].tail(20).to_string() if not df.empty else "No data"
                 
                 system_instruction = f"""
