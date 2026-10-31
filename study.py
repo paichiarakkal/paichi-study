@@ -345,8 +345,7 @@ elif page == "🤖 AI Chat":
                     with open("app.py", "r", encoding="utf-8") as f: my_code = f.read()
                 except: my_code = "Code not available."
 
-                # ഇത് കണ്ടെത്തുക:
-utc_now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+              
 
 # ഇതാക്കി മാറ്റുക:
 utc_now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
