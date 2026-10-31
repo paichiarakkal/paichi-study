@@ -1,5 +1,5 @@
 # ============================================
-# PAICHI EXPENSES v6.0 - Ultimate AI Agent
+# PAICHI EXPENSES v6.1 - Ultimate AI Agent
 # ============================================
 
 import streamlit as st
@@ -9,9 +9,8 @@ import random
 import re
 import urllib.parse
 import threading
-import datetime
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from io import BytesIO
 
 import plotly.express as px
@@ -188,9 +187,7 @@ def parse_mixed_dates(date_series):
     parsed = []
     for val in date_series:
         s = str(val).strip()
-        # ആദ്യം YYYY-MM-DD അല്ലെങ്കിൽ MM/DD/YYYY ശ്രമിക്കുന്നു
         dt = pd.to_datetime(s, errors="coerce")
-        # പരാജയപ്പെട്ടാൽ DD/MM/YYYY (dayfirst) ശ്രമിക്കുന്നു
         if pd.isna(dt):
             dt = pd.to_datetime(s, dayfirst=True, errors="coerce")
         parsed.append(dt)
@@ -341,11 +338,17 @@ elif page == "🤖 AI Chat":
         with st.spinner("AI ആലോചിക്കുന്നു..."):
             try:
                 client = Groq(api_key=GROQ_API_KEY)
+                
+                # Self-Code Reading
                 try:
-                    with open("app.py", "r", encoding="utf-8") as f: my_code = f.read()
-                except: my_code = "Code not available."
+                    with open("app.py", "r", encoding="utf-8") as f: 
+                        my_code = f.read()
+                except: 
+                    my_code = "Code not available."
 
-                utc_now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+                # Time calculation (Fixed)
+                utc_now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+                
                 df_summary = df[['Date', 'Item', 'Debit', 'Credit']].tail(20).to_string() if not df.empty else "No data"
                 
                 system_instruction = f"""
@@ -370,14 +373,17 @@ elif page == "🤖 AI Chat":
                 )
 
                 response_message = response.choices[0].message
+                entry_saved = False  # Initialize flag safely
                 
                 if response_message.tool_calls:
                     for tool_call in response_message.tool_calls:
                         if tool_call.function.name == "add_new_entry":
                             args = json.loads(tool_call.function.arguments)
                             result = execute_add_entry(args["item"], args["amount"], args["type"])
+                            
                             if result == "Success":
                                 ai_reply = f"✅ ചേട്ടാ, {args['item']}-ന് വേണ്ടി {args['amount']} Rs ഞാൻ ഷീറ്റിൽ എൻട്രി ഇട്ടിട്ടുണ്ട്! (Action Completed)"
+                                entry_saved = True
                             else: 
                                 ai_reply = f"❌ എൻട്രി ഇടാൻ പറ്റിയില്ല: {result}"
                 else:
@@ -387,7 +393,7 @@ elif page == "🤖 AI Chat":
                 with st.chat_message("assistant"):
                     st.markdown(ai_reply)
                     
-                if response_message.tool_calls and result == "Success":
+                if entry_saved:
                     st.rerun()
 
             except Exception as e:
