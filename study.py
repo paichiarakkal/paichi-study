@@ -11,7 +11,7 @@ import urllib.parse
 import threading
 import datetime
 import json
-from datetime import datetime, timezone
+from datetime import datetime
 from io import BytesIO
 
 import plotly.express as px
@@ -339,16 +339,14 @@ elif page == "🤖 AI Chat":
             st.markdown(final_prompt)
 
         with st.spinner("AI ആലോചിക്കുന്നു..."):
-    try:
-        client = Groq(api_key=GROQ_API_KEY)
-        try:
-            with open("app.py", "r", encoding="utf-8") as f: my_code = f.read()
-        except: my_code = "Code not available."
+            try:
+                client = Groq(api_key=GROQ_API_KEY)
+                try:
+                    with open("app.py", "r", encoding="utf-8") as f: my_code = f.read()
+                except: my_code = "Code not available."
 
-        # 👇 ഈ വരിക്ക് മുകളിലെ 'except' വരിയുടെ അതേ സ്പേസ് തന്നെ ഉണ്ടായിരിക്കണം.
-        utc_now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-        
-        df_summary = df[['Date', 'Item', 'Debit', 'Credit']].tail(20).to_string() if not df.empty else "No data"
+                utc_now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+                df_summary = df[['Date', 'Item', 'Debit', 'Credit']].tail(20).to_string() if not df.empty else "No data"
                 
                 system_instruction = f"""
                 നീ ഒരു വളരെ മികച്ച AI അസിസ്റ്റന്റും, ഫിനാൻസ് ഏജന്റുമാണ്. 
