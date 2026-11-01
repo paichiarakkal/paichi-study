@@ -22,11 +22,12 @@ USER_PINS = {"faisal": "1470", "shabana": "1230", "admin": "7860"}
 BG_IMAGE_URL = "https://raw.githubusercontent.com/paichiarakkal/paichiarakkal/main/profile.jpg"
 
 # --- STREAMLIT UI SETUP ---
-st.set_page_config(page_title="PAICHI EXPENSES v4.0", layout="wide")
+st.set_page_config(page_title="PAICHI EXPENSES v5.0", layout="wide")
 st_autorefresh(interval=60000, key="auto_refresh")
 
 st.markdown(f"""
     <style>
+    /* Background & Main UI */
     [data-testid="stAppViewContainer"] {{ background-image: linear-gradient(rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.75)), url("{BG_IMAGE_URL}"); background-size: cover; background-attachment: fixed; }}
     [data-testid="stSidebar"] {{ background: rgba(0, 0, 0, 0.85) !important; }}
     .stButton>button {{ background-color: #FFD700; color: #000; border-radius: 10px; font-weight: bold; width: 100%; }}
@@ -37,9 +38,9 @@ st.markdown(f"""
     .login-card {{ background: rgba(0, 0, 0, 0.8); padding: 25px; border-radius: 20px; max-width: 450px; margin: auto; margin-top: 50px; }}
     h1, h2, h3, p, label {{ color: white !important; font-weight: bold !important; }}
 
-    /* 👇 WhatsApp Style Chat Bubbles (ഇത് പുതിയതായി ചേർത്തത്) 👇 */
+    /* 👇 WhatsApp Style Chat Bubbles 👇 */
     [data-testid="stChatMessage"] {{
-        background-color: #202c33 !important; /* WhatsApp Dark Mode Message Color */
+        background-color: #202c33 !important; /* WhatsApp Dark Mode */
         border-radius: 12px !important;
         padding: 12px 16px !important;
         margin-bottom: 8px !important;
@@ -65,6 +66,7 @@ st.markdown(f"""
     }}
     </style>
 """, unsafe_allow_html=True)
+
 if 'auth' not in st.session_state: st.session_state.auth, st.session_state.user = False, ""
 if 'custom_alert_text' not in st.session_state: st.session_state.custom_alert_text = "Shop kuri book"
 if 'low_limit' not in st.session_state: st.session_state.low_limit = 6000
@@ -186,7 +188,6 @@ else:
 
     st.markdown(f'<div class="balance-banner"><span style="font-size:20px; color:#E0B0FF;">Available Balance</span><br><span style="font-size:40px; color:#FFD700;">₹{bal:,.2f}</span></div>', unsafe_allow_html=True)
     
-    # 🔥 MENU-വിൽ "My AI Buddy" ചേർത്തു
     menu = ["💰 Add Entry", "📅 Calendar", "📊 Report", "🔍 History", "🤝 Debt Tracker", "🤖 AI Chat", "🧠 My AI Buddy"]
     if st.session_state.user != "shabana": menu.insert(0, "🏠 Dashboard")
     page = st.sidebar.radio("Menu", menu)
@@ -256,7 +257,8 @@ else:
         
         # സുരക്ഷിതമായി event ഡാറ്റ എടുക്കുന്നു
         if cal_data and cal_data.get("callback") == "eventClick":
-            event_data = cal_data.get("eventClick", {}).get("event", {})
+            event_info = cal_data.get("eventClick", {})
+            event_data = event_info.get("event", {})
             dt_click = event_data.get("start", "").split("T")[0]
             if dt_click:
                 st.markdown("---"); st.subheader(f"📋 Details for {pd.to_datetime(dt_click).strftime('%d %B %Y')}")
@@ -296,7 +298,7 @@ else:
         st.title("🤝 Debt Tracker")
         st.info("വരും ദിവസങ്ങളിൽ ഇതിലേക്ക് കൂടുതൽ ഫീച്ചറുകൾ വരും!")
 
-    # --- MY AI BUDDY (പുതിയ പേജ്) ---
+    # --- MY AI BUDDY ---
     elif page == "🧠 My AI Buddy":
         st.title("🧠 Your Personal AI Buddy")
         st.write("എന്നോട് എന്തും ചോദിക്കാം. (ഉദാ: 'ഒരു കവിത എഴുതൂ', 'ഇന്ന് എന്ത് പാചകം ചെയ്യണം?')")
@@ -331,4 +333,44 @@ else:
                 except Exception as e:
                     st.error(f"Error: {e}")
 
-    
+    # --- AI CHAT (AI Agent) ---
+    elif page == "🤖 AI Chat":
+        st.title("🤖 AI Agent & Assistant")
+        st.write("നിങ്ങൾക്ക് ടൈപ്പ് ചെയ്യാം, അല്ലെങ്കിൽ 'ബിരിയാണി 150' എന്ന് പറഞ്ഞാൽ അത് ഷീറ്റിൽ എൻട്രി ഇടും.")
+        
+        if "messages" not in st.session_state: st.session_state.messages = []
+
+        for message in st.session_state.messages:
+            with st.chat_message(message["role"]): st.markdown(message["content"])
+
+        v_raw = speech_to_text(language='ml', key='ai_voice_input')
+        prompt = st.chat_input("Ask anything or add expense...")
+
+        final_prompt = v_raw if v_raw else prompt
+
+        if final_prompt:
+            st.session_state.messages.append({"role": "user", "content": final_prompt})
+            with st.chat_message("user"): st.markdown(final_prompt)
+
+            with st.spinner("AI ആലോചിക്കുന്നു..."):
+                try:
+                    client = Groq(api_key=GROQ_API_KEY)
+                    utc_now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+                    
+                    system_instruction = f"നീ ഒരു ഫിനാൻസ് AI അസിസ്റ്റന്റാണ്. സമയം: {utc_now}. ബാലൻസ്: {bal} Rs. ചെലവ് ചേർക്കാൻ add_new_entry ടൂൾ ഉപയോഗിക്കുക."
+                    
+                    messages_for_api = [{"role": "system", "content": system_instruction}] + [{"role": m["role"], "content": m["content"]} for m in st.session_state.messages[-2:]]
+
+                    response = client.chat.completions.create(
+                        model="llama-3.3-70b-versatile", 
+                        messages=messages_for_api,
+                        tools=tools,
+                        tool_choice="auto",
+                        max_tokens=500
+                    )
+
+                    response_message = response.choices[0].message
+                    entry_saved = False
+                    
+                    if response_message.tool_calls:
+                        for tool_call in response_messag
