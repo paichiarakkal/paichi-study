@@ -399,68 +399,63 @@ elif page == "🤖 AI Chat":
             except Exception as e:
                 st.error(f"AI Error: {str(e)}")
 
+# --- CALENDAR ---
 elif page == "📅 Calendar" and not df.empty:
-    st.title("P&L Calendar 📅")
+    st.title("P&L Calendar View 📅")
+    df_cal = df.dropna(subset=['Date'])
     
-    # 1. Date ഉള്ള റോകൾ മാത്രം എടുത്ത് null ഫോർമാറ്റിംഗ് പരിഹരിക്കുന്നു
-    df_cal = df.dropna(subset=["Date"]).copy()
-    df_cal["Debit"] = df_cal["Debit"].fillna(0)
-    df_cal["Credit"] = df_cal["Credit"].fillna(0)
+    # കലണ്ടറിലേക്കുള്ള ഡാറ്റ തയ്യാറാക്കുന്നു
+    summary = df_cal.groupby(df_cal['Date'].dt.strftime('%Y-%m-%d')).agg({'Debit': 'sum', 'Credit': 'sum'}).reset_index()
+    events = []
+    for _, row in summary.iterrows():
+        if row['Credit'] > 0: events.append({"title": f" +₹{row['Credit']:,.0f}", "start": row['Date'], "backgroundColor": "#198754", "borderColor": "#198754", "textColor": "white"})
+        if row['Debit'] > 0: events.append({"title": f" -₹{row['Debit']:,.0f}", "start": row['Date'], "backgroundColor": "#dc3545", "borderColor": "#dc3545", "textColor": "white"})
     
-    if not df_cal.empty:
-        # 2. ദിവസങ്ങൾ തിരിച്ച് തുക കൂട്ടുന്നു
-        summary = df_cal.groupby(df_cal["Date"].dt.strftime("%Y-%m-%d")).agg({
-            "Debit": "sum", 
-            "Credit": "sum"
-        }).reset_index()
+    # 🔥 key="calendar_v3" എന്ന് മാറ്റിയിട്ടുണ്ട്. ഇത് പഴയ Cache മാറ്റാൻ സഹായിക്കും.
+    cal_data = calendar(
+        events=events, 
+        options={"headerToolbar": {"left": "prev,next today", "center": "title", "right": "dayGridMonth"}, "initialView": "dayGridMonth", "selectable": True}, 
+        key="calendar_v3" 
+    )
+    
+    # 🔥 Debugging: എന്താണ് ക്ലിക്ക് ചെയ്യുമ്പോൾ വരുന്നതെന്ന് കാണാൻ (പിന്നീട് ഇത് ഡിലീറ്റ് ചെയ്യാം)
+    if cal_data:
+        st.write(cal_data) 
         
-        events = []
-        for idx, row in summary.iterrows():
-            # Credit (Income) ഉണ്ടെങ്കിൽ പച്ച നിറത്തിൽ കാണിക്കും
-            if row["Credit"] > 0:
-                events.append({
-                    "id": f"cred_{idx}",
-                    "title": f" +₹{row['Credit']:,.0f}", 
-                    "start": row["Date"], 
-                    "backgroundColor": "#198754",
-                    "borderColor": "#198754",
-                    "textColor": "#ffffff"
-                })
-            # Debit (Expense) ഉണ്ടെങ്കിൽ ചുവപ്പ് നിറത്തിൽ കാണിക്കും
-            if row["Debit"] > 0:
-                events.append({
-                    "id": f"deb_{idx}",
-                    "title": f" -₹{row['Debit']:,.0f}", 
-                    "start": row["Date"], 
-                    "backgroundColor": "#dc3545",
-                    "borderColor": "#dc3545",
-                    "textColor": "#ffffff"
-                })
-        
-        # 3. Streamlit Calendar Render ചെയ്യുന്നു
-        calendar_options = {
-            "headerToolbar": {
-                "left": "prev,next today", 
-                "center": "title", 
-                "right": "dayGridMonth"
-            },
-            "initialView": "dayGridMonth",
-            "selectable": True,
-            "dayMaxEvents": True  # ഒരുപാട് എന്റ്രികൾ ഉണ്ടെങ്കിൽ '+more' ആയി കാണിക്കാൻ
-        }
-        
-        calendar(events=events, options=calendar_options, key="pnl_cal")
+        # 1. ഇവന്റിൽ (Red/Green ബോക്സ്) ക്ലിക്ക് ചെയ്താൽ
+        if cal_data.get("callback") == "eventClick":
+            dt_click = str(cal_data["event"]["start"])[:10] # തീയതി മാത്രം എടുക്കുന്നു
+            
+            st.markdown("---")
+            st.subheader(f"📋 Details for {pd.to_datetime(dt_click).strftime('%d %B %Y')}")
+            
+            day_df = df_cal[df_cal['Date'].dt.strftime('%Y-%m-%d') == dt_click].copy()
+            if not day_df.empty:
+                day_df['Date'] = day_df['Date'].dt.strftime('%d/%m/%Y')
+                st.download_button("📥 Download This Day's Data", day_df[['Date', 'Item', 'Debit', 'Credit']].to_csv(index=False).encode('utf-8'), f"Transactions_{dt_click}.csv", "text/csv")
+                st.dataframe(day_df[['Date', 'Item', 'Debit', 'Credit']], use_container_width=True)
 
-elif page in ("📊 Report", "🔍 History"):
-    if df.empty: st.warning("No data available!")
-    else:
-        df_rep = df[(df["Date"].dt.year == 2026) & (df["Date"].dt.month >= 4)].copy()
-        df_rep["Month"] = df_rep["Date"].dt.strftime("%B %Y")
-        months = df_rep.dropna(subset=["Month"]).sort_values("Date", ascending=False)["Month"].unique()
-        if len(months) > 0:
-            sel_m = st.selectbox("Select Month", months)
-            m_df = df_rep[df_rep["Month"] == sel_m]
-            st.dataframe(m_df[['Date', 'Item', 'Debit', 'Credit']], use_container_width=True)
-
-if "flash" in st.session_state:
-    st.success(st.session_state.flash); del st.session_state.flash
+        # 2. തീയതിയിൽ (ഒഴിഞ്ഞ സ്ഥലത്ത്) ക്ലിക്ക് ചെയ്താൽ പുതിയ എൻട്രി ചേർക്കാൻ
+        elif cal_data.get("callback") == "dateClick":
+            clicked_date = str(cal_data["dateClick"]["date"])[:10]
+            st.markdown(f"### 📝 Add Entry for {clicked_date}")
+            
+            with st.form("cal_entry_form", clear_on_submit=True):
+                desc = st.text_input("Description")
+                amt = st.number_input("Amount", min_value=1.0)
+                cat = st.selectbox("Category", ["Food", "Shop", "Fish", "Travel", "Rent", "Others"])
+                ty = st.radio("Type", ["Debit", "Credit"], horizontal=True)
+                
+                if st.form_submit_button("SAVE TO SHEET"):
+                    try:
+                        payload = {
+                            "entry.1044099436": clicked_date, 
+                            "entry.2013476337": f"[{st.session_state.user.capitalize()}] {cat}: {desc}",
+                            "entry.1460982454": amt if ty == "Debit" else 0,
+                            "entry.1221658767": 0 if ty == "Debit" else amt
+                        }
+                        requests.post(FORM_API, data=payload, timeout=10)
+                        st.success("✅ Saved! (Refresh ചെയ്താൽ കലണ്ടറിൽ കാണാം)")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error: {e}")
