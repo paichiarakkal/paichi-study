@@ -255,7 +255,6 @@ else:
         
         cal_data = calendar(events=events, options={"headerToolbar": {"left": "prev,next today", "center": "title", "right": "dayGridMonth"}, "initialView": "dayGridMonth"}, key="pnl_calendar")
         
-        # സുരക്ഷിതമായി event ഡാറ്റ എടുക്കുന്നു
         if cal_data and cal_data.get("callback") == "eventClick":
             event_info = cal_data.get("eventClick", {})
             event_data = event_info.get("event", {})
@@ -374,4 +373,4 @@ else:
                     
                     if response_message.tool_calls:
                         for tool_call in response_message.tool_calls:
-                 
+                            if tool_call.function.name == "add_n
