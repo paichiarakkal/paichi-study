@@ -330,3 +330,38 @@ else:
 
                 except Exception as e:
                     st.error(f"AI Error: {str(e)}")
+# --- PERSONAL AI BUDDY (പൊതുവായ കാര്യങ്ങൾ ചോദിക്കാൻ) ---
+elif page == "🧠 My AI Buddy":
+    st.title("🧠 Your Personal AI Buddy")
+    st.write("എന്നോട് എന്തും ചോദിക്കാം. (ഉദാ: 'ഒരു കവിത എഴുതൂ', 'ഇന്ന് എന്ത് പാചകം ചെയ്യണം?')")
+    
+    if "buddy_messages" not in st.session_state: st.session_state.buddy_messages = []
+    
+    for msg in st.session_state.buddy_messages:
+        with st.chat_message(msg["role"]): st.markdown(msg["content"])
+        
+    user_input = st.chat_input("Ask me anything...")
+    
+    if user_input:
+        st.session_state.buddy_messages.append({"role": "user", "content": user_input})
+        with st.chat_message("user"): st.markdown(user_input)
+        
+        with st.spinner("ആലോചിക്കുന്നു..."):
+            try:
+                client = Groq(api_key=GROQ_API_KEY)
+                # നിങ്ങളുടെ ഇഷ്ടങ്ങൾ AI-ക്ക് പറഞ്ഞുകൊടുക്കാം (Memory)
+                system_prompt = "You are a helpful personal AI assistant for a 51-year-old Malayali. Answer their questions in Malayalam in a friendly way. You can help with daily life, cooking, general knowledge, and motivation."
+                
+                messages = [{"role": "system", "content": system_prompt}] + [{"role": m["role"], "content": m["content"]} for m in st.session_state.buddy_messages[-4:]]
+                
+                response = client.chat.completions.create(
+                    model="llama-3.3-70b-versatile",
+                    messages=messages,
+                    max_tokens=500
+                )
+                
+                ai_reply = response.choices[0].message.content
+                st.session_state.buddy_messages.append({"role": "assistant", "content": ai_reply})
+                with st.chat_message("assistant"): st.markdown(ai_reply)
+            except Exception as e:
+                st.error(f"Error: {e}")
