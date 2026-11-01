@@ -373,4 +373,5 @@ else:
                     entry_saved = False
                     
                     if response_message.tool_calls:
-                        # ഇവിടെയാണ് കോളൻ (:) മുമ്പ് വിട്ടുപോയത്. ഇപ്പോൾ ശരിയാക്കിയിട്ടു
+                        for tool_call in response_message.tool_calls:
+                 
