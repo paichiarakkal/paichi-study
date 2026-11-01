@@ -401,14 +401,55 @@ elif page == "🤖 AI Chat":
 
 elif page == "📅 Calendar" and not df.empty:
     st.title("P&L Calendar 📅")
-    df_cal = df.dropna(subset=["Date"])
+    
+    # 1. Date ഉള്ള റോകൾ മാത്രം എടുത്ത് null ഫോർമാറ്റിംഗ് പരിഹരിക്കുന്നു
+    df_cal = df.dropna(subset=["Date"]).copy()
+    df_cal["Debit"] = df_cal["Debit"].fillna(0)
+    df_cal["Credit"] = df_cal["Credit"].fillna(0)
+    
     if not df_cal.empty:
-        summary = df_cal.groupby(df_cal["Date"].dt.strftime("%Y-%m-%d")).agg({"Debit": "sum", "Credit": "sum"}).reset_index()
+        # 2. ദിവസങ്ങൾ തിരിച്ച് തുക കൂട്ടുന്നു
+        summary = df_cal.groupby(df_cal["Date"].dt.strftime("%Y-%m-%d")).agg({
+            "Debit": "sum", 
+            "Credit": "sum"
+        }).reset_index()
+        
         events = []
-        for _, row in summary.iterrows():
-            if row["Credit"] > 0: events.append({"title": f" +₹{row['Credit']:,.0f}", "start": row["Date"], "backgroundColor": "#198754"})
-            if row["Debit"] > 0: events.append({"title": f" -₹{row['Debit']:,.0f}", "start": row["Date"], "backgroundColor": "#dc3545"})
-        calendar(events=events, options={"headerToolbar": {"left": "prev,next today", "center": "title", "right": "dayGridMonth"}, "initialView": "dayGridMonth"}, key="pnl_cal")
+        for idx, row in summary.iterrows():
+            # Credit (Income) ഉണ്ടെങ്കിൽ പച്ച നിറത്തിൽ കാണിക്കും
+            if row["Credit"] > 0:
+                events.append({
+                    "id": f"cred_{idx}",
+                    "title": f" +₹{row['Credit']:,.0f}", 
+                    "start": row["Date"], 
+                    "backgroundColor": "#198754",
+                    "borderColor": "#198754",
+                    "textColor": "#ffffff"
+                })
+            # Debit (Expense) ഉണ്ടെങ്കിൽ ചുവപ്പ് നിറത്തിൽ കാണിക്കും
+            if row["Debit"] > 0:
+                events.append({
+                    "id": f"deb_{idx}",
+                    "title": f" -₹{row['Debit']:,.0f}", 
+                    "start": row["Date"], 
+                    "backgroundColor": "#dc3545",
+                    "borderColor": "#dc3545",
+                    "textColor": "#ffffff"
+                })
+        
+        # 3. Streamlit Calendar Render ചെയ്യുന്നു
+        calendar_options = {
+            "headerToolbar": {
+                "left": "prev,next today", 
+                "center": "title", 
+                "right": "dayGridMonth"
+            },
+            "initialView": "dayGridMonth",
+            "selectable": True,
+            "dayMaxEvents": True  # ഒരുപാട് എന്റ്രികൾ ഉണ്ടെങ്കിൽ '+more' ആയി കാണിക്കാൻ
+        }
+        
+        calendar(events=events, options=calendar_options, key="pnl_cal")
 
 elif page in ("📊 Report", "🔍 History"):
     if df.empty: st.warning("No data available!")
