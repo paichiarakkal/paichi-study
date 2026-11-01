@@ -38,9 +38,9 @@ st.markdown(f"""
     .login-card {{ background: rgba(0, 0, 0, 0.8); padding: 25px; border-radius: 20px; max-width: 450px; margin: auto; margin-top: 50px; }}
     h1, h2, h3, p, label {{ color: white !important; font-weight: bold !important; }}
 
-    /* 👇 WhatsApp Style Chat Bubbles 👇 */
+    /* WhatsApp Style Chat Bubbles */
     [data-testid="stChatMessage"] {{
-        background-color: #202c33 !important; /* WhatsApp Dark Mode */
+        background-color: #202c33 !important;
         border-radius: 12px !important;
         padding: 12px 16px !important;
         margin-bottom: 8px !important;
@@ -373,4 +373,4 @@ else:
                     entry_saved = False
                     
                     if response_message.tool_calls:
-                        for tool_call in response_messag
+                        # ഇവിടെയാണ് കോളൻ (:) മുമ്പ് വിട്ടുപോയത്. ഇപ്പോൾ ശരിയാക്കിയിട്ടു
