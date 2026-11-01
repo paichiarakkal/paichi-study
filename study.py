@@ -161,7 +161,8 @@ else:
 
     st.markdown(f'<div class="balance-banner"><span style="font-size:20px; color:#E0B0FF;">Available Balance</span><br><span style="font-size:40px; color:#FFD700;">₹{bal:,.2f}</span></div>', unsafe_allow_html=True)
     
-    menu = ["💰 Add Entry", "📅 Calendar", "📊 Report", "🔍 History", "🤝 Debt Tracker", "🤖 AI Chat"]
+    # 🔥 MENU-വിൽ "My AI Buddy" ചേർത്തു
+    menu = ["💰 Add Entry", "📅 Calendar", "📊 Report", "🔍 History", "🤝 Debt Tracker", "🤖 AI Chat", "🧠 My AI Buddy"]
     if st.session_state.user != "shabana": menu.insert(0, "🏠 Dashboard")
     page = st.sidebar.radio("Menu", menu)
     if st.sidebar.button("Logout"): st.session_state.auth = False; st.rerun()
@@ -228,14 +229,16 @@ else:
         
         cal_data = calendar(events=events, options={"headerToolbar": {"left": "prev,next today", "center": "title", "right": "dayGridMonth"}, "initialView": "dayGridMonth"}, key="pnl_calendar")
         
-        # തിരുത്തിയ ഭാഗം (callback)
+        # സുരക്ഷിതമായി event ഡാറ്റ എടുക്കുന്നു
         if cal_data and cal_data.get("callback") == "eventClick":
-            dt_click = cal_data["event"]["start"].split("T")[0]
-            st.markdown("---"); st.subheader(f"📋 Details for {pd.to_datetime(dt_click).strftime('%d %B %Y')}")
-            day_df = df_cal[df_cal['Date'].dt.strftime('%Y-%m-%d') == dt_click].copy()
-            if not day_df.empty:
-                day_df['Date'] = day_df['Date'].dt.strftime('%d/%m/%Y')
-                st.dataframe(day_df[['Date', 'Item', 'Debit', 'Credit']], use_container_width=True)
+            event_data = cal_data.get("eventClick", {}).get("event", {})
+            dt_click = event_data.get("start", "").split("T")[0]
+            if dt_click:
+                st.markdown("---"); st.subheader(f"📋 Details for {pd.to_datetime(dt_click).strftime('%d %B %Y')}")
+                day_df = df_cal[df_cal['Date'].dt.strftime('%Y-%m-%d') == dt_click].copy()
+                if not day_df.empty:
+                    day_df['Date'] = day_df['Date'].dt.strftime('%d/%m/%Y')
+                    st.dataframe(day_df[['Date', 'Item', 'Debit', 'Credit']], use_container_width=True)
 
     # --- REPORT & HISTORY ---
     elif (page == "📊 Report" or page == "🔍 History") and not df.empty:
@@ -268,6 +271,41 @@ else:
         st.title("🤝 Debt Tracker")
         st.info("വരും ദിവസങ്ങളിൽ ഇതിലേക്ക് കൂടുതൽ ഫീച്ചറുകൾ വരും!")
 
+    # --- MY AI BUDDY (പുതിയ പേജ്) ---
+    elif page == "🧠 My AI Buddy":
+        st.title("🧠 Your Personal AI Buddy")
+        st.write("എന്നോട് എന്തും ചോദിക്കാം. (ഉദാ: 'ഒരു കവിത എഴുതൂ', 'ഇന്ന് എന്ത് പാചകം ചെയ്യണം?')")
+        
+        if "buddy_messages" not in st.session_state: st.session_state.buddy_messages = []
+        
+        for msg in st.session_state.buddy_messages:
+            with st.chat_message(msg["role"]): st.markdown(msg["content"])
+            
+        user_input = st.chat_input("Ask me anything...")
+        
+        if user_input:
+            st.session_state.buddy_messages.append({"role": "user", "content": user_input})
+            with st.chat_message("user"): st.markdown(user_input)
+            
+            with st.spinner("ആലോചിക്കുന്നു..."):
+                try:
+                    client = Groq(api_key=GROQ_API_KEY)
+                    system_prompt = "You are a helpful personal AI assistant for a 51-year-old Malayali. Answer their questions in Malayalam in a friendly way. You can help with daily life, cooking, general knowledge, and motivation."
+                    
+                    messages = [{"role": "system", "content": system_prompt}] + [{"role": m["role"], "content": m["content"]} for m in st.session_state.buddy_messages[-4:]]
+                    
+                    response = client.chat.completions.create(
+                        model="llama-3.3-70b-versatile",
+                        messages=messages,
+                        max_tokens=500
+                    )
+                    
+                    ai_reply = response.choices[0].message.content
+                    st.session_state.buddy_messages.append({"role": "assistant", "content": ai_reply})
+                    with st.chat_message("assistant"): st.markdown(ai_reply)
+                except Exception as e:
+                    st.error(f"Error: {e}")
+
     # --- AI CHAT (AI Agent) ---
     elif page == "🤖 AI Chat":
         st.title("🤖 AI Agent & Assistant")
@@ -294,11 +332,10 @@ else:
                     
                     system_instruction = f"നീ ഒരു ഫിനാൻസ് AI അസിസ്റ്റന്റാണ്. സമയം: {utc_now}. ബാലൻസ്: {bal} Rs. ചെലവ് ചേർക്കാൻ add_new_entry ടൂൾ ഉപയോഗിക്കുക."
                     
-                    # ടോക്കൺ ലിമിറ്റ് കുറയ്ക്കാൻ അവസാനത്തെ 2 മെസ്സേജുകൾ മാത്രം
                     messages_for_api = [{"role": "system", "content": system_instruction}] + [{"role": m["role"], "content": m["content"]} for m in st.session_state.messages[-2:]]
 
                     response = client.chat.completions.create(
-                        model="llama-3.1-70b-versatile", # ശരിയായ മോഡൽ
+                        model="llama-3.3-70b-versatile", # തിരുത്തിയ മോഡൽ
                         messages=messages_for_api,
                         tools=tools,
                         tool_choice="auto",
@@ -323,45 +360,4 @@ else:
                     else:
                         ai_reply = response_message.content
 
-                    st.session_state.messages.append({"role": "assistant", "content": ai_reply})
-                    with st.chat_message("assistant"): st.markdown(ai_reply)
-                    
-                    if entry_saved: st.rerun()
-
-                except Exception as e:
-                    st.error(f"AI Error: {str(e)}")
-# --- PERSONAL AI BUDDY (പൊതുവായ കാര്യങ്ങൾ ചോദിക്കാൻ) ---
-elif page == "🧠 My AI Buddy":
-    st.title("🧠 Your Personal AI Buddy")
-    st.write("എന്നോട് എന്തും ചോദിക്കാം. (ഉദാ: 'ഒരു കവിത എഴുതൂ', 'ഇന്ന് എന്ത് പാചകം ചെയ്യണം?')")
-    
-    if "buddy_messages" not in st.session_state: st.session_state.buddy_messages = []
-    
-    for msg in st.session_state.buddy_messages:
-        with st.chat_message(msg["role"]): st.markdown(msg["content"])
-        
-    user_input = st.chat_input("Ask me anything...")
-    
-    if user_input:
-        st.session_state.buddy_messages.append({"role": "user", "content": user_input})
-        with st.chat_message("user"): st.markdown(user_input)
-        
-        with st.spinner("ആലോചിക്കുന്നു..."):
-            try:
-                client = Groq(api_key=GROQ_API_KEY)
-                # നിങ്ങളുടെ ഇഷ്ടങ്ങൾ AI-ക്ക് പറഞ്ഞുകൊടുക്കാം (Memory)
-                system_prompt = "You are a helpful personal AI assistant for a 51-year-old Malayali. Answer their questions in Malayalam in a friendly way. You can help with daily life, cooking, general knowledge, and motivation."
-                
-                messages = [{"role": "system", "content": system_prompt}] + [{"role": m["role"], "content": m["content"]} for m in st.session_state.buddy_messages[-4:]]
-                
-                response = client.chat.completions.create(
-                    model="llama-3.3-70b-versatile",
-                    messages=messages,
-                    max_tokens=500
-                )
-                
-                ai_reply = response.choices[0].message.content
-                st.session_state.buddy_messages.append({"role": "assistant", "content": ai_reply})
-                with st.chat_message("assistant"): st.markdown(ai_reply)
-            except Exception as e:
-                st.error(f"Error: {e}")
+                    st.session_state.me
