@@ -37,9 +37,35 @@ st.markdown(f"""
     .alert-banner {{ background-color: #ff4d4d; color: white; padding: 10px; border-radius: 10px; text-align: center; font-weight: bold; margin-bottom: 20px; }}
     .login-card {{ background: rgba(0, 0, 0, 0.8); padding: 25px; border-radius: 20px; max-width: 450px; margin: auto; margin-top: 50px; }}
     h1, h2, h3, p, label {{ color: white !important; font-weight: bold !important; }}
+
+    /* 👇 WhatsApp Style Chat Bubbles (ഇത് പുതിയതായി ചേർത്തത്) 👇 */
+    [data-testid="stChatMessage"] {{
+        background-color: #202c33 !important; /* WhatsApp Dark Mode Message Color */
+        border-radius: 12px !important;
+        padding: 12px 16px !important;
+        margin-bottom: 8px !important;
+        border: none !important;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    }}
+    
+    /* WhatsApp Style Input Box */
+    [data-testid="stChatInput"] {{
+        background-color: #2a3942 !important;
+        border-radius: 24px !important;
+        border: 1px solid #2a3942 !important;
+        padding: 5px !important;
+    }}
+    [data-testid="stChatInput"] textarea {{
+        color: white !important;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+    }}
+    
+    /* Chat Avatar background */
+    [data-testid="stChatMessageAvatar"] {{
+        background-color: transparent !important;
+    }}
     </style>
 """, unsafe_allow_html=True)
-
 if 'auth' not in st.session_state: st.session_state.auth, st.session_state.user = False, ""
 if 'custom_alert_text' not in st.session_state: st.session_state.custom_alert_text = "Shop kuri book"
 if 'low_limit' not in st.session_state: st.session_state.low_limit = 6000
