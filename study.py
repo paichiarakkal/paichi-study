@@ -339,31 +339,22 @@ elif page == "🤖 AI Chat":
             try:
                 client = Groq(api_key=GROQ_API_KEY)
                 
-                # Self-Code Reading
-                try:
-                    with open("app.py", "r", encoding="utf-8") as f: 
-                        my_code = f.read()
-                except: 
-                    my_code = "Code not available."
+                # Token limit ഒഴിവാക്കാൻ app.py ഫുൾ ആയി വായിക്കുന്നത് ഒഴിവാക്കി ചെറിയൊരു സംഗ്രഹം മാത്രം നൽകുന്നു
+                my_code = "PAICHI EXPENSES v6.1 Agent System"
 
-                # Time calculation (Fixed)
                 utc_now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
                 
-                df_summary = df[['Date', 'Item', 'Debit', 'Credit']].tail(20).to_string() if not df.empty else "No data"
+                # ഡാറ്റ സൈസ് കുറയ്ക്കാൻ tail(5) മാത്രം നൽകുന്നു (ടോക്കൺ കുറയാൻ സഹായിക്കും)
+                df_summary = df[['Date', 'Item', 'Debit', 'Credit']].tail(5).to_string() if not df.empty else "No data"
                 
                 system_instruction = f"""
-                നീ ഒരു വളരെ മികച്ച AI അസിസ്റ്റന്റും, ഫിനാൻസ് ഏജന്റുമാണ്. 
-                ലോകത്തിലെ എല്ലാ കാര്യങ്ങളെക്കുറിച്ചും നിനക്ക് അറിയാം. യൂസർ എന്ത് ചോദിച്ചാലും മലയാളത്തിൽ കൃത്യമായി മറുപടി നൽകുക.
-                
-                ഇപ്പോഴത്തെ ലോക സമയം (UTC): {utc_now}
-                (യൂസർ സമയം ചോദിച്ചാൽ ടൈംസോൺ കണക്കാക്കി കൃത്യമായി പറയുക. ദുബായ് = UTC+4, കേരളം = UTC+5:30).
-                
-                നിലവിലെ ബാലൻസ്: {bal} Rs. Data: {df_summary}
-                
-                യൂസർ എന്തെങ്കിലും ചെലവ് ചേർക്കാൻ പറഞ്ഞാൽ (ഉദാ: 'ബിരിയാണി 150'), നീ നിർബന്ധമായും add_new_entry എന്ന ടൂൾ ഉപയോഗിക്കണം.
+                നീ ഒരു മികച്ച ഫിനാൻസ് AI അസിസ്റ്റന്റാണ്. യൂസർ ചോദിക്കുന്നവയ്ക്ക് മലയാളത്തിൽ മറുപടി നൽകുക.
+                ഇപ്പോഴത്തെ സമയം (UTC): {utc_now}. നിലവിലെ ബാലൻസ്: {bal} Rs. 
+                യൂസർ ചെലവ് ചേർക്കാൻ പറഞ്ഞാൽ add_new_entry ടൂൾ ഉപയോഗിക്കുക.
                 """
                 
-                messages_for_api = [{"role": "system", "content": system_instruction}] + [{"role": m["role"], "content": m["content"]} for m in st.session_state.messages[-5:]]
+                # ടോക്കൺ ലിമിറ്റ് കുറയ്ക്കാൻ അവസാനത്തെ 2 മെസ്സേജുകൾ മാത്രം ഹിസ്റ്ററിയിൽ എടുക്കുന്നു
+                messages_for_api = [{"role": "system", "content": system_instruction}] + [{"role": m["role"], "content": m["content"]} for m in st.session_state.messages[-2:]]
 
                 response = client.chat.completions.create(
                     model="openai/gpt-oss-120b", 
@@ -373,7 +364,7 @@ elif page == "🤖 AI Chat":
                 )
 
                 response_message = response.choices[0].message
-                entry_saved = False  # Initialize flag safely
+                entry_saved = False
                 
                 if response_message.tool_calls:
                     for tool_call in response_message.tool_calls:
@@ -382,7 +373,7 @@ elif page == "🤖 AI Chat":
                             result = execute_add_entry(args["item"], args["amount"], args["type"])
                             
                             if result == "Success":
-                                ai_reply = f"✅ ചേട്ടാ, {args['item']}-ന് വേണ്ടി {args['amount']} Rs ഞാൻ ഷീറ്റിൽ എൻട്രി ഇട്ടിട്ടുണ്ട്! (Action Completed)"
+                                ai_reply = f"✅ ചേട്ടാ, {args['item']}-ന് വേണ്ടി {args['amount']} Rs ഞാൻ ഷീറ്റിൽ എൻട്രി ഇട്ടിട്ടുണ്ട്!"
                                 entry_saved = True
                             else: 
                                 ai_reply = f"❌ എൻട്രി ഇടാൻ പറ്റിയില്ല: {result}"
@@ -398,7 +389,6 @@ elif page == "🤖 AI Chat":
 
             except Exception as e:
                 st.error(f"AI Error: {str(e)}")
-
 # --- CALENDAR ---
 elif page == "📅 Calendar" and not df.empty:
     st.title("P&L Calendar View 📅")
