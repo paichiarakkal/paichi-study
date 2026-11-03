@@ -46,9 +46,24 @@ st.markdown(f"""
     
     /* WhatsApp Style Chat Bubbles */
     [data-testid="stChatMessage"] {{ background-color: #202c33 !important; border-radius: 12px !important; padding: 12px 16px !important; margin-bottom: 8px !important; border: none !important; box-shadow: 0 1px 2px rgba(0,0,0,0.3); }}
-    [data-testid="stChatInput"] {{ background-color: #2a3942 !important; border-radius: 24px !important; border: 1px solid #2a3942 !important; padding: 5px !important; }}
-    [data-testid="stChatInput"] textarea {{ color: white !important; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important; }}
-    [data-testid="stChatMessageAvatar"] {{ background-color: transparent !important; }}
+
+    /* 👇 പുതിയ ടേബിൾ ഡിസൈൻ (ഇത് ചേർക്കുക) 👇 */
+    table {{
+        background-color: rgba(0, 0, 0, 0.8) !important;
+        border-collapse: collapse;
+        width: 100%;
+        margin-bottom: 20px;
+    }}
+    th, td {{
+        color: white !important;
+        border: 1px solid rgba(255, 255, 255, 0.3) !important;
+        padding: 10px !important;
+        text-align: left;
+    }}
+    th {{
+        background-color: rgba(255, 215, 0, 0.2) !important;
+        font-weight: bold !important;
+    }}
     </style>
 """, unsafe_allow_html=True)
 
