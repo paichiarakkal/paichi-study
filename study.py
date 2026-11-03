@@ -305,22 +305,25 @@ else:
             clean_df['Date'] = clean_df['Date'].dt.strftime('%d/%m/%Y')
             st.dataframe(clean_df.iloc[::-1], use_container_width=True)
 
-    # --- DEBT TRACKER ---
-    elif page == "🤝 Debt Tracker":
-        st.title("🤝 Debt Tracker")
-        st.info("വരും ദിവസങ്ങളിൽ ഇതിലേക്ക് കൂടുതൽ ഫീച്ചറുകൾ വരും!")
+          
+      # --- DEBT TRACKER ---
+elif page == "🤝 Debt Tracker":
+    st.title("🤝 Debt Tracker")
+    st.info("വരും ദിവസങ്ങളിൽ ഇതിലേക്ക് കൂടുതൽ ഫീച്ചറുകൾ വരും!")
 
-      # --- MY AI BUDDY ---
+# --- MY AI BUDDY ---
 elif page == "🧠 My AI Buddy":
     st.title("🧠 Your Personal AI Buddy")
     st.write("എന്നോട് എന്തും ചോദിക്കാം. (ഉദാ: 'ഒരു കവിത എഴുതൂ', 'ഇന്ന് എന്ത് പാചകം ചെയ്യണം?')")
     
-    if "buddy_messages" not in st.session_state: st.session_state.buddy_messages = []
+    if "buddy_messages" not in st.session_state: 
+        st.session_state.buddy_messages = []
     
     for msg in st.session_state.buddy_messages:
-        with st.chat_message(msg["role"]): st.markdown(msg["content"])
+        with st.chat_message(msg["role"]): 
+            st.markdown(msg["content"])
         
-    user_input = st.chat_input("Ask me anything...", key="buddy_chat_box") # 👈 key കൃത്യമായി നൽകി
+    user_input = st.chat_input("Ask me anything...", key="buddy_chat_box")
     
     if user_input:
         st.session_state.buddy_messages.append({"role": "user", "content": user_input})
@@ -345,18 +348,19 @@ elif page == "🧠 My AI Buddy":
             except Exception as e:
                 st.error(f"Error: {e}")
 
-# --- AI CHAT (AI Agent) --- 👈 ഇത് തുടങ്ങുന്നത് 'elif' എന്നാണെന്ന് ഉറപ്പാക്കുക
+# --- AI CHAT (AI Agent) ---
 elif page == "🤖 AI Chat":
     st.title("🤖 AI Agent & Assistant")
     st.write("നിങ്ങൾക്ക് ടൈപ്പ് ചെയ്യാം, അല്ലെങ്കിൽ 'ബിരിയാണി 150' എന്ന് പറഞ്ഞാൽ അത് ഷീറ്റിൽ എൻട്രി ഇടും.")
     
-    if "messages" not in st.session_state: st.session_state.messages = []
+    if "messages" not in st.session_state: 
+        st.session_state.messages = []
 
     for message in st.session_state.messages:
         with st.chat_message(message["role"]): st.markdown(message["content"])
 
     v_raw = speech_to_text(language='ml', key='ai_voice_input')
-    prompt = st.chat_input("Ask anything or add expense...", key="ai_chat_box") # 👈 key കൃത്യമായി നൽകി
+    prompt = st.chat_input("Ask anything or add expense...", key="ai_chat_box")
 
     final_prompt = v_raw if v_raw else prompt
 
@@ -405,5 +409,4 @@ elif page == "🤖 AI Chat":
                 if entry_saved: st.rerun()
 
             except Exception as e:
-                st.error(f"AI Error: {str(e)}")         
-              
+                st.error(f"AI Error: {str(e)}")        
