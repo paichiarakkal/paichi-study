@@ -13,21 +13,27 @@ import threading
 import json
 from groq import Groq
 from streamlit_calendar import calendar
+from twilio.rest import Client
 
 # --- CONFIG & SETTINGS ---
 CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRccfZch3jSdHqrScpqsR_j3FSd70NbELC1j6_nPi-MQXdrhVr3BPcKoI1nub4mQql727pQRPWYk9C-/pub?gid=1583146028&single=true&output=csv"
 FORM_API = "https://docs.google.com/forms/d/e/1FAIpQLSfLySolQSiRXV0wELNPhUBlKJh77RnJKWc2-uqAM0TPNG3Q5A/formResponse"
-WA_PHONE, WA_API_KEY = "971551347989", "7463030"
-USER_PINS = {"faisal": "1470", "shabana": "1230", "admin": "7860"}
+WA_PHONE = "971551347989"
+
+# 🔑 Secrets-ൽ നിന്ന് എടുക്കുന്നു
+USER_PINS = {
+    "faisal": st.secrets.get("PIN_FAISAL", ""),
+    "shabana": st.secrets.get("PIN_SHABANA", ""),
+    "admin": st.secrets.get("PIN_ADMIN", "")
+}
 BG_IMAGE_URL = "https://raw.githubusercontent.com/paichiarakkal/paichiarakkal/main/profile.jpg"
 
 # --- STREAMLIT UI SETUP ---
-st.set_page_config(page_title="PAICHI EXPENSES v5.0", layout="wide")
+st.set_page_config(page_title="PAICHI EXPENSES v6.0", layout="wide")
 st_autorefresh(interval=60000, key="auto_refresh")
 
 st.markdown(f"""
     <style>
-    /* Background & Main UI */
     [data-testid="stAppViewContainer"] {{ background-image: linear-gradient(rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.75)), url("{BG_IMAGE_URL}"); background-size: cover; background-attachment: fixed; }}
     [data-testid="stSidebar"] {{ background: rgba(0, 0, 0, 0.85) !important; }}
     .stButton>button {{ background-color: #FFD700; color: #000; border-radius: 10px; font-weight: bold; width: 100%; }}
@@ -37,33 +43,12 @@ st.markdown(f"""
     .alert-banner {{ background-color: #ff4d4d; color: white; padding: 10px; border-radius: 10px; text-align: center; font-weight: bold; margin-bottom: 20px; }}
     .login-card {{ background: rgba(0, 0, 0, 0.8); padding: 25px; border-radius: 20px; max-width: 450px; margin: auto; margin-top: 50px; }}
     h1, h2, h3, p, label {{ color: white !important; font-weight: bold !important; }}
-
+    
     /* WhatsApp Style Chat Bubbles */
-    [data-testid="stChatMessage"] {{
-        background-color: #202c33 !important;
-        border-radius: 12px !important;
-        padding: 12px 16px !important;
-        margin-bottom: 8px !important;
-        border: none !important;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.3);
-    }}
-    
-    /* WhatsApp Style Input Box */
-    [data-testid="stChatInput"] {{
-        background-color: #2a3942 !important;
-        border-radius: 24px !important;
-        border: 1px solid #2a3942 !important;
-        padding: 5px !important;
-    }}
-    [data-testid="stChatInput"] textarea {{
-        color: white !important;
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
-    }}
-    
-    /* Chat Avatar background */
-    [data-testid="stChatMessageAvatar"] {{
-        background-color: transparent !important;
-    }}
+    [data-testid="stChatMessage"] {{ background-color: #202c33 !important; border-radius: 12px !important; padding: 12px 16px !important; margin-bottom: 8px !important; border: none !important; box-shadow: 0 1px 2px rgba(0,0,0,0.3); }}
+    [data-testid="stChatInput"] {{ background-color: #2a3942 !important; border-radius: 24px !important; border: 1px solid #2a3942 !important; padding: 5px !important; }}
+    [data-testid="stChatInput"] textarea {{ color: white !important; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important; }}
+    [data-testid="stChatMessageAvatar"] {{ background-color: transparent !important; }}
     </style>
 """, unsafe_allow_html=True)
 
@@ -73,7 +58,18 @@ if 'low_limit' not in st.session_state: st.session_state.low_limit = 6000
 
 # --- HELPER FUNCTIONS ---
 def send_whatsapp_auto(msg):
-    threading.Thread(target=lambda: requests.get(f"https://api.callmebot.com/whatsapp.php?phone={WA_PHONE}&text={urllib.parse.quote(msg)}&apikey={WA_API_KEY}", timeout=10)).start()
+    try:
+        account_sid = st.secrets.get("TWILIO_ACCOUNT_SID", "")
+        auth_token = st.secrets.get("TWILIO_AUTH_TOKEN", "")
+        if account_sid and auth_token:
+            client = Client(account_sid, auth_token)
+            client.messages.create(
+                from_='whatsapp:+14155238886',
+                body=msg,
+                to=f'whatsapp:{WA_PHONE}'
+            )
+    except Exception as e:
+        pass # Twilio Error silent aayi vekkam
 
 def parse_mixed_dates(date_series):
     parsed = []
@@ -125,7 +121,6 @@ def create_pdf(df):
 
 # --- GROQ AI AGENT SETUP ---
 GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "")
-if not GROQ_API_KEY: st.sidebar.error("Groq API Key ലഭ്യമല്ല!")
 
 def add_new_entry(item, amount, category="Others", type="Debit"):
     try:
@@ -256,8 +251,7 @@ else:
         cal_data = calendar(events=events, options={"headerToolbar": {"left": "prev,next today", "center": "title", "right": "dayGridMonth"}, "initialView": "dayGridMonth"}, key="pnl_calendar")
         
         if cal_data and cal_data.get("callback") == "eventClick":
-            event_info = cal_data.get("eventClick", {})
-            event_data = event_info.get("event", {})
+            event_data = cal_data.get("eventClick", {}).get("event", {})
             dt_click = event_data.get("start", "").split("T")[0]
             if dt_click:
                 st.markdown("---"); st.subheader(f"📋 Details for {pd.to_datetime(dt_click).strftime('%d %B %Y')}")
@@ -373,4 +367,23 @@ else:
                     
                     if response_message.tool_calls:
                         for tool_call in response_message.tool_calls:
-                            if tool_call.function.name == "add_n
+                            if tool_call.function.name == "add_new_entry":
+                                args = json.loads(tool_call.function.arguments)
+                                result = add_new_entry(
+                                    item=args.get("item"), amount=args.get("amount"), 
+                                    category=args.get("category", "Others"), type=args.get("type", "Debit")
+                                )
+                                if "Success" in result:
+                                    ai_reply = f"✅ {args.get('item')}-ന് {args.get('amount')} Rs ഞാൻ എൻട്രി ഇട്ടു!"
+                                    entry_saved = True
+                                else: ai_reply = f"❌ {result}"
+                    else:
+                        ai_reply = response_message.content
+
+                    st.session_state.messages.append({"role": "assistant", "content": ai_reply})
+                    with st.chat_message("assistant"): st.markdown(ai_reply)
+                    
+                    if entry_saved: st.rerun()
+
+                except Exception as e:
+                    st.error(f"AI Error: {str(e)}")
