@@ -310,43 +310,42 @@ else:
         st.title("🤝 Debt Tracker")
         st.info("വരും ദിവസങ്ങളിൽ ഇതിലേക്ക് കൂടുതൽ ഫീച്ചറുകൾ വരും!")
 
-    # --- MY AI BUDDY ---
-    elif page == "🧠 My AI Buddy":
-        st.title("🧠 Your Personal AI Buddy")
-        st.write("എന്നോട് എന്തും ചോദിക്കാം. (ഉദാ: 'ഒരു കവിത എഴുതൂ', 'ഇന്ന് എന്ത് പാചകം ചെയ്യണം?')")
+      # --- MY AI BUDDY ---
+elif page == "🧠 My AI Buddy":
+    st.title("🧠 Your Personal AI Buddy")
+    st.write("എന്നോട് എന്തും ചോദിക്കാം. (ഉദാ: 'ഒരു കവിത എഴുതൂ', 'ഇന്ന് എന്ത് പാചകം ചെയ്യണം?')")
+    
+    if "buddy_messages" not in st.session_state: st.session_state.buddy_messages = []
+    
+    for msg in st.session_state.buddy_messages:
+        with st.chat_message(msg["role"]): st.markdown(msg["content"])
         
-        if "buddy_messages" not in st.session_state: st.session_state.buddy_messages = []
+    user_input = st.chat_input("Ask me anything...", key="buddy_chat_box") # 👈 key കൃത്യമായി നൽകി
+    
+    if user_input:
+        st.session_state.buddy_messages.append({"role": "user", "content": user_input})
+        with st.chat_message("user"): st.markdown(user_input)
         
-        for msg in st.session_state.buddy_messages:
-            with st.chat_message(msg["role"]): st.markdown(msg["content"])
-            
-        user_input = st.chat_input("Ask me anything...", key="buddy_chat_box")
-        
-        if user_input:
-            st.session_state.buddy_messages.append({"role": "user", "content": user_input})
-            with st.chat_message("user"): st.markdown(user_input)
-            
-            with st.spinner("ആലോചിക്കുന്നു..."):
-                try:
-                    client = Groq(api_key=GROQ_API_KEY)
-                    system_prompt = "You are a helpful personal AI assistant for a 51-year-old Malayali. Answer their questions in Malayalam in a friendly way. You can help with daily life, cooking, general knowledge, and motivation."
-                    
-                    messages = [{"role": "system", "content": system_prompt}] + [{"role": m["role"], "content": m["content"]} for m in st.session_state.buddy_messages[-4:]]
-                    
-                    response = client.chat.completions.create(
-    model="openai/gpt-oss-120b", # 👈 ഇവിടെയും മാറ്റുക
-    messages=messages,
-    max_tokens=500
-)
+        with st.spinner("ആലോചിക്കുന്നു..."):
+            try:
+                client = Groq(api_key=GROQ_API_KEY)
+                system_prompt = "You are a helpful personal AI assistant for a 51-year-old Malayali. Answer their questions in Malayalam in a friendly way. You can help with daily life, cooking, general knowledge, and motivation."
+                
+                messages = [{"role": "system", "content": system_prompt}] + [{"role": m["role"], "content": m["content"]} for m in st.session_state.buddy_messages[-4:]]
+                
+                response = client.chat.completions.create(
+                    model="openai/gpt-oss-120b",
+                    messages=messages,
+                    max_tokens=1024
+                )
+                
+                ai_reply = response.choices[0].message.content
+                st.session_state.buddy_messages.append({"role": "assistant", "content": ai_reply})
+                with st.chat_message("assistant"): st.markdown(ai_reply)
+            except Exception as e:
+                st.error(f"Error: {e}")
 
-                    
-                    ai_reply = response.choices[0].message.content
-                    st.session_state.buddy_messages.append({"role": "assistant", "content": ai_reply})
-                    with st.chat_message("assistant"): st.markdown(ai_reply)
-                except Exception as e:
-                    st.error(f"Error: {e}")
-
-   # --- AI CHAT (AI Agent) 
+# --- AI CHAT (AI Agent) --- 👈 ഇത് തുടങ്ങുന്നത് 'elif' എന്നാണെന്ന് ഉറപ്പാക്കുക
 elif page == "🤖 AI Chat":
     st.title("🤖 AI Agent & Assistant")
     st.write("നിങ്ങൾക്ക് ടൈപ്പ് ചെയ്യാം, അല്ലെങ്കിൽ 'ബിരിയാണി 150' എന്ന് പറഞ്ഞാൽ അത് ഷീറ്റിൽ എൻട്രി ഇടും.")
@@ -357,7 +356,7 @@ elif page == "🤖 AI Chat":
         with st.chat_message(message["role"]): st.markdown(message["content"])
 
     v_raw = speech_to_text(language='ml', key='ai_voice_input')
-    prompt = st.chat_input("Ask anything or add expense...", key="ai_chat_box")
+    prompt = st.chat_input("Ask anything or add expense...", key="ai_chat_box") # 👈 key കൃത്യമായി നൽകി
 
     final_prompt = v_raw if v_raw else prompt
 
@@ -375,11 +374,11 @@ elif page == "🤖 AI Chat":
                 messages_for_api = [{"role": "system", "content": system_instruction}] + [{"role": m["role"], "content": m["content"]} for m in st.session_state.messages[-2:]]
 
                 response = client.chat.completions.create(
-                    model="openai/gpt-oss-120b", # 👈 മോഡൽ പേര്
-                    messages=messages_for_api,       # 👈 വേരിയബിൾ പേര്
+                    model="openai/gpt-oss-120b", 
+                    messages=messages_for_api,
                     tools=tools,
                     tool_choice="auto",
-                    max_tokens=1024                  # 👈 ടോക്കൺ കൂട്ടി
+                    max_tokens=1024
                 )
 
                 response_message = response.choices[0].message
@@ -406,6 +405,5 @@ elif page == "🤖 AI Chat":
                 if entry_saved: st.rerun()
 
             except Exception as e:
-                st.error(f"AI Error: {str(e)}")
-                    
+                st.error(f"AI Error: {str(e)}")         
               
