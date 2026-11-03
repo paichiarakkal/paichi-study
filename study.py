@@ -173,7 +173,8 @@ tools = [{
                 "item": {"type": "string", "description": "Item name (e.g., Tea, Petrol)"},
                 "amount": {"type": "number", "description": "Amount (e.g., 50, 500)"},
                 "category": {"type": "string", "description": "Food, Shop, Fish, Travel, Rent, Others"},
-                "type": {"type": "string", "enum": ["Debit", "Credit"], "description": "Debit for expense, Credit for income"}
+                "type": {"type": "string", "enum": ["Debit", "Credit"], "description": "Debit for expense, Credit for income"},
+                "date": {"type": "string", "description": "Date of the transaction in YYYY-MM-DD format. If the user says 'yesterday', 'tomorrow', etc., calculate the date based on today's date. If not mentioned, use today's date."} # 👈 ഇത് പുതിയത്
             },
             "required": ["item", "amount"]
         }
