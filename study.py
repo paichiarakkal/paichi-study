@@ -32,7 +32,8 @@ BG_IMAGE_URL = "https://raw.githubusercontent.com/paichiarakkal/paichiarakkal/ma
 st.set_page_config(page_title="PAICHI EXPENSES v6.0", layout="wide")
 st_autorefresh(interval=60000, key="auto_refresh")
 
-st.markdown(f"""
+
+    st.markdown(f"""
     <style>
     [data-testid="stAppViewContainer"] {{ background-image: linear-gradient(rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.75)), url("{BG_IMAGE_URL}"); background-size: cover; background-attachment: fixed; }}
     [data-testid="stSidebar"] {{ background: rgba(0, 0, 0, 0.85) !important; }}
@@ -49,9 +50,25 @@ st.markdown(f"""
     [data-testid="stChatInput"] {{ background-color: #2a3942 !important; border-radius: 24px !important; border: 1px solid #2a3942 !important; padding: 5px !important; }}
     [data-testid="stChatInput"] textarea {{ color: white !important; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important; }}
     [data-testid="stChatMessageAvatar"] {{ background-color: transparent !important; }}
+
+    /* 👇 പുതിയ ഫിക്സ് (അക്ഷരങ്ങൾ കാണാൻ) 👇 */
+    input, textarea, select {{
+        color: #FFFFFF !important;
+        -webkit-text-fill-color: #FFFFFF !important;
+    }}
+    
+    [data-testid="stTextInput"] input, 
+    [data-testid="stChatInput"] textarea,
+    [data-testid="stTextArea"] textarea {{
+        background-color: rgba(0, 0, 0, 0.6) !important;
+        border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    }}
+
+    ::placeholder {{
+        color: #AAAAAA !important; 
+    }}
     </style>
 """, unsafe_allow_html=True)
-
 if 'auth' not in st.session_state: st.session_state.auth, st.session_state.user = False, ""
 if 'custom_alert_text' not in st.session_state: st.session_state.custom_alert_text = "Shop kuri book"
 if 'low_limit' not in st.session_state: st.session_state.low_limit = 6000
