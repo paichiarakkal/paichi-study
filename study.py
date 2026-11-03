@@ -320,7 +320,7 @@ else:
                     
                     response = client.chat.completions.create(
     model="openai/gpt-oss-120b",  # 👈 ഇവിടെയും മാറ്റണം
-    messages=messages,
+    messages=messages_for_api,
     max_tokens=500
 )
                     
@@ -360,7 +360,7 @@ else:
 
                     response = client.chat.completions.create(
     model="openai/gpt-oss-120b",  # 👈 ഇവിടെയും മാറ്റണം
-    messages=messages,
+    messages=messages_for_api,
     max_tokens=500
 )
                     
