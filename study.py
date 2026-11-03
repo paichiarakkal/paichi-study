@@ -359,7 +359,7 @@ else:
                 messages_for_api = [{"role": "system", "content": system_instruction}] + [{"role": m["role"], "content": m["content"]} for m in st.session_state.messages[-2:]]
 
                 response = client.chat.completions.create(
-                    model="llama-3.3-70b-versatile", # 👈 മോഡൽ പേര്
+                    model="llama-3.1", # 👈 മോഡൽ പേര്
                     messages=messages_for_api,       # 👈 വേരിയബിൾ പേര്
                     tools=tools,
                     tool_choice="auto",
