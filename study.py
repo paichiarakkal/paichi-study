@@ -306,7 +306,7 @@ else:
             st.dataframe(clean_df.iloc[::-1], use_container_width=True)
 
           
-      # --- DEBT TRACKER ---
+# --- DEBT TRACKER ---
 elif page == "🤝 Debt Tracker":
     st.title("🤝 Debt Tracker")
     st.info("വരും ദിവസങ്ങളിൽ ഇതിലേക്ക് കൂടുതൽ ഫീച്ചറുകൾ വരും!")
