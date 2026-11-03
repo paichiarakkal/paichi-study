@@ -134,7 +134,17 @@ def create_pdf(df):
             pdf.set_y(y_start + h)
         return bytes(pdf.output())
     except: return None
+/* 👇 AI ചാറ്റിലെ അക്ഷരങ്ങൾ വെളുപ്പിക്കാൻ ഇത് ചേർക്കുക 👇 */
+[data-testid="stChatMessage"] * {{
+    color: #FFFFFF !important;
+}}
 
+/* ടേബിളിലെ ബോർഡറുകൾ വ്യക്തമാക്കാൻ */
+[data-testid="stChatMessage"] table, 
+[data-testid="stChatMessage"] th, 
+[data-testid="stChatMessage"] td {{
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+}}
 # --- GROQ AI AGENT SETUP ---
 GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "")
 
