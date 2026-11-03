@@ -356,7 +356,7 @@ else:
         with st.chat_message(message["role"]): st.markdown(message["content"])
 
     v_raw = speech_to_text(language='ml', key='ai_voice_input')
-    prompt = st.chat_input("Ask anything or add expense...", key="ai_chat_box"
+    prompt = st.chat_input("Ask anything or add expense...", key="ai_chat_box")
 
     final_prompt = v_raw if v_raw else prompt
 
