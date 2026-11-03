@@ -331,8 +331,7 @@ else:
                 except Exception as e:
                     st.error(f"Error: {e}")
 
-   # --- AI CHAT (AI Agent) ---
-elif page == "🤖 AI Chat":
+   # --- AI CHAT (AI Agent) elif page == "🤖 AI Chat":
     st.title("🤖 AI Agent & Assistant")
     st.write("നിങ്ങൾക്ക് ടൈപ്പ് ചെയ്യാം, അല്ലെങ്കിൽ 'ബിരിയാണി 150' എന്ന് പറഞ്ഞാൽ അത് ഷീറ്റിൽ എൻട്രി ഇടും.")
     
