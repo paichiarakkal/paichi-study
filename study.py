@@ -320,7 +320,7 @@ else:
         for msg in st.session_state.buddy_messages:
             with st.chat_message(msg["role"]): st.markdown(msg["content"])
             
-        user_input = st.chat_input("Ask me anything...")
+        user_input = st.chat_input("Ask me anything...", key="buddy_chat_box")
         
         if user_input:
             st.session_state.buddy_messages.append({"role": "user", "content": user_input})
@@ -356,7 +356,7 @@ else:
         with st.chat_message(message["role"]): st.markdown(message["content"])
 
     v_raw = speech_to_text(language='ml', key='ai_voice_input')
-    prompt = st.chat_input("Ask anything or add expense...")
+    prompt = st.chat_input("Ask anything or add expense...", key="ai_chat_box"
 
     final_prompt = v_raw if v_raw else prompt
 
