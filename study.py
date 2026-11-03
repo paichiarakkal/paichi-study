@@ -319,7 +319,7 @@ else:
                     messages = [{"role": "system", "content": system_prompt}] + [{"role": m["role"], "content": m["content"]} for m in st.session_state.buddy_messages[-4:]]
                     
                     response = client.chat.completions.create(
-    model="llama3-70b-8192",  # 👈 ഇവിടെയും മാറ്റുക
+    model="openai/gpt-oss-120b", # 👈 ഇവിടെയും മാറ്റുക
     messages=messages,
     max_tokens=500
 )
