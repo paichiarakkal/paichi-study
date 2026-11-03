@@ -319,10 +319,10 @@ else:
                     messages = [{"role": "system", "content": system_prompt}] + [{"role": m["role"], "content": m["content"]} for m in st.session_state.buddy_messages[-4:]]
                     
                     response = client.chat.completions.create(
-                        model="llama-3.3-70b-versatile",
-                        messages=messages,
-                        max_tokens=500
-                    )
+    model="openai/gpt-oss-120b",  # 👈 ഇവിടെയും മാറ്റണം
+    messages=messages,
+    max_tokens=500
+)
                     
                     ai_reply = response.choices[0].message.content
                     st.session_state.buddy_messages.append({"role": "assistant", "content": ai_reply})
@@ -359,12 +359,11 @@ else:
                     messages_for_api = [{"role": "system", "content": system_instruction}] + [{"role": m["role"], "content": m["content"]} for m in st.session_state.messages[-2:]]
 
                     response = client.chat.completions.create(
-                        model="llama-3.3-70b-versatile", 
-                        messages=messages_for_api,
-                        tools=tools,
-                        tool_choice="auto",
-                        max_tokens=500
-                    )
+    model="openai/gpt-oss-120b",  # 👈 ഇവിടെയും മാറ്റണം
+    messages=messages,
+    max_tokens=500
+)
+                    
 
                     response_message = response.choices[0].message
                     entry_saved = False
