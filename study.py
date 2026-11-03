@@ -46,24 +46,9 @@ st.markdown(f"""
     
     /* WhatsApp Style Chat Bubbles */
     [data-testid="stChatMessage"] {{ background-color: #202c33 !important; border-radius: 12px !important; padding: 12px 16px !important; margin-bottom: 8px !important; border: none !important; box-shadow: 0 1px 2px rgba(0,0,0,0.3); }}
-
-    /* 👇 പുതിയ ടേബിൾ ഡിസൈൻ (ഇത് ചേർക്കുക) 👇 */
-    table {{
-        background-color: rgba(0, 0, 0, 0.8) !important;
-        border-collapse: collapse;
-        width: 100%;
-        margin-bottom: 20px;
-    }}
-    th, td {{
-        color: white !important;
-        border: 1px solid rgba(255, 255, 255, 0.3) !important;
-        padding: 10px !important;
-        text-align: left;
-    }}
-    th {{
-        background-color: rgba(255, 215, 0, 0.2) !important;
-        font-weight: bold !important;
-    }}
+    [data-testid="stChatInput"] {{ background-color: #2a3942 !important; border-radius: 24px !important; border: 1px solid #2a3942 !important; padding: 5px !important; }}
+    [data-testid="stChatInput"] textarea {{ color: white !important; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important; }}
+    [data-testid="stChatMessageAvatar"] {{ background-color: transparent !important; }}
     </style>
 """, unsafe_allow_html=True)
 
@@ -76,20 +61,16 @@ def send_whatsapp_auto(msg):
     try:
         account_sid = st.secrets.get("TWILIO_ACCOUNT_SID", "")
         auth_token = st.secrets.get("TWILIO_AUTH_TOKEN", "")
-        
-        if not account_sid or not auth_token:
-            st.sidebar.error("Twilio വിവരങ്ങൾ Secrets-ൽ ഇല്ല!")
-            return
-            
-        client = Client(account_sid, auth_token)
-        client.messages.create(
-            from_='whatsapp:+14155238886',
-            body=msg,
-            to=f'whatsapp:{WA_PHONE}'
-        )
+        if account_sid and auth_token:
+            client = Client(account_sid, auth_token)
+            client.messages.create(
+                from_='whatsapp:+14155238886',
+                body=msg,
+                to=f'whatsapp:{WA_PHONE}'
+            )
     except Exception as e:
-        # എറർ ഉണ്ടെങ്കിൽ സൈഡ്ബാറിൽ ചുവപ്പ് നിറത്തിൽ കാണിക്കും
-        st.sidebar.error(f"Twilio Error: {str(e)}")
+        pass # Twilio Error silent aayi vekkam
+
 def parse_mixed_dates(date_series):
     parsed = []
     for val in date_series:
@@ -305,108 +286,104 @@ else:
             clean_df['Date'] = clean_df['Date'].dt.strftime('%d/%m/%Y')
             st.dataframe(clean_df.iloc[::-1], use_container_width=True)
 
-          
-# --- DEBT TRACKER ---
-elif page == "🤝 Debt Tracker":
-    st.title("🤝 Debt Tracker")
-    st.info("വരും ദിവസങ്ങളിൽ ഇതിലേക്ക് കൂടുതൽ ഫീച്ചറുകൾ വരും!")
+    # --- DEBT TRACKER ---
+    elif page == "🤝 Debt Tracker":
+        st.title("🤝 Debt Tracker")
+        st.info("വരും ദിവസങ്ങളിൽ ഇതിലേക്ക് കൂടുതൽ ഫീച്ചറുകൾ വരും!")
 
-# --- MY AI BUDDY ---
-elif page == "🧠 My AI Buddy":
-    st.title("🧠 Your Personal AI Buddy")
-    st.write("എന്നോട് എന്തും ചോദിക്കാം. (ഉദാ: 'ഒരു കവിത എഴുതൂ', 'ഇന്ന് എന്ത് പാചകം ചെയ്യണം?')")
-    
-    if "buddy_messages" not in st.session_state: 
-        st.session_state.buddy_messages = []
-    
-    for msg in st.session_state.buddy_messages:
-        with st.chat_message(msg["role"]): 
-            st.markdown(msg["content"])
+    # --- MY AI BUDDY ---
+    elif page == "🧠 My AI Buddy":
+        st.title("🧠 Your Personal AI Buddy")
+        st.write("എന്നോട് എന്തും ചോദിക്കാം. (ഉദാ: 'ഒരു കവിത എഴുതൂ', 'ഇന്ന് എന്ത് പാചകം ചെയ്യണം?')")
         
-    user_input = st.chat_input("Ask me anything...", key="buddy_chat_box")
-    
-    if user_input:
-        st.session_state.buddy_messages.append({"role": "user", "content": user_input})
-        with st.chat_message("user"): st.markdown(user_input)
+        if "buddy_messages" not in st.session_state: st.session_state.buddy_messages = []
         
-        with st.spinner("ആലോചിക്കുന്നു..."):
-            try:
-                client = Groq(api_key=GROQ_API_KEY)
-                system_prompt = "You are a helpful personal AI assistant for a 51-year-old Malayali. Answer their questions in Malayalam in a friendly way. You can help with daily life, cooking, general knowledge, and motivation."
-                
-                messages = [{"role": "system", "content": system_prompt}] + [{"role": m["role"], "content": m["content"]} for m in st.session_state.buddy_messages[-4:]]
-                
-                response = client.chat.completions.create(
-                    model="openai/gpt-oss-120b",
-                    messages=messages,
-                    max_tokens=1024
-                )
-                
-                ai_reply = response.choices[0].message.content
-                st.session_state.buddy_messages.append({"role": "assistant", "content": ai_reply})
-                with st.chat_message("assistant"): st.markdown(ai_reply)
-            except Exception as e:
-                st.error(f"Error: {e}")
+        for msg in st.session_state.buddy_messages:
+            with st.chat_message(msg["role"]): st.markdown(msg["content"])
+            
+        user_input = st.chat_input("Ask me anything...")
+        
+        if user_input:
+            st.session_state.buddy_messages.append({"role": "user", "content": user_input})
+            with st.chat_message("user"): st.markdown(user_input)
+            
+            with st.spinner("ആലോചിക്കുന്നു..."):
+                try:
+                    client = Groq(api_key=GROQ_API_KEY)
+                    system_prompt = "You are a helpful personal AI assistant for a 51-year-old Malayali. Answer their questions in Malayalam in a friendly way. You can help with daily life, cooking, general knowledge, and motivation."
+                    
+                    messages = [{"role": "system", "content": system_prompt}] + [{"role": m["role"], "content": m["content"]} for m in st.session_state.buddy_messages[-4:]]
+                    
+                    response = client.chat.completions.create(
+model="openai/gpt-oss-120b",
+                        messages=messages,
+                        max_tokens=500
+                    )
+                    
+                    ai_reply = response.choices[0].message.content
+                    st.session_state.buddy_messages.append({"role": "assistant", "content": ai_reply})
+                    with st.chat_message("assistant"): st.markdown(ai_reply)
+                except Exception as e:
+                    st.error(f"Error: {e}")
 
-# --- AI CHAT (AI Agent) ---
-elif page == "🤖 AI Chat":
-    st.title("🤖 AI Agent & Assistant")
-    st.write("നിങ്ങൾക്ക് ടൈപ്പ് ചെയ്യാം, അല്ലെങ്കിൽ 'ബിരിയാണി 150' എന്ന് പറഞ്ഞാൽ അത് ഷീറ്റിൽ എൻട്രി ഇടും.")
-    
-    if "messages" not in st.session_state: 
-        st.session_state.messages = []
+    # --- AI CHAT (AI Agent) ---
+    elif page == "🤖 AI Chat":
+        st.title("🤖 AI Agent & Assistant")
+        st.write("നിങ്ങൾക്ക് ടൈപ്പ് ചെയ്യാം, അല്ലെങ്കിൽ 'ബിരിയാണി 150' എന്ന് പറഞ്ഞാൽ അത് ഷീറ്റിൽ എൻട്രി ഇടും.")
+        
+        if "messages" not in st.session_state: st.session_state.messages = []
 
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]): st.markdown(message["content"])
+        for message in st.session_state.messages:
+            with st.chat_message(message["role"]): st.markdown(message["content"])
 
-    v_raw = speech_to_text(language='ml', key='ai_voice_input')
-    prompt = st.chat_input("Ask anything or add expense...", key="ai_chat_box")
+        v_raw = speech_to_text(language='ml', key='ai_voice_input')
+        prompt = st.chat_input("Ask anything or add expense...")
 
-    final_prompt = v_raw if v_raw else prompt
+        final_prompt = v_raw if v_raw else prompt
 
-    if final_prompt:
-        st.session_state.messages.append({"role": "user", "content": final_prompt})
-        with st.chat_message("user"): st.markdown(final_prompt)
+        if final_prompt:
+            st.session_state.messages.append({"role": "user", "content": final_prompt})
+            with st.chat_message("user"): st.markdown(final_prompt)
 
-        with st.spinner("AI ആലോചിക്കുന്നു..."):
-            try:
-                client = Groq(api_key=GROQ_API_KEY)
-                utc_now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-                
-                system_instruction = f"നീ ഒരു ഫിനാൻസ് AI അസിസ്റ്റന്റാണ്. സമയം: {utc_now}. ബാലൻസ്: {bal} Rs. ചെലവ് ചേർക്കാൻ add_new_entry ടൂൾ ഉപയോഗിക്കുക."
-                
-                messages_for_api = [{"role": "system", "content": system_instruction}] + [{"role": m["role"], "content": m["content"]} for m in st.session_state.messages[-2:]]
+            with st.spinner("AI ആലോചിക്കുന്നു..."):
+                try:
+                    client = Groq(api_key=GROQ_API_KEY)
+                    utc_now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+                    
+                    system_instruction = f"നീ ഒരു ഫിനാൻസ് AI അസിസ്റ്റന്റാണ്. സമയം: {utc_now}. ബാലൻസ്: {bal} Rs. ചെലവ് ചേർക്കാൻ add_new_entry ടൂൾ ഉപയോഗിക്കുക."
+                    
+                    messages_for_api = [{"role": "system", "content": system_instruction}] + [{"role": m["role"], "content": m["content"]} for m in st.session_state.messages[-2:]]
 
-                response = client.chat.completions.create(
-                    model="openai/gpt-oss-120b", 
-                    messages=messages_for_api,
-                    tools=tools,
-                    tool_choice="auto",
-                    max_tokens=1024
-                )
+                    response = client.chat.completions.create(
+model="openai/gpt-oss-120b",
+                        messages=messages_for_api,
+                        tools=tools,
+                        tool_choice="auto",
+                        max_tokens=500
+                    )
 
-                response_message = response.choices[0].message
-                entry_saved = False
-                
-                if response_message.tool_calls:
-                    for tool_call in response_message.tool_calls:
-                        if tool_call.function.name == "add_new_entry":
-                            args = json.loads(tool_call.function.arguments)
-                            result = add_new_entry(
-                                item=args.get("item"), amount=args.get("amount"), 
-                                category=args.get("category", "Others"), type=args.get("type", "Debit")
-                            )
-                            if "Success" in result:
-                                ai_reply = f"✅ {args.get('item')}-ന് {args.get('amount')} Rs ഞാൻ എൻട്രി ഇട്ടു!"
-                                entry_saved = True
-                            else: ai_reply = f"❌ {result}"
-                else:
-                    ai_reply = response_message.content
+                    response_message = response.choices[0].message
+                    entry_saved = False
+                    
+                    if response_message.tool_calls:
+                        for tool_call in response_message.tool_calls:
+                            if tool_call.function.name == "add_new_entry":
+                                args = json.loads(tool_call.function.arguments)
+                                result = add_new_entry(
+                                    item=args.get("item"), amount=args.get("amount"), 
+                                    category=args.get("category", "Others"), type=args.get("type", "Debit")
+                                )
+                                if "Success" in result:
+                                    ai_reply = f"✅ {args.get('item')}-ന് {args.get('amount')} Rs ഞാൻ എൻട്രി ഇട്ടു!"
+                                    entry_saved = True
+                                else: ai_reply = f"❌ {result}"
+                    else:
+                        ai_reply = response_message.content
 
-                st.session_state.messages.append({"role": "assistant", "content": ai_reply})
-                with st.chat_message("assistant"): st.markdown(ai_reply)
-                
-                if entry_saved: st.rerun()
+                    st.session_state.messages.append({"role": "assistant", "content": ai_reply})
+                    with st.chat_message("assistant"): st.markdown(ai_reply)
+                    
+                    if entry_saved: st.rerun()
 
-            except Exception as e:
-                st.error(f"AI Error: {str(e)}")        
+                except Exception as e:
+                    st.error(f"AI Error: {str(e)}")
