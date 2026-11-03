@@ -61,16 +61,20 @@ def send_whatsapp_auto(msg):
     try:
         account_sid = st.secrets.get("TWILIO_ACCOUNT_SID", "")
         auth_token = st.secrets.get("TWILIO_AUTH_TOKEN", "")
-        if account_sid and auth_token:
-            client = Client(account_sid, auth_token)
-            client.messages.create(
-                from_='whatsapp:+14155238886',
-                body=msg,
-                to=f'whatsapp:{WA_PHONE}'
-            )
+        
+        if not account_sid or not auth_token:
+            st.sidebar.error("Twilio വിവരങ്ങൾ Secrets-ൽ ഇല്ല!")
+            return
+            
+        client = Client(account_sid, auth_token)
+        client.messages.create(
+            from_='whatsapp:+14155238886',
+            body=msg,
+            to=f'whatsapp:{WA_PHONE}'
+        )
     except Exception as e:
-        pass # Twilio Error silent aayi vekkam
-
+        # എറർ ഉണ്ടെങ്കിൽ സൈഡ്ബാറിൽ ചുവപ്പ് നിറത്തിൽ കാണിക്കും
+        st.sidebar.error(f"Twilio Error: {str(e)}")
 def parse_mixed_dates(date_series):
     parsed = []
     for val in date_series:
