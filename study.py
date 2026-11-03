@@ -66,6 +66,17 @@ st.markdown(f"""
     ::placeholder {{
         color: #AAAAAA !important; 
     }}
+/* 👇 AI ചാറ്റിലെ അക്ഷരങ്ങൾ വെളുപ്പിക്കാൻ ഇത് ചേർക്കുക 👇 */
+[data-testid="stChatMessage"] * {{
+    color: #FFFFFF !important;
+}}
+
+/* ടേബിളിലെ ബോർഡറുകൾ വ്യക്തമാക്കാൻ */
+[data-testid="stChatMessage"] table, 
+[data-testid="stChatMessage"] th, 
+[data-testid="stChatMessage"] td {{
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+}}
     </style>
 """, unsafe_allow_html=True)
 if 'auth' not in st.session_state: st.session_state.auth, st.session_state.user = False, ""
