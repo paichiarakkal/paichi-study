@@ -7,3 +7,4 @@ streamlit-autorefresh
 streamlit-calendar
 fpdf2
 groq
+twilio
