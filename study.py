@@ -32,8 +32,7 @@ BG_IMAGE_URL = "https://raw.githubusercontent.com/paichiarakkal/paichiarakkal/ma
 st.set_page_config(page_title="PAICHI EXPENSES v6.0", layout="wide")
 st_autorefresh(interval=60000, key="auto_refresh")
 
-
-    st.markdown(f"""
+st.markdown(f"""
     <style>
     [data-testid="stAppViewContainer"] {{ background-image: linear-gradient(rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.75)), url("{BG_IMAGE_URL}"); background-size: cover; background-attachment: fixed; }}
     [data-testid="stSidebar"] {{ background: rgba(0, 0, 0, 0.85) !important; }}
