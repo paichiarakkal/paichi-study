@@ -19,7 +19,7 @@ from twilio.rest import Client
 CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRccfZch3jSdHqrScpqsR_j3FSd70NbELC1j6_nPi-MQXdrhVr3BPcKoI1nub4mQql727pQRPWYk9C-/pub?gid=1583146028&single=true&output=csv"
 FORM_API = "https://docs.google.com/forms/d/e/1FAIpQLSfLySolQSiRXV0wELNPhUBlKJh77RnJKWc2-uqAM0TPNG3Q5A/formResponse"
 
-WA_PHONE = "971551347989" # നിങ്ങളുടെ നമ്പർ
+WA_PHONE = "971551347989" # നിങ്ങളുടെ നമ്പർ (+ ഇല്ലാതെ)
 USER_PINS = {
     "faisal": st.secrets.get("PIN_FAISAL", ""),
     "shabana": st.secrets.get("PIN_SHABANA", ""),
@@ -74,7 +74,7 @@ def send_whatsapp_auto(msg):
             client.messages.create(
                 from_='whatsapp:+14155238886',
                 body=msg,
-                to=f'whatsapp:{WA_PHONE}'
+                to=f'whatsapp:+{8714752210}' # 👈 ഇവിടെ '+' ചേർത്തു (ഇതാണ് പ്രധാന മാറ്റം)
             )
     except Exception as e:
         st.sidebar.error(f"Twilio Error: {e}")
@@ -379,7 +379,7 @@ else:
                     messages = [{"role": "system", "content": system_prompt}] + [{"role": m["role"], "content": m["content"]} for m in st.session_state.buddy_messages[-4:]]
                     
                     response = client.chat.completions.create(
-model="openai/gpt-oss-120b",
+                        model="llama-3.1-8b-instant",
                         messages=messages,
                         max_tokens=1024
                     )
@@ -407,7 +407,6 @@ model="openai/gpt-oss-120b",
             
         prompt = st.chat_input("Ask anything or add expense...", key="ai_chat_box")
 
-        # Indentation Corrected Here
         final_prompt = v_raw if v_raw else prompt
 
         if final_prompt:
@@ -436,7 +435,7 @@ model="openai/gpt-oss-120b",
                     messages_for_api = [{"role": "system", "content": system_instruction}] + [{"role": m["role"], "content": m["content"]} for m in st.session_state.messages[-2:]]
 
                     response = client.chat.completions.create(
-model="openai/gpt-oss-120b",
+                        model="llama3-groq-70b-8192-tool-use-preview", 
                         messages=messages_for_api,
                         tools=tools,
                         tool_choice="auto",
