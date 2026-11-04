@@ -18,9 +18,8 @@ from twilio.rest import Client
 # --- CONFIG & SETTINGS ---
 CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRccfZch3jSdHqrScpqsR_j3FSd70NbELC1j6_nPi-MQXdrhVr3BPcKoI1nub4mQql727pQRPWYk9C-/pub?gid=1583146028&single=true&output=csv"
 FORM_API = "https://docs.google.com/forms/d/e/1FAIpQLSfLySolQSiRXV0wELNPhUBlKJh77RnJKWc2-uqAM0TPNG3Q5A/formResponse"
-WA_PHONE = "971551347989"
 
-# 🔑 Secrets-ൽ നിന്ന് എടുക്കുന്നു
+WA_PHONE = "971551347989" # നിങ്ങളുടെ നമ്പർ
 USER_PINS = {
     "faisal": st.secrets.get("PIN_FAISAL", ""),
     "shabana": st.secrets.get("PIN_SHABANA", ""),
@@ -50,35 +49,17 @@ st.markdown(f"""
     [data-testid="stChatInput"] textarea {{ color: white !important; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important; }}
     [data-testid="stChatMessageAvatar"] {{ background-color: transparent !important; }}
 
-    /* 👇 പുതിയ ഫിക്സ് (അക്ഷരങ്ങൾ കാണാൻ) 👇 */
-    input, textarea, select {{
-        color: #FFFFFF !important;
-        -webkit-text-fill-color: #FFFFFF !important;
-    }}
-    
-    [data-testid="stTextInput"] input, 
-    [data-testid="stChatInput"] textarea,
-    [data-testid="stTextArea"] textarea {{
-        background-color: rgba(0, 0, 0, 0.6) !important;
-        border: 1px solid rgba(255, 255, 255, 0.3) !important;
-    }}
+    /* Input Text Color Fix */
+    input, textarea, select {{ color: #FFFFFF !important; -webkit-text-fill-color: #FFFFFF !important; }}
+    [data-testid="stTextInput"] input, [data-testid="stChatInput"] textarea, [data-testid="stTextArea"] textarea {{ background-color: rgba(0, 0, 0, 0.6) !important; border: 1px solid rgba(255, 255, 255, 0.3) !important; }}
+    ::placeholder {{ color: #AAAAAA !important; }}
 
-    ::placeholder {{
-        color: #AAAAAA !important; 
-    }}
-/* 👇 AI ചാറ്റിലെ അക്ഷരങ്ങൾ വെളുപ്പിക്കാൻ ഇത് ചേർക്കുക 👇 */
-[data-testid="stChatMessage"] * {{
-    color: #FFFFFF !important;
-}}
-
-/* ടേബിളിലെ ബോർഡറുകൾ വ്യക്തമാക്കാൻ */
-[data-testid="stChatMessage"] table, 
-[data-testid="stChatMessage"] th, 
-[data-testid="stChatMessage"] td {{
-    border: 1px solid rgba(255, 255, 255, 0.3) !important;
-}}
+    /* Chat Table & Text Fix */
+    [data-testid="stChatMessage"] * {{ color: #FFFFFF !important; }}
+    [data-testid="stChatMessage"] table, [data-testid="stChatMessage"] th, [data-testid="stChatMessage"] td {{ border: 1px solid rgba(255, 255, 255, 0.3) !important; }}
     </style>
 """, unsafe_allow_html=True)
+
 if 'auth' not in st.session_state: st.session_state.auth, st.session_state.user = False, ""
 if 'custom_alert_text' not in st.session_state: st.session_state.custom_alert_text = "Shop kuri book"
 if 'low_limit' not in st.session_state: st.session_state.low_limit = 6000
@@ -96,7 +77,7 @@ def send_whatsapp_auto(msg):
                 to=f'whatsapp:{WA_PHONE}'
             )
     except Exception as e:
-        pass # Twilio Error silent aayi vekkam
+        st.sidebar.error(f"Twilio Error: {e}")
 
 def parse_mixed_dates(date_series):
     parsed = []
@@ -145,41 +126,97 @@ def create_pdf(df):
             pdf.set_y(y_start + h)
         return bytes(pdf.output())
     except: return None
-# --- GROQ AI AGENT SETUP ---
+
+# --- GROQ AI SETUP ---
 GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "")
 
-def add_new_entry(item, amount, category="Others", type="Debit"):
+def add_new_entry(item, amount, category="Others", type="Debit", entry_date=None):
     try:
+        if not entry_date: entry_date = datetime.now().strftime("%Y-%m-%d")
         payload = {
-            "entry.1044099436": datetime.now().strftime("%Y-%m-%d"), 
+            "entry.1044099436": entry_date, 
             "entry.2013476337": f"[{st.session_state.user.capitalize()}] {category}: {item}", 
             "entry.1460982454": amount if type.lower() == "debit" else 0, 
             "entry.1221658767": 0 if type.lower() == "debit" else amount
         }
         requests.post(FORM_API, data=payload, timeout=10)
         send_whatsapp_auto(f"✅ *AI Entry Added*\n📝 Item: {item}\n💰 Amt: ₹{amount}")
-        return f"Success: {item} - ₹{amount} ({type})"
+        return f"Success: {item} - ₹{amount} ({type}) on {entry_date}"
     except Exception as e:
         return f"Error: {str(e)}"
 
-tools = [{
-    "type": "function",
-    "function": {
-        "name": "add_new_entry",
-        "description": "Add a new expense or income to Google Sheet.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "item": {"type": "string", "description": "Item name (e.g., Tea, Petrol)"},
-                "amount": {"type": "number", "description": "Amount (e.g., 50, 500)"},
-                "category": {"type": "string", "description": "Food, Shop, Fish, Travel, Rent, Others"},
-                "type": {"type": "string", "enum": ["Debit", "Credit"], "description": "Debit for expense, Credit for income"},
-                "date": {"type": "string", "description": "Date of the transaction in YYYY-MM-DD format. If the user says 'yesterday', 'tomorrow', etc., calculate the date based on today's date. If not mentioned, use today's date."} # 👈 ഇത് പുതിയത്
-            },
-            "required": ["item", "amount"]
+def add_multiple_entries(entries_list):
+    results = []
+    try:
+        for entry in entries_list:
+            item = entry.get('item', 'Unknown')
+            amount = entry.get('amount', 0)
+            category = entry.get('category', 'Others')
+            entry_type = entry.get('type', 'Debit')
+            entry_date = entry.get('date', datetime.now().strftime('%Y-%m-%d'))
+
+            payload = {
+                'entry.1044099436': entry_date,
+                'entry.2013476337': f'[{st.session_state.user.capitalize()}] {category}: {item}',
+                'entry.1460982454': amount if entry_type.lower() == 'debit' else 0,
+                'entry.1221658767': 0 if entry_type.lower() == 'debit' else amount,
+            }
+            requests.post(FORM_API, data=payload, timeout=10)
+            results.append(f'{item} - ₹{amount}')
+
+        summary_text = '\n'.join([f'• {r}' for r in results])
+        send_whatsapp_auto(f'✅ *AI Multi-Entries Added*\n{summary_text}')
+        return f'Success: Added {len(results)} items.'
+    except Exception as e:
+        return f'Error: {str(e)}'
+
+tools = [
+    {
+        "type": "function",
+        "function": {
+            "name": "add_new_entry",
+            "description": "Add a single expense or income to Google Sheet.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "item": {"type": "string"},
+                    "amount": {"type": "number"},
+                    "category": {"type": "string", "description": "Food, Shop, Fish, Travel, Rent, Others"},
+                    "type": {"type": "string", "enum": ["Debit", "Credit"]},
+                    "date": {"type": "string", "description": "YYYY-MM-DD format."}
+                },
+                "required": ["item", "amount"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "add_multiple_entries",
+            "description": "Add multiple expenses or incomes extracted from a sentence to Google Sheet.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "entries_list": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "item": {"type": "string"},
+                                "amount": {"type": "number"},
+                                "category": {"type": "string", "description": "Food, Shop, Fish, Travel, Rent, Others"},
+                                "type": {"type": "string", "enum": ["Debit", "Credit"]},
+                                "date": {"type": "string", "description": "YYYY-MM-DD format."}
+                            },
+                            "required": ["item", "amount"]
+                        }
+                    }
+                },
+                "required": ["entries_list"]
+            }
         }
     }
-}]
+]
 
 # --- 🔒 LOGIN SCREEN ---
 if not st.session_state.auth:
@@ -221,7 +258,7 @@ else:
         st.markdown(f'<div class="purple-box"><h2 style="color:#00FF00;">Credit: ₹{t_in:,.2f}</h2><h2 style="color:#FF3131;">Debit: ₹{t_out:,.2f}</h2></div>', unsafe_allow_html=True)
         def extract_cat(x):
             item_text = str(x).lower()
-            if any(w in item_text for w in ["food", "ഭക്ഷണം", "ചായ", "ഹോട്ടൽ", "ബിരിയാണി"]): return "Food"
+            if any(w in item_text for w in ["food", "ഭക്ഷണം", "ചായ", "ഹോട്ടൽ", "ബിരിയാണി", "tea", "chaya"]): return "Food"
             elif any(w in item_text for w in ["shop", "കട", "സാധനങ്ങൾ", "സൂപ്പർമാർക്കറ്റ്"]): return "Shop"
             elif any(w in item_text for w in ["fish", "മീൻ", "ഇറച്ചി", "ചിക്കൻ"]): return "Fish"
             elif any(w in item_text for w in ["travel", "യാത്ര", "പെട്രോൾ", "വണ്ടി", "ടാക്സി"]): return "Travel"
@@ -245,7 +282,7 @@ else:
             nums = re.findall(r'\d+', raw)
             v_amt = nums[0] if nums else ""
             v_desc = re.sub(r'\d+', '', raw).strip()
-            if any(x in raw for x in ["food", "ഭക്ഷണം", "ചായ", "ഹോട്ടൽ", "ബിരിയാണി"]): v_cat = "Food"
+            if any(x in raw for x in ["food", "ഭക്ഷണം", "ചായ", "ഹോട്ടൽ", "ബിരിയാണി", "tea"]): v_cat = "Food"
             elif any(x in raw for x in ["shop", "കട"]): v_cat = "Shop"
             elif any(x in raw for x in ["fish", "മീൻ", "ചിക്കൻ"]): v_cat = "Fish"
             elif any(x in raw for x in ["travel", "പെട്രോൾ", "വണ്ടി"]): v_cat = "Travel"
@@ -328,7 +365,7 @@ else:
         for msg in st.session_state.buddy_messages:
             with st.chat_message(msg["role"]): st.markdown(msg["content"])
             
-        user_input = st.chat_input("Ask me anything...")
+        user_input = st.chat_input("Ask me anything...", key="buddy_chat_box")
         
         if user_input:
             st.session_state.buddy_messages.append({"role": "user", "content": user_input})
@@ -342,9 +379,9 @@ else:
                     messages = [{"role": "system", "content": system_prompt}] + [{"role": m["role"], "content": m["content"]} for m in st.session_state.buddy_messages[-4:]]
                     
                     response = client.chat.completions.create(
-model="openai/gpt-oss-120b",
+                        model="llama-3.1-8b-instant",
                         messages=messages,
-                        max_tokens=500
+                        max_tokens=1024
                     )
                     
                     ai_reply = response.choices[0].message.content
@@ -363,9 +400,14 @@ model="openai/gpt-oss-120b",
         for message in st.session_state.messages:
             with st.chat_message(message["role"]): st.markdown(message["content"])
 
-   v_raw = speech_to_text(language='ml', key='ai_voice_input'if v_raw:
-    st.info(f"🎤 നിങ്ങൾ പറഞ്ഞത്: {v_raw}") # ഇത് ചേർക്കുക      prompt = st.chat_input("Ask anything or add expense...")
+        # Voice and Text input
+        v_raw = speech_to_text(language='ml', key='ai_voice_input')
+        if v_raw:
+            st.info(f"🎤 നിങ്ങൾ പറഞ്ഞത്: {v_raw}")
+            
+        prompt = st.chat_input("Ask anything or add expense...", key="ai_chat_box")
 
+        # Indentation Corrected Here
         final_prompt = v_raw if v_raw else prompt
 
         if final_prompt:
@@ -375,47 +417,66 @@ model="openai/gpt-oss-120b",
             with st.spinner("AI ആലോചിക്കുന്നു..."):
                 try:
                     client = Groq(api_key=GROQ_API_KEY)
+                    today_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
                     utc_now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
                     
                     system_instruction = f"""
-നീ ഒരു ഫിനാൻസ് AI അസിസ്റ്റന്റാണ്. 
-സമയം: {utc_now}. ബാലൻസ്: {bal} Rs. 
-ചെലവ് ചേർക്കാൻ 'add_new_entry' എന്ന ടൂൾ ഉപയോഗിക്കുക.
+                    നീ ഒരു ഫിനാൻസ് AI അസിസ്റ്റന്റാണ്. 
+                    സമയം: {utc_now}. ബാലൻസ്: {bal} Rs. 
+                    ചെലവ് ചേർക്കാൻ 'add_new_entry' അല്ലെങ്കിൽ 'add_multiple_entries' എന്ന ടൂൾ ഉപയോഗിക്കുക.
 
-പ്രധാന നിർദ്ദേശങ്ങൾ:
-1. യൂസർ 'Item Amount' എന്ന രീതിയിൽ എഴുതിയാൽ (ഉദാ: 'tea 10', 'chaya 20', 'taya 10'), അത് ഒരു Debit (ചെലവ്) ആണെന്ന് കണക്കാക്കി ഉടൻ എൻട്രി ചേർക്കുക. അനാവശ്യമായ ചോദ്യങ്ങൾ ചോദിക്കരുത്.
-2. തീയതി പ്രത്യേകം പറഞ്ഞിട്ടില്ലെങ്കിൽ ഇന്നത്തെ തീയതി തന്നെ ഉപയോഗിക്കുക. 'ഇന്നലെ', 'നാളെ' എന്ന് പറഞ്ഞാൽ മാത്രം തീയതി മാറ്റുക.
-3. കാറ്റഗറി പ്രത്യേകം പറഞ്ഞിട്ടില്ലെങ്കിൽ (tea, chaya, food എന്നിവയ്ക്ക് 'Food', മറ്റുള്ളവയ്ക്ക് 'Others') നൽകുക.
-4. യൂസർ വ്യക്തമായി '10 എണ്ണം' (10 times) എന്നോ 'പത്ത് എൻട്രി' എന്നോ പറഞ്ഞാൽ മാത്രം 'add_multiple_entries' ടൂൾ ഉപയോഗിക്കുക.
-"""
+                    പ്രധാന നിർദ്ദേശങ്ങൾ:
+                    1. യൂസർ 'Item Amount' എന്ന രീതിയിൽ എഴുതിയാൽ (ഉദാ: 'tea 10', 'chaya 20', 'taya 10', 'കടുക് 100'), അത് ഒരു Debit (ചെലവ്) ആണെന്ന് കണക്കാക്കി ഉടൻ എൻട്രി ചേർക്കുക. അനാവശ്യമായ ചോദ്യങ്ങൾ ചോദിക്കരുത്.
+                    2. തീയതി പ്രത്യേകം പറഞ്ഞിട്ടില്ലെങ്കിൽ ഇന്നത്തെ തീയതി ({today_date}) തന്നെ ഉപയോഗിക്കുക. 'ഇന്നലെ', 'നാളെ' എന്ന് പറഞ്ഞാൽ മാത്രം തീയതി മാറ്റുക.
+                    3. കാറ്റഗറി പ്രത്യേകം പറഞ്ഞിട്ടില്ലെങ്കിൽ (tea, chaya, food, ചായ എന്നിവയ്ക്ക് 'Food', മറ്റുള്ളവയ്ക്ക് 'Others') നൽകുക.
+                    4. യൂസർ വ്യക്തമായി '10 എണ്ണം' (10 times) എന്നോ 'പത്ത് എൻട്രി' എന്നോ പറഞ്ഞാൽ മാത്രം 'add_multiple_entries' ടൂൾ ഉപയോഗിക്കുക.
+                    5. സാധാരണ ഭാഷയിൽ സംസാരിച്ചാലും (ഉദാ: 'ഇന്ന് ചായയ്ക്ക് 20 രൂപ കൊടുത്തു'), അതിലെ ഐറ്റം, തുക, കാറ്റഗറി എന്നിവ കണ്ടെത്തി എൻട്രി ചേർക്കുക.
+                    """
                     
                     messages_for_api = [{"role": "system", "content": system_instruction}] + [{"role": m["role"], "content": m["content"]} for m in st.session_state.messages[-2:]]
 
                     response = client.chat.completions.create(
-model="openai/gpt-oss-120b",
+                        model="llama3-groq-70b-8192-tool-use-preview", 
                         messages=messages_for_api,
                         tools=tools,
                         tool_choice="auto",
-                        max_tokens=500
+                        max_tokens=1024
                     )
 
                     response_message = response.choices[0].message
                     entry_saved = False
-                    
+                    ai_reply = ""
+
                     if response_message.tool_calls:
                         for tool_call in response_message.tool_calls:
-                            if tool_call.function.name == "add_new_entry":
+                            
+                            # 1. സിംഗിൾ എൻട്രി
+                            if tool_call.function.name == 'add_new_entry':
                                 args = json.loads(tool_call.function.arguments)
                                 result = add_new_entry(
                                     item=args.get("item"), amount=args.get("amount"), 
-                                    category=args.get("category", "Others"), type=args.get("type", "Debit")
+                                    category=args.get("category", "Others"), type=args.get("type", "Debit"),
+                                    entry_date=args.get("date")
                                 )
                                 if "Success" in result:
                                     ai_reply = f"✅ {args.get('item')}-ന് {args.get('amount')} Rs ഞാൻ എൻട്രി ഇട്ടു!"
                                     entry_saved = True
                                 else: ai_reply = f"❌ {result}"
-                    else:
+                            
+                            # 2. മൾട്ടി-എൻട്രി
+                            elif tool_call.function.name == 'add_multiple_entries':
+                                args = json.loads(tool_call.function.arguments)
+                                result = add_multiple_entries(entries_list=args.get('entries_list', []))
+                                if 'Success' in result:
+                                    ai_reply = '✅ പറഞ്ഞ എല്ലാ എൻട്രികളും വിജയകരമായി ഗൂഗിൾ ഷീറ്റിൽ ചേർത്തു!'
+                                    entry_saved = True
+                                else:
+                                    ai_reply = f'❌ {result}'
+                    
+                    elif response_message.content:
                         ai_reply = response_message.content
+                    else:
+                        ai_reply = "ക്ഷമിക്കണം, എനിക്ക് മനസ്സിലായില്ല."
 
                     st.session_state.messages.append({"role": "assistant", "content": ai_reply})
                     with st.chat_message("assistant"): st.markdown(ai_reply)
@@ -423,4 +484,4 @@ model="openai/gpt-oss-120b",
                     if entry_saved: st.rerun()
 
                 except Exception as e:
-                    st.error(f"AI Error: {str(e)}"
+                    st.error(f"AI Error: {str(e)}")
