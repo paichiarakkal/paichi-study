@@ -364,7 +364,9 @@ model="openai/gpt-oss-120b",
             with st.chat_message(message["role"]): st.markdown(message["content"])
 
         v_raw = speech_to_text(language='ml', key='ai_voice_input')
-        prompt = st.chat_input("Ask anything or add expense...")
+
+if v_raw:
+    st.info(f"🎤 നിങ്ങൾ പറഞ്ഞത്: {v_raw}") # ഇത് ചേർക്കുക      prompt = st.chat_input("Ask anything or add expense...")
 
         final_prompt = v_raw if v_raw else prompt
 
