@@ -423,4 +423,4 @@ model="openai/gpt-oss-120b",
                     if entry_saved: st.rerun()
 
                 except Exception as e:
-                    st.error(f"AI Error: {str(e)}")
+                    st.error(f"AI Error: {str(e)}"
