@@ -378,8 +378,8 @@ else:
                     
                     messages = [{"role": "system", "content": system_prompt}] + [{"role": m["role"], "content": m["content"]} for m in st.session_state.buddy_messages[-4:]]
                     
-                    response = client.chat.completions.create(
-                        model="llama-3.1-8b-instant",
+                    response = client.chat.completions.create
+model="openai/gpt-oss-120b",
                         messages=messages,
                         max_tokens=1024
                     )
@@ -435,7 +435,7 @@ else:
                     messages_for_api = [{"role": "system", "content": system_instruction}] + [{"role": m["role"], "content": m["content"]} for m in st.session_state.messages[-2:]]
 
                     response = client.chat.completions.create(
-                        model="llama3-groq-70b-8192-tool-use-preview", 
+model="openai/gpt-oss-120b",
                         messages=messages_for_api,
                         tools=tools,
                         tool_choice="auto",
