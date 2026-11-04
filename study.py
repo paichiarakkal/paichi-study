@@ -377,7 +377,17 @@ model="openai/gpt-oss-120b",
                     client = Groq(api_key=GROQ_API_KEY)
                     utc_now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
                     
-                    system_instruction = f"നീ ഒരു ഫിനാൻസ് AI അസിസ്റ്റന്റാണ്. സമയം: {utc_now}. ബാലൻസ്: {bal} Rs. ചെലവ് ചേർക്കാൻ add_new_entry ടൂൾ ഉപയോഗിക്കുക."
+                    system_instruction = f"""
+നീ ഒരു ഫിനാൻസ് AI അസിസ്റ്റന്റാണ്. 
+സമയം: {utc_now}. ബാലൻസ്: {bal} Rs. 
+ചെലവ് ചേർക്കാൻ 'add_new_entry' എന്ന ടൂൾ ഉപയോഗിക്കുക.
+
+പ്രധാന നിർദ്ദേശങ്ങൾ:
+1. യൂസർ 'Item Amount' എന്ന രീതിയിൽ എഴുതിയാൽ (ഉദാ: 'tea 10', 'chaya 20', 'taya 10'), അത് ഒരു Debit (ചെലവ്) ആണെന്ന് കണക്കാക്കി ഉടൻ എൻട്രി ചേർക്കുക. അനാവശ്യമായ ചോദ്യങ്ങൾ ചോദിക്കരുത്.
+2. തീയതി പ്രത്യേകം പറഞ്ഞിട്ടില്ലെങ്കിൽ ഇന്നത്തെ തീയതി തന്നെ ഉപയോഗിക്കുക. 'ഇന്നലെ', 'നാളെ' എന്ന് പറഞ്ഞാൽ മാത്രം തീയതി മാറ്റുക.
+3. കാറ്റഗറി പ്രത്യേകം പറഞ്ഞിട്ടില്ലെങ്കിൽ (tea, chaya, food എന്നിവയ്ക്ക് 'Food', മറ്റുള്ളവയ്ക്ക് 'Others') നൽകുക.
+4. യൂസർ വ്യക്തമായി '10 എണ്ണം' (10 times) എന്നോ 'പത്ത് എൻട്രി' എന്നോ പറഞ്ഞാൽ മാത്രം 'add_multiple_entries' ടൂൾ ഉപയോഗിക്കുക.
+"""
                     
                     messages_for_api = [{"role": "system", "content": system_instruction}] + [{"role": m["role"], "content": m["content"]} for m in st.session_state.messages[-2:]]
 
