@@ -74,7 +74,7 @@ def send_whatsapp_auto(msg):
             client.messages.create(
                 from_='whatsapp:+14155238886',
                 body=msg,
-                to=f'whatsapp:+{918714752210}' # 👈 ഇവിടെ '+' ചേർത്തു (ഇതാണ് പ്രധാന മാറ്റം)
+                to=f'whatsapp:+{971551347989}' # 👈 ഇവിടെ '+' ചേർത്തു (ഇതാണ് പ്രധാന മാറ്റം)
             )
     except Exception as e:
         st.sidebar.error(f"Twilio Error: {e}")
