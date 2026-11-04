@@ -378,7 +378,8 @@ else:
                     
                     messages = [{"role": "system", "content": system_prompt}] + [{"role": m["role"], "content": m["content"]} for m in st.session_state.buddy_messages[-4:]]
                     
-                    response = client.chat.completions.create
+                    response = client.chat.completions.create(
+
 model="openai/gpt-oss-120b",
                         messages=messages,
                         max_tokens=1024
