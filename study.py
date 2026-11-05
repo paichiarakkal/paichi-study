@@ -391,26 +391,25 @@ model="openai/gpt-oss-120b",
                 except Exception as e:
                     st.error(f"Error: {e}")
 
-    # --- AI CHAT (AI Agent) ---
+        # --- AI CHAT (AI Agent) ---
     elif page == "🤖 AI Chat":
         st.title("🤖 AI Agent & Assistant")
         st.write("നിങ്ങൾക്ക് ടൈപ്പ് ചെയ്യാം, അല്ലെങ്കിൽ 'ബിരിയാണി 150' എന്ന് പറഞ്ഞാൽ അത് ഷീറ്റിൽ എൻട്രി ഇടും.")
         
         if "messages" not in st.session_state: st.session_state.messages = []
+        if "last_processed_prompt" not in st.session_state: st.session_state.last_processed_prompt = ""
 
         for message in st.session_state.messages:
             with st.chat_message(message["role"]): st.markdown(message["content"])
 
-        # Voice and Text input
         v_raw = speech_to_text(language='ml', key='ai_voice_input')
-        if v_raw:
-            st.info(f"🎤 നിങ്ങൾ പറഞ്ഞത്: {v_raw}")
-            
         prompt = st.chat_input("Ask anything or add expense...", key="ai_chat_box")
 
         final_prompt = v_raw if v_raw else prompt
 
-        if final_prompt:
+        # 🛑 ആവർത്തനം തടയാൻ: അവസാനമായി അയച്ച അതേ പ്രോംപ്റ്റ് വീണ്ടും പ്രോസസ് ചെയ്യാതിരിക്കാൻ ചെക്ക് ചെയ്യുന്നു
+        if final_prompt and final_prompt != st.session_state.last_processed_prompt:
+            st.session_state.last_processed_prompt = final_prompt  # മാപ്പ് ചെയ്തു വെക്കുന്നു
             st.session_state.messages.append({"role": "user", "content": final_prompt})
             with st.chat_message("user"): st.markdown(final_prompt)
 
@@ -422,21 +421,16 @@ model="openai/gpt-oss-120b",
                     
                     system_instruction = f"""
                     നീ ഒരു ഫിനാൻസ് AI അസിസ്റ്റന്റാണ്. 
-                    സമയം: {utc_now}. ബാലൻസ്: {bal} Rs. 
-                    ചെലവ് ചേർക്കാൻ 'add_new_entry' അല്ലെങ്കിൽ 'add_multiple_entries' എന്ന ടൂൾ ഉപയോഗിക്കുക.
-
-                    പ്രധാന നിർദ്ദേശങ്ങൾ:
-                    1. യൂസർ 'Item Amount' എന്ന രീതിയിൽ എഴുതിയാൽ (ഉദാ: 'tea 10', 'chaya 20', 'taya 10', 'കടുക് 100'), അത് ഒരു Debit (ചെലവ്) ആണെന്ന് കണക്കാക്കി ഉടൻ എൻട്രി ചേർക്കുക. അനാവശ്യമായ ചോദ്യങ്ങൾ ചോദിക്കരുത്.
-                    2. തീയതി പ്രത്യേകം പറഞ്ഞിട്ടില്ലെങ്കിൽ ഇന്നത്തെ തീയതി ({today_date}) തന്നെ ഉപയോഗിക്കുക. 'ഇന്നലെ', 'നാളെ' എന്ന് പറഞ്ഞാൽ മാത്രം തീയതി മാറ്റുക.
-                    3. കാറ്റഗറി പ്രത്യേകം പറഞ്ഞിട്ടില്ലെങ്കിൽ (tea, chaya, food, ചായ എന്നിവയ്ക്ക് 'Food', മറ്റുള്ളവയ്ക്ക് 'Others') നൽകുക.
-                    4. യൂസർ വ്യക്തമായി '10 എണ്ണം' (10 times) എന്നോ 'പത്ത് എൻട്രി' എന്നോ പറഞ്ഞാൽ മാത്രം 'add_multiple_entries' ടൂൾ ഉപയോഗിക്കുക.
-                    5. സാധാരണ ഭാഷയിൽ സംസാരിച്ചാലും (ഉദാ: 'ഇന്ന് ചായയ്ക്ക് 20 രൂപ കൊടുത്തു'), അതിലെ ഐറ്റം, തുക, കാറ്റഗറി എന്നിവ കണ്ടെത്തി എൻട്രി ചേർക്കുക.
+                    ഇന്നത്തെ തീയതി: {today_date}. സമയം: {utc_now}. 
+                    ബാലൻസ്: {bal} Rs. 
+                    ചെലവ് ചേർക്കാൻ add_new_entry അല്ലെങ്കിൽ add_multiple_entries ടൂൾ ഉപയോഗിക്കുക.
+                    യൂസർ 'ഇന്നലെ', 'നാളെ' എന്ന് പറഞ്ഞാൽ അത് കണക്കുകൂട്ടി കൃത്യമായ YYYY-MM-DD ഫോർമാറ്റിൽ 'date' പാരാമീറ്ററിൽ നൽകുക.
                     """
                     
                     messages_for_api = [{"role": "system", "content": system_instruction}] + [{"role": m["role"], "content": m["content"]} for m in st.session_state.messages[-2:]]
 
                     response = client.chat.completions.create(
-model="openai/gpt-oss-120b",
+                        model="llama3-groq-70b-8192-tool-use-preview",
                         messages=messages_for_api,
                         tools=tools,
                         tool_choice="auto",
@@ -481,7 +475,8 @@ model="openai/gpt-oss-120b",
                     st.session_state.messages.append({"role": "assistant", "content": ai_reply})
                     with st.chat_message("assistant"): st.markdown(ai_reply)
                     
-                    if entry_saved: st.rerun()
+                    if entry_saved: 
+                        st.rerun()
 
                 except Exception as e:
                     st.error(f"AI Error: {str(e)}")
