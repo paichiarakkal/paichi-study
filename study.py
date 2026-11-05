@@ -426,7 +426,7 @@ else:
                     messages_for_api = [{"role": "system", "content": system_instruction}] + [{"role": m["role"], "content": m["content"]} for m in st.session_state.messages[-2:]]
 
                     response = client.chat.completions.create(
-                        model="llama3-groq-70b-8192-tool-use-preview", # 👈 ടൂൾ ഉപയോഗത്തിന് ഏറ്റവും മികച്ചത്
+                        model="llama-3.1-8b-instant", # 👈 ടൂൾ ഉപയോഗത്തിന് ഏറ്റവും മികച്ചത്
                         messages=messages_for_api,
                         tools=tools,
                         tool_choice="auto",
