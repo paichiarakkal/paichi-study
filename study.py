@@ -19,7 +19,7 @@ from twilio.rest import Client
 CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRccfZch3jSdHqrScpqsR_j3FSd70NbELC1j6_nPi-MQXdrhVr3BPcKoI1nub4mQql727pQRPWYk9C-/pub?gid=1583146028&single=true&output=csv"
 FORM_API = "https://docs.google.com/forms/d/e/1FAIpQLSfLySolQSiRXV0wELNPhUBlKJh77RnJKWc2-uqAM0TPNG3Q5A/formResponse"
 
-WA_PHONE = "971551347989"
+WA_PHONE = "971551347989" # നിങ്ങളുടെ നമ്പർ (+ ഇല്ലാതെ)
 USER_PINS = {
     "faisal": st.secrets.get("PIN_FAISAL", ""),
     "shabana": st.secrets.get("PIN_SHABANA", ""),
@@ -74,10 +74,10 @@ def send_whatsapp_auto(msg):
             client.messages.create(
                 from_='whatsapp:+14155238886',
                 body=msg,
-                to=f'whatsapp:{WA_PHONE}'
+                to=f'whatsapp:+{971551347989}' # 👈 ഇവിടെ '+' ചേർത്തു (ഇതാണ് പ്രധാന മാറ്റം)
             )
     except Exception as e:
-        pass 
+        st.sidebar.error(f"Twilio Error: {e}")
 
 def parse_mixed_dates(date_series):
     parsed = []
@@ -183,7 +183,7 @@ tools = [
                     "amount": {"type": "number"},
                     "category": {"type": "string", "description": "Food, Shop, Fish, Travel, Rent, Others"},
                     "type": {"type": "string", "enum": ["Debit", "Credit"]},
-                    "date": {"type": "string", "description": "YYYY-MM-DD format. Calculate based on today."}
+                    "date": {"type": "string", "description": "YYYY-MM-DD format."}
                 },
                 "required": ["item", "amount"]
             }
@@ -235,18 +235,18 @@ else:
     df = load_data()
     t_in, t_out = (df['Credit'].sum(), df['Debit'].sum()) if not df.empty else (0.0, 0.0)
     bal = t_in - t_out
-    
+
     # SIDEBAR SETTINGS
     if st.session_state.user != "shabana":
         with st.sidebar.expander("⚙️ Settings"):
             st.session_state.custom_alert_text = st.text_area("Alert Message", value=st.session_state.custom_alert_text)
             st.session_state.low_limit = st.number_input("Low Balance Limit (₹)", value=st.session_state.low_limit)
-    
+
     if bal < st.session_state.low_limit:
         st.markdown(f'<div class="alert-banner">⚠️ ബാലൻസ് കുറവാണ്: {st.session_state.custom_alert_text} (₹{bal:,.2f})!</div>', unsafe_allow_html=True)
 
     st.markdown(f'<div class="balance-banner"><span style="font-size:20px; color:#E0B0FF;">Available Balance</span><br><span style="font-size:40px; color:#FFD700;">₹{bal:,.2f}</span></div>', unsafe_allow_html=True)
-    
+
     menu = ["💰 Add Entry", "📅 Calendar", "📊 Report", "🔍 History", "🤝 Debt Tracker", "🤖 AI Chat", "🧠 My AI Buddy"]
     if st.session_state.user != "shabana": menu.insert(0, "🏠 Dashboard")
     page = st.sidebar.radio("Menu", menu)
@@ -258,7 +258,7 @@ else:
         st.markdown(f'<div class="purple-box"><h2 style="color:#00FF00;">Credit: ₹{t_in:,.2f}</h2><h2 style="color:#FF3131;">Debit: ₹{t_out:,.2f}</h2></div>', unsafe_allow_html=True)
         def extract_cat(x):
             item_text = str(x).lower()
-            if any(w in item_text for w in ["food", "ഭക്ഷണം", "ചായ", "ഹോട്ടൽ", "ബിരിയാണി"]): return "Food"
+            if any(w in item_text for w in ["food", "ഭക്ഷണം", "ചായ", "ഹോട്ടൽ", "ബിരിയാണി", "tea", "chaya"]): return "Food"
             elif any(w in item_text for w in ["shop", "കട", "സാധനങ്ങൾ", "സൂപ്പർമാർക്കറ്റ്"]): return "Shop"
             elif any(w in item_text for w in ["fish", "മീൻ", "ഇറച്ചി", "ചിക്കൻ"]): return "Fish"
             elif any(w in item_text for w in ["travel", "യാത്ര", "പെട്രോൾ", "വണ്ടി", "ടാക്സി"]): return "Travel"
@@ -276,13 +276,13 @@ else:
         st.title("Smart Voice Entry 🎙️")
         v_raw = speech_to_text(language='ml', key='voice_v9')
         v_cat, v_amt, v_desc, v_type = "Others", "", "", "Debit"
-        
+
         if v_raw:
             raw = v_raw.lower().replace('.', '').replace(',', '')
             nums = re.findall(r'\d+', raw)
             v_amt = nums[0] if nums else ""
             v_desc = re.sub(r'\d+', '', raw).strip()
-            if any(x in raw for x in ["food", "ഭക്ഷണം", "ചായ", "ഹോട്ടൽ", "ബിരിയാണി"]): v_cat = "Food"
+            if any(x in raw for x in ["food", "ഭക്ഷണം", "ചായ", "ഹോട്ടൽ", "ബിരിയാണി", "tea"]): v_cat = "Food"
             elif any(x in raw for x in ["shop", "കട"]): v_cat = "Shop"
             elif any(x in raw for x in ["fish", "മീൻ", "ചിക്കൻ"]): v_cat = "Fish"
             elif any(x in raw for x in ["travel", "പെട്രോൾ", "വണ്ടി"]): v_cat = "Travel"
@@ -311,9 +311,9 @@ else:
         for _, row in summary.iterrows():
             if row['Credit'] > 0: events.append({"title": f" +₹{row['Credit']:,.0f}", "start": row['Date'], "backgroundColor": "#198754"})
             if row['Debit'] > 0: events.append({"title": f" -₹{row['Debit']:,.0f}", "start": row['Date'], "backgroundColor": "#dc3545"})
-        
+
         cal_data = calendar(events=events, options={"headerToolbar": {"left": "prev,next today", "center": "title", "right": "dayGridMonth"}, "initialView": "dayGridMonth"}, key="pnl_calendar")
-        
+
         if cal_data and cal_data.get("callback") == "eventClick":
             event_data = cal_data.get("eventClick", {}).get("event", {})
             dt_click = event_data.get("start", "").split("T")[0]
@@ -329,20 +329,20 @@ else:
         df_rep = df[(df['Date'].dt.year == 2026) & (df['Date'].dt.month >= 4)].copy()
         df_rep['Month'] = df_rep['Date'].dt.strftime('%B %Y')
         months = df_rep.dropna(subset=['Month']).sort_values(by='Date', ascending=False)['Month'].unique()
-        
+
         if len(months) == 0: st.warning("No data found!")
         else:
             sel_m = st.selectbox("Select Month", months)
             m_df = df_rep[df_rep['Month'] == sel_m].copy()
             m_deb, m_crd = m_df['Debit'].sum(), m_df['Credit'].sum()
-            
+
             if page == "📊 Report":
                 st.title("Monthly Expense Analysis")
                 c1, c2, c3 = st.columns(3)
                 c1.markdown(f'<div class="purple-box"><h3 style="color:#00FF00;">Credit</h3><h1 style="color:#00FF00;">₹{m_crd:,.2f}</h1></div>', unsafe_allow_html=True)
                 c2.markdown(f'<div class="purple-box"><h3 style="color:#FF3131;">Expense</h3><h1 style="color:#FF3131;">₹{m_deb:,.2f}</h1></div>', unsafe_allow_html=True)
                 c3.markdown(f'<div class="purple-box"><h3 style="color:#FFD700;">Savings</h3><h1 style="color:#FFD700;">₹{m_crd - m_deb:,.2f}</h1></div>', unsafe_allow_html=True)
-                
+
                 m_df['Cat'] = m_df['Item'].apply(lambda x: x.split(':')[0] if ':' in str(x) else 'Others')
                 st.plotly_chart(px.pie(m_df[m_df['Debit'] > 0], values='Debit', names='Cat', hole=0.4), use_container_width=True)
 
@@ -359,43 +359,45 @@ else:
     elif page == "🧠 My AI Buddy":
         st.title("🧠 Your Personal AI Buddy")
         st.write("എന്നോട് എന്തും ചോദിക്കാം. (ഉദാ: 'ഒരു കവിത എഴുതൂ', 'ഇന്ന് എന്ത് പാചകം ചെയ്യണം?')")
-        
+
         if "buddy_messages" not in st.session_state: st.session_state.buddy_messages = []
-        
+
         for msg in st.session_state.buddy_messages:
             with st.chat_message(msg["role"]): st.markdown(msg["content"])
-            
+
         user_input = st.chat_input("Ask me anything...", key="buddy_chat_box")
-        
+
         if user_input:
             st.session_state.buddy_messages.append({"role": "user", "content": user_input})
             with st.chat_message("user"): st.markdown(user_input)
-            
+
             with st.spinner("ആലോചിക്കുന്നു..."):
                 try:
                     client = Groq(api_key=GROQ_API_KEY)
                     system_prompt = "You are a helpful personal AI assistant for a 51-year-old Malayali. Answer their questions in Malayalam in a friendly way. You can help with daily life, cooking, general knowledge, and motivation."
-                    
+
                     messages = [{"role": "system", "content": system_prompt}] + [{"role": m["role"], "content": m["content"]} for m in st.session_state.buddy_messages[-4:]]
-                    
+
                     response = client.chat.completions.create(
-                        model="llama-3.1-8b-instant", # 👈 മോഡൽ മാറ്റി
+
+model="openai/gpt-oss-120b",
                         messages=messages,
                         max_tokens=1024
                     )
-                    
+
                     ai_reply = response.choices[0].message.content
                     st.session_state.buddy_messages.append({"role": "assistant", "content": ai_reply})
                     with st.chat_message("assistant"): st.markdown(ai_reply)
                 except Exception as e:
                     st.error(f"Error: {e}")
 
-    # --- AI CHAT (AI Agent) ---
+        # --- AI CHAT (AI Agent) ---
     elif page == "🤖 AI Chat":
         st.title("🤖 AI Agent & Assistant")
         st.write("നിങ്ങൾക്ക് ടൈപ്പ് ചെയ്യാം, അല്ലെങ്കിൽ 'ബിരിയാണി 150' എന്ന് പറഞ്ഞാൽ അത് ഷീറ്റിൽ എൻട്രി ഇടും.")
-        
+
         if "messages" not in st.session_state: st.session_state.messages = []
+        if "last_processed_prompt" not in st.session_state: st.session_state.last_processed_prompt = ""
 
         for message in st.session_state.messages:
             with st.chat_message(message["role"]): st.markdown(message["content"])
@@ -405,7 +407,9 @@ else:
 
         final_prompt = v_raw if v_raw else prompt
 
-        if final_prompt:
+        # 🛑 ആവർത്തനം തടയാൻ: അവസാനമായി അയച്ച അതേ പ്രോംപ്റ്റ് വീണ്ടും പ്രോസസ് ചെയ്യാതിരിക്കാൻ ചെക്ക് ചെയ്യുന്നു
+        if final_prompt and final_prompt != st.session_state.last_processed_prompt:
+            st.session_state.last_processed_prompt = final_prompt  # മാപ്പ് ചെയ്തു വെക്കുന്നു
             st.session_state.messages.append({"role": "user", "content": final_prompt})
             with st.chat_message("user"): st.markdown(final_prompt)
 
@@ -414,7 +418,7 @@ else:
                     client = Groq(api_key=GROQ_API_KEY)
                     today_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
                     utc_now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-                    
+
                     system_instruction = f"""
                     നീ ഒരു ഫിനാൻസ് AI അസിസ്റ്റന്റാണ്. 
                     ഇന്നത്തെ തീയതി: {today_date}. സമയം: {utc_now}. 
@@ -422,11 +426,11 @@ else:
                     ചെലവ് ചേർക്കാൻ add_new_entry അല്ലെങ്കിൽ add_multiple_entries ടൂൾ ഉപയോഗിക്കുക.
                     യൂസർ 'ഇന്നലെ', 'നാളെ' എന്ന് പറഞ്ഞാൽ അത് കണക്കുകൂട്ടി കൃത്യമായ YYYY-MM-DD ഫോർമാറ്റിൽ 'date' പാരാമീറ്ററിൽ നൽകുക.
                     """
-                    
+
                     messages_for_api = [{"role": "system", "content": system_instruction}] + [{"role": m["role"], "content": m["content"]} for m in st.session_state.messages[-2:]]
 
                     response = client.chat.completions.create(
-                        model="llama-3.1-8b-instant", # 👈 ടൂൾ ഉപയോഗത്തിന് ഏറ്റവും മികച്ചത്
+model="openai/gpt-oss-120b",
                         messages=messages_for_api,
                         tools=tools,
                         tool_choice="auto",
@@ -439,7 +443,7 @@ else:
 
                     if response_message.tool_calls:
                         for tool_call in response_message.tool_calls:
-                            
+
                             # 1. സിംഗിൾ എൻട്രി
                             if tool_call.function.name == 'add_new_entry':
                                 args = json.loads(tool_call.function.arguments)
@@ -452,7 +456,7 @@ else:
                                     ai_reply = f"✅ {args.get('item')}-ന് {args.get('amount')} Rs ഞാൻ എൻട്രി ഇട്ടു!"
                                     entry_saved = True
                                 else: ai_reply = f"❌ {result}"
-                            
+
                             # 2. മൾട്ടി-എൻട്രി
                             elif tool_call.function.name == 'add_multiple_entries':
                                 args = json.loads(tool_call.function.arguments)
@@ -462,7 +466,7 @@ else:
                                     entry_saved = True
                                 else:
                                     ai_reply = f'❌ {result}'
-                    
+
                     elif response_message.content:
                         ai_reply = response_message.content
                     else:
@@ -470,8 +474,9 @@ else:
 
                     st.session_state.messages.append({"role": "assistant", "content": ai_reply})
                     with st.chat_message("assistant"): st.markdown(ai_reply)
-                    
-                    if entry_saved: st.rerun()
+
+                    if entry_saved: 
+                        st.rerun()
 
                 except Exception as e:
                     st.error(f"AI Error: {str(e)}")
