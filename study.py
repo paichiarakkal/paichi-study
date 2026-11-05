@@ -33,30 +33,43 @@ st_autorefresh(interval=60000, key="auto_refresh")
 
 st.markdown(f"""
     <style>
-    [data-testid="stAppViewContainer"] {{ background-image: linear-gradient(rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.75)), url("{BG_IMAGE_URL}"); background-size: cover; background-attachment: fixed; }}
+    /* ബാക്ക്ഗ്രൗണ്ട് ഇമേജ് ലോഡ് ആകാത്ത പക്ഷം കറുപ്പ് നിറം നിൽക്കാൻ */
+    [data-testid="stAppViewContainer"] {{ 
+        background-color: #0E1117 !important;
+        background-image: linear-gradient(rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.75)), url("{BG_IMAGE_URL}"); 
+        background-size: cover; 
+        background-attachment: fixed; 
+    }}
     [data-testid="stSidebar"] {{ background: rgba(0, 0, 0, 0.85) !important; }}
-    .stButton>button {{ background-color: #FFD700; color: #000; border-radius: 10px; font-weight: bold; width: 100%; }}
-    .balance-banner {{ background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(10px); padding: 25px; border-radius: 15px; border-left: 10px solid #FFD700; text-align: center; margin-bottom: 25px; }}
-    .purple-box {{ background: rgba(0, 0, 0, 0.7); padding: 20px; border-radius: 25px; border: 2px solid rgba(255, 215, 0, 0.3); text-align: center; margin-bottom: 20px; }}
-    .category-box {{ background: rgba(0, 0, 0, 0.7); padding: 15px; border-radius: 15px; text-align: center; border-bottom: 4px solid #FFD700; margin-bottom: 15px; }}
-    .alert-banner {{ background-color: #ff4d4d; color: white; padding: 10px; border-radius: 10px; text-align: center; font-weight: bold; margin-bottom: 20px; }}
-    .login-card {{ background: rgba(0, 0, 0, 0.8); padding: 25px; border-radius: 20px; max-width: 450px; margin: auto; margin-top: 50px; }}
-    h1, h2, h3, p, label {{ color: white !important; font-weight: bold !important; }}
     
-    /* WhatsApp Style Chat Bubbles */
-    [data-testid="stChatMessage"] {{ background-color: #202c33 !important; border-radius: 12px !important; padding: 12px 16px !important; margin-bottom: 8px !important; border: none !important; box-shadow: 0 1px 2px rgba(0,0,0,0.3); }}
+    /* ബട്ടൺ സ്റ്റൈൽ */
+    .stButton>button {{ 
+        background-color: #FFD700 !important; 
+        color: #000 !important; 
+        border-radius: 10px; 
+        font-weight: bold; 
+        width: 100%; 
+    }}
+    
+    /* എല്ലാ ടെക്സ്റ്റുകളും വെളുപ്പ് നിറമാക്കാൻ */
+    h1, h2, h3, p, label, span {{ color: white !important; font-weight: bold !important; }}
+    
+    /* ⚠️ ഇൻപുട്ട് ബോക്സുകളിലെ അക്ഷരങ്ങൾ കാണാൻ (പ്രധാന മാറ്റം) */
+    div[data-baseweb="select"] > div,
+    [data-testid="stTextInput"] input {{
+        background-color: #262730 !important;
+        color: white !important;
+        -webkit-text-fill-color: white !important;
+        border: 1px solid #555 !important;
+    }}
+    
+    /* ലോഗിൻ കാർഡ് ബോക്സ് */
+    .login-card {{ background: rgba(0, 0, 0, 0.8); padding: 25px; border-radius: 20px; max-width: 450px; margin: auto; margin-top: 50px; }}
+    
+    /* Chat Bubbles */
+    [data-testid="stChatMessage"] {{ background-color: #202c33 !important; border-radius: 12px !important; padding: 12px 16px !important; margin-bottom: 8px !important; border: none !important; }}
     [data-testid="stChatInput"] {{ background-color: #2a3942 !important; border-radius: 24px !important; border: 1px solid #2a3942 !important; padding: 5px !important; }}
-    [data-testid="stChatInput"] textarea {{ color: white !important; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important; }}
-    [data-testid="stChatMessageAvatar"] {{ background-color: transparent !important; }}
-
-    /* Input Text Color Fix */
-    input, textarea, select {{ color: #FFFFFF !important; -webkit-text-fill-color: #FFFFFF !important; }}
-    [data-testid="stTextInput"] input, [data-testid="stChatInput"] textarea, [data-testid="stTextArea"] textarea {{ background-color: rgba(0, 0, 0, 0.6) !important; border: 1px solid rgba(255, 255, 255, 0.3) !important; }}
-    ::placeholder {{ color: #AAAAAA !important; }}
-
-    /* Chat Table & Text Fix */
-    [data-testid="stChatMessage"] * {{ color: #FFFFFF !important; }}
-    [data-testid="stChatMessage"] table, [data-testid="stChatMessage"] th, [data-testid="stChatMessage"] td {{ border: 1px solid rgba(255, 255, 255, 0.3) !important; }}
+    [data-testid="stChatInput"] textarea {{ color: white !important; }}
     </style>
 """, unsafe_allow_html=True)
 
