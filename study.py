@@ -231,19 +231,24 @@ tools = [
     }
 ]
 
+
 # --- 🔒 LOGIN SCREEN ---
 if not st.session_state.auth:
-    st.markdown('<div class="login-card">', unsafe_allow_html=True)
-    st.subheader("🔐 PAICHI EXPENSES LOGIN")
-    u = st.selectbox("👤 Select User", ["faisal", "shabana", "admin"]).lower()
-    pin = st.text_input("🔑 Enter 4-Digit PIN", type="password", max_chars=4)
-    if st.button("UNLOCK APP 🔓"):
-        if USER_PINS.get(u) == pin:
-            st.session_state.auth, st.session_state.user = True, u
-            st.rerun()
-        else: st.error("❌ Incorrect PIN!")
-    st.markdown('</div>', unsafe_allow_html=True)
-
+    # ലോഗിൻ ഫോം സെന്ററിൽ കാണിക്കാൻ കോളങ്ങൾ ഉപയോഗിക്കുന്നു
+    col1, col2, col3 = st.columns([1, 2, 1]) 
+    
+    with col2:
+        st.markdown('<div style="background: rgba(0, 0, 0, 0.8); padding: 30px; border-radius: 20px; margin-top: 50px;">', unsafe_allow_html=True)
+        st.subheader("🔐 PAICHI EXPENSES LOGIN")
+        u = st.selectbox("👤 Select User", ["faisal", "shabana", "admin"]).lower()
+        pin = st.text_input("🔑 Enter 4-Digit PIN", type="password", max_chars=4)
+        if st.button("UNLOCK APP 🔓"):
+            if USER_PINS.get(u) == pin:
+                st.session_state.auth, st.session_state.user = True, u
+                st.rerun()
+            else: 
+                st.error("❌ Incorrect PIN!")
+        st.markdown('</div>', unsafe_allow_html=True)
 else:
     df = load_data()
     t_in, t_out = (df['Credit'].sum(), df['Debit'].sum()) if not df.empty else (0.0, 0.0)
