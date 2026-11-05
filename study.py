@@ -30,8 +30,7 @@ USER_PINS = {
 BG_IMAGE_URL = "https://raw.githubusercontent.com/paichiarakkal/paichiarakkal/main/profile.jpg"
 
 # --- 2. UI SETUP & CSS ---
-st.set_page_config(page_title="PAICHI SUPER APP", layout="wide")
-st_autorefresh(interval=60000, key="auto_refresh")
+st.set_page_config(page_title="PAICHI SUPER APP", layout="wide", initial_sidebar_state="expanded")
 
 st.markdown(f"""
     <style>
@@ -91,22 +90,6 @@ def load_stock_data():
         # ഡെമോ ഡാറ്റ (Sheets കണക്ട് ചെയ്യാതെ ടെസ്റ്റ് ചെയ്യാൻ)
         return pd.DataFrame({'Date': ['2026-11-01', '2026-11-02'], 'Item': ['Sugar', 'Milk'], 'Quantity': [100, 50], 'Type': ['Stock In', 'Stock In']})
 
-def generate_pdf(df, title, columns):
-    try:
-        pdf = FPDF(); pdf.add_page(); pdf.set_font("Arial", 'B', 14)
-        pdf.cell(190, 10, txt=title, ln=True, align='C'); pdf.ln(10)
-        pdf.set_font("Arial", 'B', 10)
-        col_width = 190 / len(columns)
-        for col in columns: pdf.cell(col_width, 10, txt=str(col), border=1, align='C')
-        pdf.ln(); pdf.set_font("Arial", size=9)
-        for _, row in df.iterrows():
-            for col in columns:
-                val = str(row[col]).encode('ascii', 'ignore').decode('ascii')
-                pdf.cell(col_width, 10, txt=val, border=1)
-            pdf.ln()
-        return bytes(pdf.output())
-    except: return None
-
 # --- 4. GROQ AI SETUP ---
 GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "")
 
@@ -151,8 +134,8 @@ if not st.session_state.auth:
         st.markdown('</div>', unsafe_allow_html=True)
 
 else:
-    # 🌟 ഇവിടെയാണ് പ്രധാന മാറ്റം: ആപ്പ് തിരഞ്ഞെടുക്കാം
-    app_mode = st.sidebar.radio("🔄 Switch Application", ["💼 PAICHI BUSINESS (Management)", "🤖 PAICHI EXPENSES (AI Assistant)"])
+    # 🌟 സൈഡ്ബാറിൽ ആപ്പ് തിരഞ്ഞെടുക്കാം
+    app_mode = st.sidebar.radio("🔄 Switch Application", ["💼 PAICHI BUSINESS", "🤖 PAICHI EXPENSES"])
     st.sidebar.markdown("---")
     
     if st.sidebar.button("Logout"): st.session_state.auth = False; st.rerun()
@@ -160,8 +143,8 @@ else:
     # ==========================================
     # 💼 PAICHI BUSINESS (Management App)
     # ==========================================
-    if app_mode == "💼 PAICHI BUSINESS (Management)":
-        st.sidebar.title(f"👋 Business Admin: {st.session_state.user.capitalize()}")
+    if app_mode == "💼 PAICHI BUSINESS":
+        st.sidebar.title(f"👋 Admin: {st.session_state.user.capitalize()}")
         menu = ["📊 Dashboard", "📦 Stock Management", "👨‍💼 Staff Salary"]
         page = st.sidebar.radio("Menu", menu)
         
@@ -170,9 +153,17 @@ else:
 
         if page == "📊 Dashboard":
             st.markdown(f'<div class="banner"><span style="font-size:20px; color:#00BFFF;">Total Business Balance</span><br><span style="font-size:40px; color:#FFF;">₹{bal:,.2f}</span></div>', unsafe_allow_html=True)
+            
             st.subheader("📈 Recent Transactions")
             if not df_fin.empty:
-                st.dataframe(df_fin.tail(10).iloc[::-1], use_container_width=True)
+                # ടേബിൾ ക്ലീൻ ആക്കാനുള്ള കോഡ് (Index & Timestamp ഒഴിവാക്കുന്നു)
+                display_df = df_fin.tail(10).iloc[::-1].copy()
+                if 'Date' in display_df.columns:
+                    display_df['Date'] = pd.to_datetime(display_df['Date']).dt.strftime('%d-%m-%Y')
+                if 'Timestamp' in display_df.columns:
+                    display_df = display_df.drop(columns=['Timestamp'])
+                    
+                st.dataframe(display_df, use_container_width=True, hide_index=True)
 
         elif page == "📦 Stock Management":
             st.title("📦 Stock & Inventory")
@@ -186,7 +177,7 @@ else:
                     s['Out'] = s.apply(lambda x: x['Quantity'] if x['Type'] == 'Stock Out' else 0, axis=1)
                     final_stk = s.groupby('Item')[['In', 'Out']].sum().reset_index()
                     final_stk['Available Stock'] = final_stk['In'] - final_stk['Out']
-                    st.dataframe(final_stk[['Item', 'Available Stock']], use_container_width=True)
+                    st.dataframe(final_stk[['Item', 'Available Stock']], use_container_width=True, hide_index=True)
             with tab2:
                 with st.form("stock_form", clear_on_submit=True):
                     item_name = st.text_input("Item Name")
@@ -202,7 +193,7 @@ else:
     # ==========================================
     # 🤖 PAICHI EXPENSES (Personal AI App)
     # ==========================================
-    elif app_mode == "🤖 PAICHI EXPENSES (AI Assistant)":
+    elif app_mode == "🤖 PAICHI EXPENSES":
         df = load_expense_data()
         t_in, t_out = (df['Credit'].sum(), df['Debit'].sum()) if not df.empty else (0.0, 0.0)
         bal = t_in - t_out
