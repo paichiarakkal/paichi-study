@@ -430,7 +430,7 @@ model="openai/gpt-oss-120b",
                     messages_for_api = [{"role": "system", "content": system_instruction}] + [{"role": m["role"], "content": m["content"]} for m in st.session_state.messages[-2:]]
 
                     response = client.chat.completions.create(
-                        model="llama3-groq-70b-8192-tool-use-preview",
+model="openai/gpt-oss-120b",
                         messages=messages_for_api,
                         tools=tools,
                         tool_choice="auto",
