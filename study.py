@@ -31,8 +31,7 @@ if st.button("Generate Post 🚀"):
                         {"role": "user", "content": f"Business: {business_type}. Offer: {prompt}"}
                     ],
                     model="llama3-8b-8192", # or gpt-oss-120b
-                )
-                caption = chat_completion.choices[0].message.content
+                ) = chat_completion.choices[0].message.content
                 
                 # 2. AI വഴി ചിത്രം ഉണ്ടാക്കുന്നു (Pollinations.ai - 100% Free)
                 # ഇംഗ്ലീഷിൽ പ്രോംപ്റ്റ് ഉണ്ടാക്കുന്നു
