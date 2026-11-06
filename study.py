@@ -23,19 +23,22 @@ if st.button("Generate Post 🚀"):
             try:
                 client = Groq(api_key=GROQ_API_KEY)
                 
-                # 1. AI വഴി ക്യാപ്ഷൻ ഉണ്ടാക്കുന്നു
-                system_msg = "You are an expert social media manager. Create a short, catchy, and engaging social media caption (with emojis and hashtags) based on the user's prompt. Output in Malayalam and English."
-                chat_completion = client.chat.completions.create(
-                    messages=[
-                        {"role": "system", "content": system_msg},
-                        {"role": "user", "content": f"Business: {business_type}. Offer: {prompt}"}
-                    ],
-                    model="llama3-8b-8192", # or gpt-oss-120b
-                ) = chat_completion.choices[0].message.content
-                
-                # 2. AI വഴി ചിത്രം ഉണ്ടാക്കുന്നു (Pollinations.ai - 100% Free)
-                # ഇംഗ്ലീഷിൽ പ്രോംപ്റ്റ് ഉണ്ടാക്കുന്നു
-                img_prompt = f"A professional advertisement for a {business_type}. {prompt}. High quality, vibrant colors, 4k."
+        # 1. AI വഴി ക്യാപ്ഷൻ ഉണ്ടാക്കുന്നു
+system_msg = "You are an expert social media manager. Create a short, catchy, and engaging social media caption (with emojis and hashtags) based on the user's prompt. Output in Malayalam and English."
+chat_completion = client.chat.completions.create(
+    messages=[
+        {"role": "system", "content": system_msg},
+        {"role": "user", "content": f"Business: {business_type}. Offer: {prompt}"}
+    ],
+    model="openai/gpt-oss-120b",  # മോഡൽ മാറ്റി
+)
+
+# ഈ വരി താഴെ പുതിയതായി ചേർക്കണം
+caption = chat_completion.choices[0].message.content
+
+# 2. AI വഴി ചിത്രം ഉണ്ടാക്കുന്നു (Pollinations.ai - 100% Free)
+# ഇംഗ്ലീഷിൽ പ്രോംപ്റ്റ് ഉണ്ടാക്കുന്നു
+img_prompt = f"A professional advertisement for a {business_type}. {prompt}. High quality, vibrant colors, 4k." 
                 encoded_prompt = quote(img_prompt)
                 image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=1024&height=1024&nologo=true"
                 
