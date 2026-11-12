@@ -9,3 +9,9 @@ fpdf2
 groq
 twilio
 opencv-python-headless
+[auth]
+redirect_uri = "http://localhost:8501/oauth2callback"
+cookie_secret = "ഇവിടെ ഒരു റാൻഡം സീക്രട്ട് കീ നൽകുക"
+client_id = "നിങ്ങളുടെ_ക്ലയന്റ്_ഐഡി"
+client_secret = "നിങ്ങളുടെ_ക്ലയന്റ്_സീക്രട്ട്"
+server_metadata_url = "https://accounts.google.com/.well-known/openid-configuration"
