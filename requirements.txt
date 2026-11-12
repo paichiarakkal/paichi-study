@@ -1,17 +1,13 @@
-streamlit
+streamlit[auth]
+httpx
 pandas
 requests
 plotly
+fpdf2
+groq
+opencv-python-headless
 streamlit-mic-recorder
 streamlit-autorefresh
 streamlit-calendar
-fpdf2
-groq
+Pillow
 twilio
-opencv-python-headless
-[auth]
-redirect_uri = "http://localhost:8501/oauth2callback"
-cookie_secret = "ഇവിടെ ഒരു റാൻഡം സീക്രട്ട് കീ നൽകുക"
-client_id = "നിങ്ങളുടെ_ക്ലയന്റ്_ഐഡി"
-client_secret = "നിങ്ങളുടെ_ക്ലയന്റ്_സീക്രട്ട്"
-server_metadata_url = "https://accounts.google.com/.well-known/openid-configuration"
