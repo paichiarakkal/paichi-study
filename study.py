@@ -54,7 +54,7 @@ USER_DB = {
         # പുതിയ ഫോമിലേക്ക് എഴുതാൻ ഈ ലിങ്ക്
         "form_api": "https://docs.google.com/forms/d/e/1FAIpQLSeZGT1tfpOHN9fGk6Qs6DXZzxiaHlI2AWH3dFjuvSC-9lzBMQ/formResponse"
     }
-}
+
     # നിങ്ങൾക്ക് വേറെ കസ്റ്റമർമാരെ ചേർക്കണമെങ്കിൽ ഇവിടെ ചേർക്കാം:
     # "customer2@gmail.com": {
     #     "name": "Shop 2 Owner",
