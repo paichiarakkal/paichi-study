@@ -8,3 +8,4 @@ streamlit-calendar
 fpdf2
 groq
 twilio
+opencv-python-headless
