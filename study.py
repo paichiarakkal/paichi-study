@@ -49,9 +49,12 @@ WHISPER_MODEL = "whisper-large-v3"
 USER_DB = {
     "paichiarakkal@gmail.com": {
         "name": "Faisal",
-        "csv_url": "https://docs.google.com/spreadsheets/d/e/2PACX-1vRccfZch3jSdHqrScpqsR_j3FSd70NbELC1j6_nPi-MQXdrhVr3BPcKoI1nub4mQql727pQRPWYk9C-/pub?gid=1583146028&single=true&output=csv",
-        "form_api": "https://docs.google.com/forms/d/e/1FAIpQLSfLySolQSiRXV0wELNPhUBlKJh77RnJKWc2-uqAM0TPNG3Q5A/formResponse"
-    },
+        # പുതിയ ഗൂഗിൾ ഷീറ്റിൽ നിന്ന് വായിക്കാൻ ഈ ലിങ്ക്
+        "csv_url": "https://docs.google.com/spreadsheets/d/14zx7jEW2CoLCBjtd1M9hSHXM86uOePtg9pqEsRw-utg/export?format=csv&gid=0",
+        # പുതിയ ഫോമിലേക്ക് എഴുതാൻ ഈ ലിങ്ക്
+        "form_api": "https://docs.google.com/forms/d/e/1FAIpQLSeZGT1tfpOHN9fGk6Qs6DXZzxiaHlI2AWH3dFjuvSC-9lzBMQ/formResponse"
+    }
+}
     # നിങ്ങൾക്ക് വേറെ കസ്റ്റമർമാരെ ചേർക്കണമെങ്കിൽ ഇവിടെ ചേർക്കാം:
     # "customer2@gmail.com": {
     #     "name": "Shop 2 Owner",
