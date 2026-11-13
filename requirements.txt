@@ -1,5 +1,5 @@
 streamlit[auth]
-httpx
+httpx2
 pandas
 requests
 plotly
