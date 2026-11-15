@@ -43,15 +43,15 @@ AGENT_MODEL  = "openai/gpt-oss-120b"
 WHISPER_MODEL = "whisper-large-v3"
 
 # ============================================
-# 🛡️ SECURE DATABASE (നിങ്ങളുടെ വിവരങ്ങൾ)
+# 🛡️ SECURE DATABASE (പുതിയ ലിങ്കുകൾ ചേർത്തു)
 # ============================================
 USER_DB = {
     "faisal": {
         "pin": "1234",
         "name": "Faisal",
-        # പുതിയ ഗൂഗിൾ ഷീറ്റിൽ നിന്ന് വായിക്കാൻ
-        "csv_url": "https://docs.google.com/spreadsheets/d/14zx7jEW2CoLCBjtd1M9hSHXM86uOePtg9pqEsRw-utg/export?format=csv&gid=0",
-        # പുതിയ ഫോമിലേക്ക് എഴുതാൻ
+        # പുതിയ ഗൂഗിൾ ഷീറ്റ് CSV ലിങ്ക്
+        "csv_url": "https://docs.google.com/spreadsheets/d/e/2PACX-1vRHGxDPyEXcEjmP_Oeq3uUL5_ciKRmtof_9m-4N5bmB43BVI1DAm9gTwPxrgcu9yTwnHeP2tIQIRDtx/pub?output=csv",
+        # പുതിയ ഫോം API ലിങ്ക്
         "form_api": "https://docs.google.com/forms/d/e/1FAIpQLSeZGT1tfpOHN9fGk6Qs6DXZzxiaHlI2AWH3dFjuvSC-9lzBMQ/formResponse"
     }
 }
@@ -110,7 +110,7 @@ def show_flash():
     if msg: st.success(msg)
 
 # --- HELPER: Safe CSV load ---
-@st.cache_data(ttl=2) # ഡാറ്റ വേഗത്തിൽ അപ്ഡേറ്റ് ആകാൻ ttl=2 ആക്കി
+@st.cache_data(ttl=2)
 def load_finance_data(csv_url):
     try:
         if not csv_url or "http" not in csv_url: raise ValueError("No URL")
@@ -177,7 +177,6 @@ tools = [
     {"type": "function", "function": {"name": "check_gmail", "description": "Read emails", "parameters": {"type": "object", "properties": {"count": {"type": "number"}}, "required": ["count"]}}}
 ]
 
-# 👉 പുതിയ ഫോമിന്റെ Entry ID-കൾ ഇവിടെ ചേർത്തു
 def execute_add_finance(shop, item, amount, t_type):
     api = st.session_state.user_form_api
     payload = {
