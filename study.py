@@ -177,7 +177,12 @@ tools = [
 
 def execute_add_finance(shop, item, amount, t_type):
     api = st.session_state.user_form_api
-    payload = {"entry.1044099436": datetime.now().strftime("%Y-%m-%d"), "entry.2013476337": f"[{shop}] {item}", "entry.1460982454": amount if t_type == "Debit" else 0, "entry.1221658767": 0 if t_type == "Debit" else amount}
+    payload = {
+        "entry.1852575378": datetime.now().strftime("%Y-%m-%d"), # Date
+        "entry.223776979": f"[{shop}] {item}", # Item
+        "entry.510681766": amount if t_type == "Debit" else 0, # Debit
+        "entry.954222492": 0 if t_type == "Debit" else amount  # Credit
+    }
     if submit_form(api, payload): 
         load_finance_data.clear()
         return "Success"
