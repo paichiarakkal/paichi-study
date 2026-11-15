@@ -43,24 +43,15 @@ AGENT_MODEL  = "openai/gpt-oss-120b"
 WHISPER_MODEL = "whisper-large-v3"
 
 # ============================================
-# 🛡️ SECURE DATABASE (രജിസ്റ്റർ ചെയ്ത യൂസർമാർ)
+# SECURE DATABASE
 # ============================================
-# ഇവിടെ നിങ്ങളുടെ ഇമെയിൽ ഐഡിക്ക് നേരെ അതത് ഷീറ്റ് ലിങ്കുകൾ കൊടുക്കുക
 USER_DB = {
-    "paichiarakkal@gmail.com": {
+    "faisal": {
+        "pin": "1234",
         "name": "Faisal",
-        # പുതിയ ഗൂഗിൾ ഷീറ്റിൽ നിന്ന് വായിക്കാൻ ഈ ലിങ്ക്
         "csv_url": "https://docs.google.com/spreadsheets/d/14zx7jEW2CoLCBjtd1M9hSHXM86uOePtg9pqEsRw-utg/export?format=csv&gid=0",
-        # പുതിയ ഫോമിലേക്ക് എഴുതാൻ ഈ ലിങ്ക്
         "form_api": "https://docs.google.com/forms/d/e/1FAIpQLSeZGT1tfpOHN9fGk6Qs6DXZzxiaHlI2AWH3dFjuvSC-9lzBMQ/formResponse"
     }
-
-    # നിങ്ങൾക്ക് വേറെ കസ്റ്റമർമാരെ ചേർക്കണമെങ്കിൽ ഇവിടെ ചേർക്കാം:
-    # "customer2@gmail.com": {
-    #     "name": "Shop 2 Owner",
-    #     "csv_url": "അവരുടെ CSV ലിങ്ക്",
-    #     "form_api": "അവരുടെ Form ലിങ്ക്"
-    # }
 }
 
 # --- SAFE FORM SUBMIT ---
@@ -102,6 +93,8 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- SESSION STATE ---
+if "auth" not in st.session_state: st.session_state.auth = False
+if "user" not in st.session_state: st.session_state.user = ""
 if "messages" not in st.session_state: st.session_state.messages = []
 if "audio_counter" not in st.session_state: st.session_state.audio_counter = 0
 if "last_audio_hash" not in st.session_state: st.session_state.last_audio_hash = None
@@ -174,7 +167,7 @@ def generate_pdf(df, title, columns):
     return bytes(pdf.output())
 
 # ============================================
-# 🤖 AI AGENT TOOLS & FUNCTIONS
+# AI AGENT TOOLS & FUNCTIONS
 # ============================================
 tools = [
     {"type": "function", "function": {"name": "add_finance", "description": "Add finance", "parameters": {"type": "object", "properties": {"shop": {"type": "string", "enum": ["Shop 1", "Shop 2"]}, "item": {"type": "string"}, "amount": {"type": "number"}, "type": {"type": "string", "enum": ["Debit", "Credit"]}}, "required": ["shop", "item", "amount", "type"]}}},
@@ -199,14 +192,14 @@ def execute_add_stock(item_name, qty, stock_type):
     return "Failed"
 
 def check_gmail_emails(count=3):
-    if not GMAIL_USER or not GMAIL_APP_PASSWORD: return "Gmail App Password ഇല്ല."
+    if not GMAIL_USER or not GMAIL_APP_PASSWORD: return "Gmail App Password not found."
     try:
         mail = imaplib.IMAP4_SSL("imap.gmail.com")
         mail.login(GMAIL_USER, GMAIL_APP_PASSWORD)
         mail.select("inbox")
         status, messages = mail.search(None, "ALL")
         mail_ids = messages[0].split()
-        if not mail_ids: return "മെയിലുകൾ ഇല്ല."
+        if not mail_ids: return "No emails found."
         
         latest_ids = mail_ids[-int(count):]
         email_list = []
@@ -253,21 +246,34 @@ def extract_frames_from_video(video_bytes, num_frames=3):
         return frames
     except: return []
 
-def analyze_images_with_groq(images_bytes_list):
+def analyze_images_with_groq(images_bytes_list, is_video=False):
     if not GROQ_API_KEY: return False, "Groq Key missing!"
     try:
         client = Groq(api_key=GROQ_API_KEY)
-        content_list = [{"type": "text", "text": "Analyze these CCTV frames. Count people, stock. Provide report."}]
+        
+        if is_video:
+            prompt_text = "Analyze these CCTV video frames carefully. Count the exact number of people visible and describe what they are doing. If there are no people, explicitly say 'No people visible'. Provide the report in English."
+        else:
+            prompt_text = "You are an expert inventory auditor. Look very closely at this image. Count the exact number of items visible. Pay close attention to stacked items. Count each individual layer carefully to get the exact total number. Tell me the name of the item and the exact quantity. Provide the report in English."
+        
+        content_list = [{"type": "text", "text": prompt_text}]
         for img in images_bytes_list:
             content_list.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64.b64encode(img).decode('utf-8')}"}})
-        res = client.chat.completions.create(model=VISION_MODEL, messages=[{"role": "user", "content": content_list}], max_tokens=800).choices[0].message.content
-        prompt_ml = f"Translate into Malayalam. Do NOT translate brand names.\n\n{res}"
-        return True, client.chat.completions.create(model=AGENT_MODEL, messages=[{"role": "user", "content": prompt_ml}], max_tokens=800).choices[0].message.content
-    except Exception as e: return False, f"Vision Error: {str(e)}"
+            
+        res = client.chat.completions.create(
+            model=VISION_MODEL, 
+            messages=[{"role": "user", "content": content_list}], 
+            max_tokens=800,
+            temperature=0.1
+        ).choices[0].message.content
+        
+        return True, res
+    except Exception as e: 
+        return False, f"Vision Error: {str(e)}"
 
 def process_ai_agent(prompt_text):
     client = Groq(api_key=GROQ_API_KEY)
-    system_instruction = f"നീ ഒരു ബിസിനസ്സ് AI ആണ്. മലയാളത്തിൽ മറുപടി നൽകുക."
+    system_instruction = f"You are a business AI. Answer in English."
     messages = [{"role": "system", "content": system_instruction}] + [{"role": m["role"], "content": m["content"]} for m in st.session_state.messages[-4:]] + [{"role": "user", "content": prompt_text}]
     
     response = client.chat.completions.create(model=AGENT_MODEL, messages=messages, tools=tools, tool_choice="auto")
@@ -283,61 +289,55 @@ def process_ai_agent(prompt_text):
             
             if tc.function.name == "add_finance":
                 res = execute_add_finance(args["shop"], args["item"], args["amount"], args["type"])
-                replies.append(f"✅ {args['shop']}-ൽ '{args['item']}' എൻട്രി ഇട്ടു!" if res == "Success" else "❌ എൻട്രി പറ്റിയില്ല.")
+                replies.append(f"✅ Added entry for '{args['item']}' in {args['shop']}!" if res == "Success" else "❌ Failed to add entry.")
             elif tc.function.name == "add_stock":
                 res = execute_add_stock(args["item_name"], args["qty"], args["stock_type"])
-                replies.append(f"✅ {args['item_name']} സ്റ്റോക്ക് അപ്ഡേറ്റ് ചെയ്തു!" if res == "Success" else "❌ സ്റ്റോക്ക് പറ്റിയില്ല.")
+                replies.append(f"✅ Updated stock for {args['item_name']}!" if res == "Success" else "❌ Failed to update stock.")
             elif tc.function.name == "check_gmail":
                 raw = check_gmail_emails(args.get("count", 3))
-                replies.append(f"📧 **ഇമെയിൽ:**\n\n{raw}")
+                replies.append(f"📧 **Emails:**\n\n{raw}")
         ai_reply = "\n\n".join(replies)
     else:
         ai_reply = msg.content or ""
     return ai_reply, tool_used
 
-
 # ============================================
-# 🔒 GOOGLE OAUTH LOGIN & VERIFICATION
+# 🔒 SIMPLE PIN LOGIN
 # ============================================
-
-if not st.user.is_logged_in:
+if not st.session_state.auth:
     _, mid, _ = st.columns([1, 2, 1])
     with mid:
         st.markdown('<div class="login-card">', unsafe_allow_html=True)
-        st.title("🔐 PAICHI BUSINESS")
-        st.write("തുടരാൻ ദയവായി ഗൂഗിൾ വഴി ലോഗിൻ ചെയ്യുക.")
+        st.title("🔐 PAICHI BUSINESS LOGIN")
+        st.write("Please login to continue.")
         
-        if st.button("Sign in with Google", use_container_width=True):
-            st.login() 
+        u = st.text_input("Username (e.g., faisal)")
+        pin = st.text_input("PIN", type="password", max_chars=4)
+        
+        if st.button("LOGIN", use_container_width=True):
+            if u in USER_DB and USER_DB[u]["pin"] == pin:
+                st.session_state.auth = True
+                st.session_state.user = u
+                st.session_state.user_csv_url = USER_DB[u]["csv_url"]
+                st.session_state.user_form_api = USER_DB[u]["form_api"]
+                st.rerun()
+            else:
+                st.error("❌ Invalid Username or PIN.")
         st.markdown('</div>', unsafe_allow_html=True)
-    st.stop() 
-
-# ഇമെയിൽ വെരിഫിക്കേഷൻ (Data Security Check)
-user_email = st.user.email
-if user_email not in USER_DB:
-    st.error(f"⛔ ക്ഷമിക്കണം, **{user_email}** എന്ന ഈ ഇമെയിൽ ഐഡിക്ക് ഈ ആപ്പിൽ അനുമതിയില്ല.")
-    st.info("ദയവായി അഡ്മിനെ ബന്ധപ്പെടുക: admin@paichi.com")
-    if st.button("Logout"):
-        st.logout()
-        st.session_state.clear()
-        st.rerun()
     st.stop()
-
-# ലോഗിൻ ചെയ്ത ഇമെയിലിന് അനുസരിച്ച് അവരുടെ ഷീറ്റ് ലിങ്കുകൾ ഓട്ടോമാറ്റിക് ആയി ലോഡ് ചെയ്യുന്നു
-user_data = USER_DB[user_email]
-st.session_state.user_csv_url = user_data["csv_url"]
-st.session_state.user_form_api = user_data["form_api"]
 
 # ============================================
 # 🚀 MAIN APP
 # ============================================
+user_data = USER_DB[st.session_state.user]
 st.sidebar.title(f"👋 Welcome, {user_data['name']}")
+
 menu = ["📊 Dashboard", "💰 Add Finance", "📦 Stock Management", "🧾 Bill Scanner", "📧 Email Replier", "📢 WhatsApp Marketing", "📰 Daily Market News", "👨‍💼 Staff Salary", "🤖 AI Agent", "🎥 CCTV AI Vision"]
 page = st.sidebar.radio("Menu", menu)
 
 if st.sidebar.button("Logout"):
-    st.logout() 
-    st.session_state.clear()
+    st.session_state.auth = False
+    st.session_state.messages = []
     st.rerun()
 
 df_fin = load_finance_data(st.session_state.user_csv_url)
@@ -346,7 +346,7 @@ bal = (df_fin['Credit'].sum() - df_fin['Debit'].sum()) if not df_fin.empty else 
 
 # --- 1. DASHBOARD ---
 if page == "📊 Dashboard":
-    st.markdown(f'<div class="banner"><span class="b-label">Total Balance</span><br><span class="b-value">₹{bal:,.2f}</span></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="banner"><span class="b-label">Total Business Balance</span><br><span class="b-value">₹{bal:,.2f}</span></div>', unsafe_allow_html=True)
     if not df_fin.empty:
         shop_data = df_fin.groupby('Shop Name')[['Credit', 'Debit']].sum().reset_index()
         st.plotly_chart(px.bar(shop_data, x='Shop Name', y=['Credit', 'Debit'], barmode='group', color_discrete_sequence=['#00FF00', '#FF3131']), use_container_width=True)
@@ -364,19 +364,19 @@ elif page == "💰 Add Finance":
             try:
                 am = float(am_str.strip().replace(',', ''))
                 if execute_add_finance(shop, it, am, ty) == "Success":
-                    flash_success("Saved! ✅"); st.rerun()
+                    flash_success("Saved successfully! ✅"); st.rerun()
             except: st.error("❗ Invalid amount.")
 
 # --- 3. STOCK ---
 elif page == "📦 Stock Management":
-    st.title("📦 Stock")
+    st.title("📦 Stock Management")
     show_flash()
     with st.form("stock_form", clear_on_submit=True):
         item_name  = st.text_input("Item Name"); qty = st.number_input("Quantity", min_value=1.0)
         stock_type = st.radio("Type", ["Stock In", "Stock Out"], horizontal=True)
         if st.form_submit_button("SAVE STOCK"):
             if execute_add_stock(item_name, qty, stock_type) == "Success":
-                flash_success("Stock Updated! ✅"); st.rerun()
+                flash_success("Stock Updated successfully! ✅"); st.rerun()
 
 # --- 4. BILL SCANNER ---
 elif page == "🧾 Bill Scanner":
@@ -385,7 +385,7 @@ elif page == "🧾 Bill Scanner":
     if bill_file is not None:
         st.image(bill_file, caption="Uploaded Bill", use_container_width=True)
         if st.button("🔍 Extract & Add"):
-            with st.spinner("AI ബിൽ വായിക്കുന്നു..."):
+            with st.spinner("AI is reading the bill..."):
                 try:
                     client = Groq(api_key=GROQ_API_KEY)
                     b64_img = base64.b64encode(bill_file.getvalue()).decode('utf-8')
@@ -396,85 +396,85 @@ elif page == "🧾 Bill Scanner":
                     items_data = json.loads(res_text)
                     for item in items_data:
                         execute_add_finance("Shop 1", f"Purchase: {item['item']}", item['price'], "Debit")
-                    st.success("🎉 എൻട്രി ഇട്ടു!"); st.rerun()
+                    st.success("🎉 Bill processed successfully!"); st.rerun()
                 except Exception as e: st.error(f"Error: {e}")
 
 # --- 5. EMAIL ---
 elif page == "📧 Email Replier":
     st.title("📧 Smart Email Replier")
-    if st.button("🔄 പുതിയ മെയിലുകൾ ചെക്ക് ചെയ്യുക"):
-        with st.spinner("AI മെയിലുകൾ വായിക്കുന്നു..."):
+    if st.button("🔄 Check Latest Emails"):
+        with st.spinner("AI is reading emails..."):
             raw_emails = check_gmail_emails(1)
-            if "Error" in raw_emails or "ഇല്ല" in raw_emails: st.warning(raw_emails)
+            if "Error" in raw_emails or "No emails" in raw_emails: st.warning(raw_emails)
             else:
-                st.info("📥 **ഏറ്റവും പുതിയ മെയിൽ:**"); st.text_area("Email", raw_emails, height=200, disabled=True)
+                st.info("📥 **Latest Email:**"); st.text_area("Email Content", raw_emails, height=200, disabled=True)
                 client = Groq(api_key=GROQ_API_KEY)
-                prompt = f"ഈ മെയിൽ പ്രധാനപ്പെട്ടതാണോ എന്ന് പറയുക. പ്രധാനമാണെങ്കിൽ ഒരു പ്രൊഫഷണൽ റിപ്ലൈ തയ്യാറാക്കുക.\n\n{raw_emails}"
-                with st.spinner("AI റിപ്ലൈ തയ്യാറാക്കുന്നു..."):
+                prompt = f"Read this email and write a professional reply if it is important.\n\n{raw_emails}"
+                with st.spinner("AI is drafting a reply..."):
                     reply_res = client.chat.completions.create(model=AGENT_MODEL, messages=[{"role": "user", "content": prompt}], max_tokens=800).choices[0].message.content
-                    st.success("✅ AI വിശകലനവും റിപ്ലൈയും:"); st.markdown(reply_res)
+                    st.success("✅ AI Suggested Reply:"); st.markdown(reply_res)
 
 # --- 6. WHATSAPP ---
 elif page == "📢 WhatsApp Marketing":
     st.title("📢 WhatsApp Marketing")
-    ai_prompt = st.text_input("AI-യോട് മെസ്സേജ് എഴുതാൻ പറയാം")
-    if st.button("🤖 AI മെസ്സേജ് ഉണ്ടാക്കുക") and ai_prompt:
+    ai_prompt = st.text_input("Ask AI to write a marketing message")
+    if st.button("🤖 Generate Message") and ai_prompt:
         try:
             client = Groq(api_key=GROQ_API_KEY)
-            res = client.chat.completions.create(model=AGENT_MODEL, messages=[{"role": "user", "content": f"ഇതിനെ അടിസ്ഥാനമാക്കി വാട്ട്സ്ആപ്പ് മെസ്സേജ് എഴുതുക: '{ai_prompt}'"}]).choices[0].message.content
+            res = client.chat.completions.create(model=AGENT_MODEL, messages=[{"role": "user", "content": f"Write a WhatsApp marketing message based on this: '{ai_prompt}'"}]).choices[0].message.content
             st.session_state['wa_message'] = res
-        except: st.error("AI എറർ!")
+        except: st.error("AI Error!")
     
-    msg_to_send = st.text_area("മെസ്സേജ്", value=st.session_state.get('wa_message', ''), height=150)
-    numbers_input = st.text_area("ഫോൺ നമ്പറുകൾ (കോമ ഉപയോഗിച്ച്)")
+    msg_to_send = st.text_area("Message to send", value=st.session_state.get('wa_message', ''), height=150)
+    numbers_input = st.text_area("Phone Numbers (separated by commas)")
     numbers_list = [num.strip() for num in numbers_input.split(",") if num.strip()]
 
-    if st.button("🚀 മെസ്സേജ് അയക്കുക"):
-        if not TWILIO_SID: st.error("Twilio Config ലഭ്യമല്ല.")
+    if st.button("🚀 Send Message"):
+        if not TWILIO_SID: st.error("Twilio Config is missing.")
         else:
             success_count = 0
             for num in numbers_list:
                 formatted_num = f"whatsapp:{num}" if not num.startswith("whatsapp:") else num
                 if send_whatsapp_custom(formatted_num, msg_to_send): success_count += 1
                 time.sleep(1) 
-            st.success(f"✅ {success_count} മെസ്സേജുകൾ അയച്ചു!")
+            st.success(f"✅ Successfully sent {success_count} messages!")
 
 # --- 7. NEWS ---
 elif page == "📰 Daily Market News":
-    st.title("📰 Market News")
-    if st.button("🔄 വാർത്തകൾ കാണുക"):
-        with st.spinner("വാർത്തകൾ ശേഖരിക്കുന്നു..."):
+    st.title("📰 Daily Market News")
+    if st.button("🔄 Fetch Latest News"):
+        with st.spinner("Fetching news..."):
             raw_news = fetch_rss_news()
             client = Groq(api_key=GROQ_API_KEY)
-            prompt = f"ഈ വാർത്തകൾ മലയാളത്തിൽ ചുരുക്കി എഴുതുക:\n{raw_news}"
+            prompt = f"Summarize these news headlines:\n{raw_news}"
             summary = client.chat.completions.create(model=AGENT_MODEL, messages=[{"role": "user", "content": prompt}], max_tokens=800).choices[0].message.content
-            st.success("📊 **AI ന്യൂസ്:**"); st.markdown(summary)
+            st.success("📊 **AI News Summary:**"); st.markdown(summary)
 
 # --- 8. SALARY ---
 elif page == "👨‍💼 Staff Salary":
-    st.title("👨‍💼 Staff Salary")
+    st.title("👨‍💼 Staff Salary Management")
     with st.form("salary_form", clear_on_submit=True):
         shop = st.selectbox("Shop", ["Shop 1", "Shop 2"])
-        emp_name = st.text_input("Employee"); sal_amt = st.number_input("Amount", min_value=1.0)
-        if st.form_submit_button("PAY"):
+        emp_name = st.text_input("Employee Name"); sal_amt = st.number_input("Amount", min_value=1.0)
+        if st.form_submit_button("PAY SALARY"):
             if execute_add_finance(shop, f"Salary: {emp_name}", sal_amt, "Debit") == "Success":
-                st.success("✅ ശമ്പളം നൽകി!"); st.rerun()
+                st.success(f"✅ Salary paid for {emp_name}!"); st.rerun()
 
 # --- 9. AI AGENT ---
 elif page == "🤖 AI Agent":
-    st.title("🤖 PAICHI AI")
+    st.title("🤖 PAICHI Business AI")
     if st.button("🗑️ Clear Chat"): st.session_state.messages = []; st.session_state['audio_counter'] += 1; st.rerun()
     for message in st.session_state.messages:
         with st.chat_message(message["role"]): st.markdown(message["content"])
 
-    audio_value = st.audio_input("🎤 റെക്കോർഡ് ചെയ്യാൻ അമർത്തുക", key=f"audio_{st.session_state['audio_counter']}")
-    text_prompt = st.chat_input("ഇവിടെ ടൈപ്പ് ചെയ്യാം...")
+    audio_value = st.audio_input("🎤 Record a message", key=f"audio_{st.session_state['audio_counter']}")
+    text_prompt = st.chat_input("Type here...")
     prompt = None
 
     if audio_value:
         if st.session_state.get("last_audio_hash") != hashlib.md5(audio_value.getvalue()).hexdigest():
             st.session_state["last_audio_hash"] = hashlib.md5(audio_value.getvalue()).hexdigest()
-            with st.spinner("ശബ്ദം കേൾക്കുന്നു..."):
+            with st.spinner("Listening..."):
                 try:
                     client = Groq(api_key=GROQ_API_KEY)
                     prompt = client.audio.transcriptions.create(file=(audio_value.name, audio_value.getvalue()), model=WHISPER_MODEL, response_format="text").strip()
@@ -485,7 +485,7 @@ elif page == "🤖 AI Agent":
     if prompt:
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"): st.markdown(prompt)
-        with st.spinner("AI ടൈപ്പ് ചെയ്യുന്നു..."):
+        with st.spinner("AI is thinking..."):
             try:
                 ai_reply, tool_used = process_ai_agent(prompt)
                 st.session_state.messages.append({"role": "assistant", "content": ai_reply})
@@ -495,20 +495,23 @@ elif page == "🤖 AI Agent":
 
 # --- 10. CCTV ---
 elif page == "🎥 CCTV AI Vision":
-    st.title("🎥 CCTV Vision")
+    st.title("🎥 CCTV AI Vision")
     uploaded_file = st.file_uploader("Upload CCTV Photo/Video", type=["jpg", "jpeg", "png", "mp4"])
     if uploaded_file is not None:
         if "image" in uploaded_file.type:
             st.image(uploaded_file, use_container_width=True)
             images_to_analyze = [uploaded_file.getvalue()]
+            is_vid = False
         else:
             st.video(uploaded_file)
-            with st.spinner("ഫ്രെയിമുകൾ എടുക്കുന്നു..."):
+            with st.spinner("Extracting frames..."):
                 images_to_analyze = extract_frames_from_video(uploaded_file.getvalue())
-                if not images_to_analyze: st.error("ഫ്രെയിമുകൾ എടുക്കാൻ സാധിച്ചില്ല."); st.stop()
+                if not images_to_analyze: st.error("Could not extract frames from video."); st.stop()
+                is_vid = True
 
-        if st.button("🔍 Analyze"):
-            with st.spinner("AI വിശകലനം ചെയ്യുന്നു..."):
-                ok, analysis_result = analyze_images_with_groq(images_to_analyze)
+        if st.button("🔍 Analyze with AI"):
+            with st.spinner("AI is analyzing..."):
+                ok, analysis_result = analyze_images_with_groq(images_to_analyze, is_video=is_vid)
+                st.subheader("📊 AI Analysis Report")
                 if ok: st.success(analysis_result)
                 else: st.error(analysis_result)
