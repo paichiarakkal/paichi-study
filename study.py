@@ -43,13 +43,15 @@ AGENT_MODEL  = "openai/gpt-oss-120b"
 WHISPER_MODEL = "whisper-large-v3"
 
 # ============================================
-# SECURE DATABASE
+# 🛡️ SECURE DATABASE (നിങ്ങളുടെ വിവരങ്ങൾ)
 # ============================================
 USER_DB = {
     "faisal": {
         "pin": "1234",
         "name": "Faisal",
+        # പുതിയ ഗൂഗിൾ ഷീറ്റിൽ നിന്ന് വായിക്കാൻ
         "csv_url": "https://docs.google.com/spreadsheets/d/14zx7jEW2CoLCBjtd1M9hSHXM86uOePtg9pqEsRw-utg/export?format=csv&gid=0",
+        # പുതിയ ഫോമിലേക്ക് എഴുതാൻ
         "form_api": "https://docs.google.com/forms/d/e/1FAIpQLSeZGT1tfpOHN9fGk6Qs6DXZzxiaHlI2AWH3dFjuvSC-9lzBMQ/formResponse"
     }
 }
@@ -108,7 +110,7 @@ def show_flash():
     if msg: st.success(msg)
 
 # --- HELPER: Safe CSV load ---
-@st.cache_data(ttl=5)
+@st.cache_data(ttl=2) # ഡാറ്റ വേഗത്തിൽ അപ്ഡേറ്റ് ആകാൻ ttl=2 ആക്കി
 def load_finance_data(csv_url):
     try:
         if not csv_url or "http" not in csv_url: raise ValueError("No URL")
@@ -120,7 +122,7 @@ def load_finance_data(csv_url):
     except Exception:
         return pd.DataFrame(columns=['Date', 'Shop Name', 'Item', 'Debit', 'Credit'])
 
-@st.cache_data(ttl=5)
+@st.cache_data(ttl=2)
 def load_stock_data(csv_url):
     try:
         if not csv_url or "http" not in csv_url: raise ValueError("No URL")
@@ -167,7 +169,7 @@ def generate_pdf(df, title, columns):
     return bytes(pdf.output())
 
 # ============================================
-# AI AGENT TOOLS & FUNCTIONS
+# 🤖 AI AGENT TOOLS & FUNCTIONS
 # ============================================
 tools = [
     {"type": "function", "function": {"name": "add_finance", "description": "Add finance", "parameters": {"type": "object", "properties": {"shop": {"type": "string", "enum": ["Shop 1", "Shop 2"]}, "item": {"type": "string"}, "amount": {"type": "number"}, "type": {"type": "string", "enum": ["Debit", "Credit"]}}, "required": ["shop", "item", "amount", "type"]}}},
@@ -175,6 +177,7 @@ tools = [
     {"type": "function", "function": {"name": "check_gmail", "description": "Read emails", "parameters": {"type": "object", "properties": {"count": {"type": "number"}}, "required": ["count"]}}}
 ]
 
+# 👉 പുതിയ ഫോമിന്റെ Entry ID-കൾ ഇവിടെ ചേർത്തു
 def execute_add_finance(shop, item, amount, t_type):
     api = st.session_state.user_form_api
     payload = {
@@ -190,7 +193,12 @@ def execute_add_finance(shop, item, amount, t_type):
 
 def execute_add_stock(item_name, qty, stock_type):
     api = st.session_state.user_form_api
-    payload = {"entry.1044099436": datetime.now().strftime("%Y-%m-%d"), "entry.2013476337": f"[Stock] {item_name}", "entry.1460982454": qty, "entry.1221658767": stock_type}
+    payload = {
+        "entry.1852575378": datetime.now().strftime("%Y-%m-%d"),
+        "entry.223776979": f"[Stock] {item_name}",
+        "entry.510681766": qty,
+        "entry.954222492": stock_type
+    }
     if submit_form(api, payload): 
         load_stock_data.clear()
         return "Success"
