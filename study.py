@@ -43,15 +43,13 @@ AGENT_MODEL  = "openai/gpt-oss-120b"
 WHISPER_MODEL = "whisper-large-v3"
 
 # ============================================
-# 🛡️ SECURE DATABASE (പുതിയ ലിങ്കുകൾ ചേർത്തു)
+# 🛡️ SECURE DATABASE
 # ============================================
 USER_DB = {
     "faisal": {
         "pin": "1234",
         "name": "Faisal",
-        # പുതിയ ഗൂഗിൾ ഷീറ്റ് CSV ലിങ്ക്
         "csv_url": "https://docs.google.com/spreadsheets/d/e/2PACX-1vRHGxDPyEXcEjmP_Oeq3uUL5_ciKRmtof_9m-4N5bmB43BVI1DAm9gTwPxrgcu9yTwnHeP2tIQIRDtx/pub?output=csv",
-        # പുതിയ ഫോം API ലിങ്ക്
         "form_api": "https://docs.google.com/forms/d/e/1FAIpQLSeZGT1tfpOHN9fGk6Qs6DXZzxiaHlI2AWH3dFjuvSC-9lzBMQ/formResponse"
     }
 }
@@ -118,6 +116,13 @@ def load_finance_data(csv_url):
         df.columns = df.columns.str.strip()
         df['Debit'] = pd.to_numeric(df['Debit'], errors='coerce').fillna(0)
         df['Credit'] = pd.to_numeric(df['Credit'], errors='coerce').fillna(0)
+        
+        # 👉 ഷോപ്പ് പേര് വേർതിരിച്ചെടുക്കുന്നു
+        if not df.empty and 'Item' in df.columns:
+            df['Shop Name'] = df['Item'].apply(lambda x: x.split(']')[0].replace('[', '') if '[' in str(x) and ']' in str(x) else 'Unknown')
+            # ഇനി 'Item' കോളത്തിൽ നിന്ന് ഷോപ്പ് പേര് ഒഴിവാക്കാം (ഉദാ: '[Shop 1] Tea' -> 'Tea')
+            df['Item'] = df['Item'].apply(lambda x: x.split(']')[1].strip() if ']' in str(x) else str(x))
+            
         return df
     except Exception:
         return pd.DataFrame(columns=['Date', 'Shop Name', 'Item', 'Debit', 'Credit'])
@@ -180,10 +185,10 @@ tools = [
 def execute_add_finance(shop, item, amount, t_type):
     api = st.session_state.user_form_api
     payload = {
-        "entry.1852575378": datetime.now().strftime("%Y-%m-%d"), # Date
-        "entry.223776979": f"[{shop}] {item}", # Item
-        "entry.510681766": amount if t_type == "Debit" else 0, # Debit
-        "entry.954222492": 0 if t_type == "Debit" else amount  # Credit
+        "entry.1852575378": datetime.now().strftime("%Y-%m-%d"),
+        "entry.223776979": f"[{shop}] {item}",
+        "entry.510681766": amount if t_type == "Debit" else 0,
+        "entry.954222492": 0 if t_type == "Debit" else amount
     }
     if submit_form(api, payload): 
         load_finance_data.clear()
@@ -359,9 +364,13 @@ bal = (df_fin['Credit'].sum() - df_fin['Debit'].sum()) if not df_fin.empty else 
 # --- 1. DASHBOARD ---
 if page == "📊 Dashboard":
     st.markdown(f'<div class="banner"><span class="b-label">Total Business Balance</span><br><span class="b-value">₹{bal:,.2f}</span></div>', unsafe_allow_html=True)
+    
     if not df_fin.empty:
-        shop_data = df_fin.groupby('Shop Name')[['Credit', 'Debit']].sum().reset_index()
-        st.plotly_chart(px.bar(shop_data, x='Shop Name', y=['Credit', 'Debit'], barmode='group', color_discrete_sequence=['#00FF00', '#FF3131']), use_container_width=True)
+        # 👉 ഇവിടെയാണ് പുതിയ മാറ്റം: Shop Name ഉണ്ടെങ്കിൽ മാത്രം ഗ്രാഫ് വരയ്ക്കും
+        if 'Shop Name' in df_fin.columns:
+            shop_data = df_fin.groupby('Shop Name')[['Credit', 'Debit']].sum().reset_index()
+            st.plotly_chart(px.bar(shop_data, x='Shop Name', y=['Credit', 'Debit'], barmode='group', color_discrete_sequence=['#00FF00', '#FF3131']), use_container_width=True)
+        
         st.dataframe(df_fin.tail(10).iloc[::-1], use_container_width=True)
 
 # --- 2. ADD FINANCE ---
