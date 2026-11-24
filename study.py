@@ -1,538 +1,1355 @@
 import streamlit as st
 import pandas as pd
 import requests
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 import random
 import plotly.express as px
+from streamlit_mic_recorder import speech_to_text
+from streamlit_autorefresh import st_autorefresh
 from fpdf import FPDF
+import re
 import json
-import base64
-import os
-import cv2
-import tempfile
-import hashlib
-import imaplib
-import email
 import time
-import urllib.request
-import xml.etree.ElementTree as ET
-from email.header import decode_header
+import hashlib
+import hmac
+import base64
+import sqlite3
+import smtplib
+from email.message import EmailMessage
 from groq import Groq
+from streamlit_calendar import calendar
 from twilio.rest import Client
 
-# --- CONFIG ---
-try:
-    GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
-except Exception:
-    GROQ_API_KEY = ""
-
-GMAIL_USER = st.secrets.get("GMAIL_USER", "")
-GMAIL_APP_PASSWORD = st.secrets.get("GMAIL_APP_PASSWORD", "")
-
-try:
-    TWILIO_SID = st.secrets["TWILIO_SID"]
-    TWILIO_AUTH_TOKEN = st.secrets["TWILIO_AUTH_TOKEN"]
-    TWILIO_FROM = st.secrets.get("TWILIO_FROM", "whatsapp:+14155238886")
-except Exception:
-    TWILIO_SID = ""
-    TWILIO_AUTH_TOKEN = ""
-    TWILIO_FROM = "whatsapp:+14155238886"
-
-VISION_MODEL = "qwen/qwen3.8-27b"
-AGENT_MODEL  = "openai/gpt-oss-120b"
-WHISPER_MODEL = "whisper-large-v3"
-
-# ============================================
-# 🛡️ SECURE DATABASE
-# ============================================
-USER_DB = {
-    "faisal": {
-        "pin": "1234",
-        "name": "Faisal",
-        "csv_url": "https://docs.google.com/spreadsheets/d/e/2PACX-1vRHGxDPyEXcEjmP_Oeq3uUL5_ciKRmtof_9m-4N5bmB43BVI1DAm9gTwPxrgcu9yTwnHeP2tIQIRDtx/pub?output=csv",
-        "form_api": "https://docs.google.com/forms/d/e/1FAIpQLSeZGT1tfpOHN9fGk6Qs6DXZzxiaHlI2AWH3dFjuvSC-9lzBMQ/formResponse"
-    }
-}
-
-# --- SAFE FORM SUBMIT ---
-def submit_form(api_url, payload):
-    if not api_url or "YOUR_" in api_url or "http" not in api_url:
-        return False
-    try:
-        r = requests.post(api_url, data=payload, timeout=10)
-        return r.status_code == 200
-    except Exception:
-        return False
-
-# --- WHATSAPP SENDER ---
-def send_whatsapp_custom(to_number, msg):
-    if not TWILIO_SID or not TWILIO_AUTH_TOKEN: return False
-    try:
-        client = Client(TWILIO_SID, TWILIO_AUTH_TOKEN)
-        client.messages.create(body=msg, from_=TWILIO_FROM, to=to_number)
-        return True
-    except Exception:
-        return False
-
 # --- STREAMLIT UI SETUP ---
-st.set_page_config(page_title="PAICHI BUSINESS SaaS", layout="wide")
+st.set_page_config(page_title="PAICHI EXPENSES", layout="wide")
 
+# --- CONFIG & SETTINGS ---
+WA_PHONE = st.secrets.get("DEFAULT_WA_PHONE", "")
+GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "")
+SECRET_KEY = st.secrets.get("SESSION_SECRET_KEY", "paichi_expenses_secure_key_2026")
+SMTP_EMAIL = st.secrets.get("SMTP_EMAIL", "")
+SMTP_APP_PASSWORD = st.secrets.get("SMTP_APP_PASSWORD", "")
+RESEND_API_KEY = st.secrets.get("RESEND_API_KEY", "")
+OTP_FROM_EMAIL = st.secrets.get("OTP_FROM_EMAIL", "onboarding@resend.dev")
+BREVO_API_KEY = st.secrets.get("BREVO_API_KEY", "")
+BREVO_SENDER_EMAIL = st.secrets.get("BREVO_SENDER_EMAIL", "")
+DB_FILE = "paichi_users_v2.db"
+
+# --- TIMEZONE SETUP (GST - Dubai Time) ---
+GST = timezone(timedelta(hours=4))
+
+st_autorefresh(interval=60000, key="auto_refresh")
+
+# ============================================
+# 🗄️ DATABASE + ST.SECRETS USER STORE
+# ============================================
+def init_db():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            username TEXT PRIMARY KEY,
+            password_hash TEXT NOT NULL,
+            sheet_url TEXT DEFAULT '',
+            csv_url TEXT DEFAULT '',
+            links_locked INTEGER DEFAULT 0,
+            account_locked INTEGER DEFAULT 1
+        )
+    """)
+    c.execute("PRAGMA table_info(users)")
+    existing_cols = [col[1] for col in c.fetchall()]
+    if "sheet_url" not in existing_cols:
+        c.execute("ALTER TABLE users ADD COLUMN sheet_url TEXT DEFAULT ''")
+    if "csv_url" not in existing_cols:
+        c.execute("ALTER TABLE users ADD COLUMN csv_url TEXT DEFAULT ''")
+    if "links_locked" not in existing_cols:
+        c.execute("ALTER TABLE users ADD COLUMN links_locked INTEGER DEFAULT 0")
+    if "account_locked" not in existing_cols:
+        c.execute("ALTER TABLE users ADD COLUMN account_locked INTEGER DEFAULT 1")
+    conn.commit()
+    conn.close()
+
+init_db()
+
+def hash_password(pwd: str) -> str:
+    return hashlib.sha256(pwd.encode("utf-8")).hexdigest()
+
+def load_secrets_users() -> dict:
+    raw_users = st.secrets.get("USERS_DATA", {})
+    if isinstance(raw_users, str):
+        try:
+            parsed = json.loads(raw_users)
+            return parsed if isinstance(parsed, dict) else {}
+        except Exception:
+            return {}
+    if isinstance(raw_users, dict):
+        return dict(raw_users)
+    return {}
+
+def is_account_already_registered(username: str) -> bool:
+    u = (username or "").strip().lower()
+    if not u:
+        return False
+    if u in load_secrets_users():
+        return True
+    init_db()
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("SELECT 1 FROM users WHERE username = ?", (u,))
+    exists = c.fetchone() is not None
+    conn.close()
+    return exists
+
+def db_get_user(username: str):
+    init_db()
+    u = (username or "").strip().lower()
+    if not u:
+        return None
+
+    secrets_users = load_secrets_users()
+    s_rec = secrets_users.get(u)
+    if isinstance(s_rec, dict) and s_rec.get("password_hash"):
+        sheet_val = (s_rec.get("sheet_url") or "").strip()
+        csv_val = (s_rec.get("csv_url") or "").strip()
+        locked_val = 1 if (sheet_val or csv_val or s_rec.get("links_locked")) else 0
+        conn = sqlite3.connect(DB_FILE)
+        c = conn.cursor()
+        c.execute(
+            """
+            INSERT INTO users (username, password_hash, sheet_url, csv_url, links_locked, account_locked)
+            VALUES (?, ?, ?, ?, ?, 1)
+            ON CONFLICT(username) DO UPDATE SET
+                password_hash = excluded.password_hash,
+                sheet_url = CASE WHEN users.sheet_url != '' THEN users.sheet_url ELSE excluded.sheet_url END,
+                csv_url = CASE WHEN users.csv_url != '' THEN users.csv_url ELSE excluded.csv_url END,
+                links_locked = CASE WHEN users.links_locked = 1 OR excluded.links_locked = 1 THEN 1 ELSE 0 END,
+                account_locked = 1
+            """,
+            (u, s_rec.get("password_hash", ""), sheet_val, csv_val, locked_val)
+        )
+        conn.commit()
+        c.execute("SELECT username, password_hash, sheet_url, csv_url, links_locked, account_locked FROM users WHERE username = ?", (u,))
+        row = c.fetchone()
+        conn.close()
+        if row:
+            s_url_db = row[2] or ""
+            c_url_db = row[3] or ""
+            is_locked = 1 if (s_url_db or c_url_db or int(row[4] or 0) == 1) else 0
+            return {
+                "username": row[0],
+                "password_hash": row[1],
+                "sheet_url": s_url_db,
+                "csv_url": c_url_db,
+                "links_locked": is_locked,
+                "account_locked": int(row[5] if row[5] is not None else 1)
+            }
+
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("SELECT username, password_hash, sheet_url, csv_url, links_locked, account_locked FROM users WHERE username = ?", (u,))
+    row = c.fetchone()
+    conn.close()
+    if row:
+        s_url_db = row[2] or ""
+        c_url_db = row[3] or ""
+        is_locked = 1 if (s_url_db or c_url_db or int(row[4] or 0) == 1) else 0
+        return {
+            "username": row[0],
+            "password_hash": row[1],
+            "sheet_url": s_url_db,
+            "csv_url": c_url_db,
+            "links_locked": is_locked,
+            "account_locked": int(row[5] if row[5] is not None else 1)
+        }
+    return None
+
+def db_create_user(username: str, password: str, sheet_url: str = "", csv_url: str = ""):
+    init_db()
+    u = username.strip().lower()
+    if is_account_already_registered(u):
+        raise ValueError("This Google/email account is already registered and locked.")
+    pwd_hash = hash_password(password)
+    s_url = (sheet_url or "").strip()
+    c_url = (csv_url or "").strip()
+    locked_flag = 1 if (s_url or c_url) else 0
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute(
+        "INSERT INTO users (username, password_hash, sheet_url, csv_url, links_locked, account_locked) VALUES (?, ?, ?, ?, ?, 1)",
+        (u, pwd_hash, s_url, c_url, locked_flag)
+    )
+    conn.commit()
+    conn.close()
+    return {
+        u: {
+            "password_hash": pwd_hash,
+            "sheet_url": s_url,
+            "csv_url": c_url,
+            "links_locked": bool(locked_flag),
+            "account_locked": True
+        }
+    }
+
+def db_bind_links_once(username: str, sheet_url: str = "", csv_url: str = ""):
+    init_db()
+    u = username.strip().lower()
+    existing = db_get_user(u)
+    if not existing:
+        return False, "Account not found."
+    if existing.get("links_locked") == 1 or existing.get("sheet_url") or existing.get("csv_url"):
+        return False, "Links are already submitted and permanently locked."
+
+    s_url = (sheet_url or "").strip()
+    c_url = (csv_url or "").strip()
+    if not s_url and not c_url:
+        return False, "Enter at least one link (Web App URL or CSV URL)."
+
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute(
+        "UPDATE users SET sheet_url = ?, csv_url = ?, links_locked = 1 WHERE username = ?",
+        (s_url, c_url, u)
+    )
+    conn.commit()
+    conn.close()
+    return True, "Links submitted and permanently locked."
+
+def db_update_password(username: str, new_password: str):
+    init_db()
+    u = username.strip().lower()
+    pwd_hash = hash_password(new_password)
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("UPDATE users SET password_hash = ? WHERE username = ?", (pwd_hash, u))
+    conn.commit()
+    conn.close()
+    return pwd_hash
+
+# ============================================
+# 📧 FREE EMAIL OTP HELPER (BREVO -> RESEND -> SMTP)
+# ============================================
+def send_otp_email(to_email: str, otp_code: str, purpose: str = "OTP Verification") -> bool:
+    brevo_key = (st.secrets.get("BREVO_API_KEY", BREVO_API_KEY) or "").strip()
+    brevo_sender = (st.secrets.get("BREVO_SENDER_EMAIL", BREVO_SENDER_EMAIL) or "").strip()
+    resend_key = (st.secrets.get("RESEND_API_KEY", RESEND_API_KEY) or "").strip()
+    from_email = (st.secrets.get("OTP_FROM_EMAIL", OTP_FROM_EMAIL) or "onboarding@resend.dev").strip()
+
+    body_text = (
+        f"Hello,\n\n"
+        f"Your 6-digit OTP code for PAICHI EXPENSES ({purpose}) is:\n\n"
+        f"OTP: {otp_code}\n\n"
+        f"Please do not share this code with anyone."
+    )
+
+    if brevo_key and brevo_sender:
+        resp = requests.post(
+            "https://api.brevo.com/v3/smtp/email",
+            headers={
+                "api-key": brevo_key,
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            },
+            json={
+                "sender": {"name": "PAICHI EXPENSES", "email": brevo_sender},
+                "to": [{"email": to_email}],
+                "subject": f"PAICHI EXPENSES - {purpose} OTP",
+                "textContent": body_text
+            },
+            timeout=15
+        )
+        if resp.status_code in (200, 201, 202):
+            return True
+        raise RuntimeError(f"Brevo API Error ({resp.status_code}): {resp.text}")
+
+    if resend_key:
+        resp = requests.post(
+            "https://api.resend.com/emails",
+            headers={
+                "Authorization": f"Bearer {resend_key}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "from": from_email,
+                "to": [to_email],
+                "subject": f"PAICHI EXPENSES - {purpose} OTP",
+                "text": body_text
+            },
+            timeout=15
+        )
+        if resp.status_code in (200, 201):
+            return True
+        raise RuntimeError(f"Resend API Error ({resp.status_code}): {resp.text}")
+
+    sender = (st.secrets.get("SMTP_EMAIL", SMTP_EMAIL) or "").strip()
+    app_pwd = (st.secrets.get("SMTP_APP_PASSWORD", SMTP_APP_PASSWORD) or "").replace(" ", "").strip()
+
+    if not sender or not app_pwd:
+        raise ValueError("BREVO_API_KEY / BREVO_SENDER_EMAIL, RESEND_API_KEY, or SMTP_EMAIL / SMTP_APP_PASSWORD is not configured in Secrets.")
+
+    msg = EmailMessage()
+    msg["Subject"] = f"PAICHI EXPENSES - {purpose} OTP"
+    msg["From"] = sender
+    msg["To"] = to_email
+    msg.set_content(body_text)
+
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=15) as server:
+            server.login(sender, app_pwd)
+            server.send_message(msg)
+        return True
+    except Exception as ssl_err:
+        try:
+            with smtplib.SMTP("smtp.gmail.com", 587, timeout=15) as server:
+                server.ehlo()
+                server.starttls()
+                server.ehlo()
+                server.login(sender, app_pwd)
+                server.send_message(msg)
+            return True
+        except Exception as tls_err:
+            raise RuntimeError(f"SSL (465) Error: {ssl_err} | TLS (587) Error: {tls_err}")
+
+# ============================================
+# 🔐 SIGNED TOKEN SESSION (Query Params)
+# ============================================
+def create_session_token(username: str) -> str:
+    u = username.strip().lower()
+    sig = hmac.new(SECRET_KEY.encode("utf-8"), u.encode("utf-8"), hashlib.sha256).hexdigest()[:24]
+    raw = f"{u}:{sig}".encode("utf-8")
+    return base64.urlsafe_b64encode(raw).decode("utf-8")
+
+def verify_session_token(token: str):
+    try:
+        decoded = base64.urlsafe_b64decode(token.encode("utf-8")).decode("utf-8")
+        u, sig = decoded.split(":", 1)
+        expected_sig = hmac.new(SECRET_KEY.encode("utf-8"), u.encode("utf-8"), hashlib.sha256).hexdigest()[:24]
+        if hmac.compare_digest(sig, expected_sig):
+            return u
+    except Exception:
+        pass
+    return None
+
+def restore_session_from_url():
+    if not st.session_state.get("auth", False):
+        token = st.query_params.get("session", "")
+        if token:
+            valid_user = verify_session_token(token)
+            if valid_user and db_get_user(valid_user):
+                st.session_state.auth = True
+                st.session_state.user = valid_user
+
+def set_persistent_login(username: str):
+    u = username.strip().lower()
+    st.session_state.auth = True
+    st.session_state.user = u
+    st.query_params["session"] = create_session_token(u)
+
+def clear_persistent_login():
+    st.session_state.auth = False
+    st.session_state.user = ""
+    if "session" in st.query_params:
+        del st.query_params["session"]
+
+# ============================================
+# 🎨 NATIVE APP DESIGN (CLEAN & MODERN)
+# ============================================
 st.markdown("""
     <style>
-    .stApp { background: #f4f6f9; color: #000000; }
-    [data-testid="stSidebar"] { background: #e0e0e0 !important; }
-    .stButton>button { background-color: #007BFF; color: #ffffff; border-radius: 10px; font-weight: bold; }
-    .stDownloadButton>button { background-color: #28a745; color: #ffffff; border-radius: 10px; font-weight: bold; }
-    .banner { background: #ffffff; padding: 25px; border-radius: 15px; border-left: 10px solid #007BFF; text-align: center; margin-bottom: 25px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
-    h1, h2, h3, p, label, span { color: #000000 !important; font-weight: bold !important; }
-    [data-testid="stChatMessage"] { background-color: #ffffff !important; border-radius: 10px; padding: 15px; border: 1px solid #ccc; color: #000; }
-    .banner .b-label { color: #007BFF !important; font-size: 20px; }
-    .banner .b-value { color: #000000 !important; font-size: 40px; }
-    .login-card { background: #ffffff; padding: 30px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); margin-top: 50px; text-align: center; }
+    /* --- APP BACKGROUND & COLORS --- */
+    [data-testid="stAppViewContainer"] { 
+        background-color: #0F172A !important; /* Modern Deep Navy Background */
+        background-image: none !important; 
+    }
+    [data-testid="stSidebar"] { 
+        background-color: #1E293B !important; 
+        border-right: 1px solid #334155 !important;
+    }
+    
+    /* --- TYPOGRAPHY --- */
+    h1, h2, h3, p, label, span { 
+        color: #F8FAFC !important; 
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+    }
+
+    /* --- BUTTONS --- */
+    .stButton>button { 
+        background: #10B981 !important; /* Emerald Green */
+        color: #FFFFFF !important; 
+        border-radius: 12px !important; 
+        font-weight: 600 !important; 
+        width: 100%; 
+        border: none; 
+        padding: 10px 20px !important;
+        transition: all 0.2s ease;
+    }
+    .stButton>button:hover { 
+        background: #059669 !important; 
+        transform: translateY(-2px); 
+    }
+
+    /* --- CARDS & BANNERS --- */
+    .balance-banner { 
+        background: linear-gradient(135deg, #1E293B, #0F172A) !important; 
+        padding: 30px; 
+        border-radius: 20px; 
+        border: 1px solid #334155 !important;
+        border-left: 8px solid #10B981 !important; 
+        text-align: center; 
+        margin-bottom: 25px; 
+        box-shadow: 0 10px 25px rgba(0,0,0,0.2); 
+    }
+    .glass-card { 
+        background: #1E293B !important; 
+        border: 1px solid #334155 !important;
+        border-radius: 16px; 
+        padding: 20px; 
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); 
+        margin-bottom: 20px; 
+        text-align: center; 
+    }
+    .category-box { 
+        background: #1E293B !important; 
+        padding: 20px; 
+        border-radius: 16px; 
+        text-align: center; 
+        border: 1px solid #334155 !important;
+        margin-bottom: 15px; 
+    }
+    .alert-banner { 
+        background: #7F1D1D !important; 
+        color: #FECACA !important; 
+        padding: 15px; 
+        border-radius: 12px; 
+        text-align: center; 
+        font-weight: bold; 
+        margin-bottom: 20px; 
+        border: 1px solid #B91C1C !important;
+    }
+    .login-card { 
+        background: #1E293B !important; 
+        padding: 40px; 
+        border-radius: 24px; 
+        max-width: 450px; 
+        margin: auto; 
+        margin-top: 60px; 
+        border: 1px solid #334155 !important;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3); 
+    }
+
+    /* --- INPUTS --- */
+    input, textarea, select { 
+        color: #F8FAFC !important; 
+        background-color: #0F172A !important; 
+        border: 1px solid #334155 !important; 
+        border-radius: 10px !important; 
+        padding: 10px !important;
+    }
+    ::placeholder { color: #64748B !important; }
+    
+    /* --- CHAT --- */
+    [data-testid="stChatMessage"] { 
+        background: #1E293B !important; 
+        border-radius: 12px !important; 
+        padding: 15px !important; 
+        margin-bottom: 10px !important; 
+        border: 1px solid #334155 !important;
+    }
+    [data-testid="stChatInput"] { 
+        background-color: #1E293B !important; 
+        border-radius: 25px !important; 
+        border: 1px solid #334155 !important; 
+    }
+    
+    /* --- CALENDAR UI FIX --- */
+    .fc { background-color: #1E293B !important; color: #F8FAFC !important; }
+    .fc-toolbar-title { color: #F8FAFC !important; }
+    .fc-col-header-cell-cushion { color: #F8FAFC !important; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- SESSION STATE ---
-if "auth" not in st.session_state: st.session_state.auth = False
-if "user" not in st.session_state: st.session_state.user = ""
-if "messages" not in st.session_state: st.session_state.messages = []
-if "audio_counter" not in st.session_state: st.session_state.audio_counter = 0
-if "last_audio_hash" not in st.session_state: st.session_state.last_audio_hash = None
-if "wa_message" not in st.session_state: st.session_state.wa_message = ""
-if "user_csv_url" not in st.session_state: st.session_state.user_csv_url = ""
-if "user_form_api" not in st.session_state: st.session_state.user_form_api = ""
+if 'auth' not in st.session_state: st.session_state.auth, st.session_state.user = False, ""
+if 'custom_alert_text' not in st.session_state: st.session_state.custom_alert_text = "Low balance alert"
+if 'low_limit' not in st.session_state: st.session_state.low_limit = 6000
+if "last_processed_prompt" not in st.session_state: st.session_state.last_processed_prompt = None
+if "pending_entry" not in st.session_state: st.session_state.pending_entry = None
+if "ai_action_notice" not in st.session_state: st.session_state.ai_action_notice = None
+if "entry_saved_flag" not in st.session_state: st.session_state.entry_saved_flag = False
+if "ai_chat_key_id" not in st.session_state: st.session_state.ai_chat_key_id = 0
+if "last_voice_text" not in st.session_state: st.session_state.last_voice_text = ""
+if "last_heard_text" not in st.session_state: st.session_state.last_heard_text = ""
+if "ai_chat_history" not in st.session_state: st.session_state.ai_chat_history = []
 
-def flash_success(msg): st.session_state["_flash"] = msg
-def show_flash():
-    msg = st.session_state.pop("_flash", None)
-    if msg: st.success(msg)
+if "signup_otp" not in st.session_state: st.session_state.signup_otp = None
+if "signup_otp_email" not in st.session_state: st.session_state.signup_otp_email = ""
+if "signup_otp_verified" not in st.session_state: st.session_state.signup_otp_verified = False
 
-# --- HELPER: Safe CSV load ---
-@st.cache_data(ttl=2)
-def load_finance_data(csv_url):
+if "reset_otp" not in st.session_state: st.session_state.reset_otp = None
+if "reset_otp_email" not in st.session_state: st.session_state.reset_otp_email = ""
+if "reset_otp_verified" not in st.session_state: st.session_state.reset_otp_verified = False
+
+restore_session_from_url()
+
+# --- HELPER FUNCTIONS ---
+def format_display_name(username: str) -> str:
+    u = (username or "").strip()
+    if "@" in u:
+        return u.split("@", 1)[0]
+    return u
+
+def format_english_datetime(dt_value=None) -> str:
+    if dt_value is None:
+        dt_obj = datetime.now(GST)
+    elif isinstance(dt_value, datetime):
+        dt_obj = dt_value
+    else:
+        parsed = pd.to_datetime(str(dt_value).strip(), errors="coerce")
+        dt_obj = parsed.to_pydatetime() if not pd.isna(parsed) else datetime.now(GST)
+    return dt_obj.strftime("%d %b %Y %H:%M:%S")
+
+def translate_to_english_label(text: str, default_label: str = "Expense") -> str:
+    raw = (text or "").strip()
+    if not raw:
+        return default_label
+    low = raw.lower()
+    mapping = {
+        "ചായ": "Tea", "കാപ്പി": "Coffee", "ഭക്ഷണം": "Food", "ചിക്കൻ": "Chicken",
+        "മീൻ": "Fish", "ബിരിയാണി": "Biryani", "കട": "Shop", "യാത്ര": "Travel",
+        "പെട്രോൾ": "Petrol", "വാടക": "Rent", "ജയ": "Jaya", "شاي": "Tea",
+        "قهوة": "Coffee", "طعام": "Food", "चाय": "Tea", "खाना": "Food"
+    }
+    for k, v in mapping.items():
+        if k in low:
+            return v
+    if GROQ_API_KEY and re.search(r"[^\x00-\x7F]", raw):
+        try:
+            client = Groq(api_key=GROQ_API_KEY)
+            resp = client.chat.completions.create(
+                model="openai/gpt-oss-120b",
+                messages=[
+                    {"role": "system", "content": "Translate the given expense/item/name text into clean concise English (1 to 2 words). Return ONLY the English text."},
+                    {"role": "user", "content": raw}
+                ],
+                max_tokens=30
+            )
+            translated = (resp.choices[0].message.content or "").strip().strip('"').strip("'")
+            if translated:
+                return translated
+        except Exception:
+            pass
+    cleaned = re.sub(r"[^\x00-\x7F]+", "", raw).strip()
+    return cleaned if cleaned else default_label
+
+def get_active_web_app_url() -> str:
+    prof = db_get_user(st.session_state.get("user", ""))
+    if prof and prof.get("sheet_url"):
+        return prof["sheet_url"].strip()
+    return ""
+
+def get_active_csv_url() -> str:
+    prof = db_get_user(st.session_state.get("user", ""))
+    if prof and prof.get("csv_url"):
+        return prof["csv_url"].strip()
+    return ""
+
+def send_whatsapp_auto(msg):
     try:
-        if not csv_url or "http" not in csv_url: raise ValueError("No URL")
-        df = pd.read_csv(f"{csv_url}&r={random.randint(1,999)}")
+        account_sid = st.secrets.get("TWILIO_ACCOUNT_SID", "")
+        auth_token = st.secrets.get("TWILIO_AUTH_TOKEN", "")
+        if account_sid and auth_token and WA_PHONE:
+            client = Client(account_sid, auth_token)
+            client.messages.create(from_='whatsapp:+14155238886', body=msg, to=f'whatsapp:+{WA_PHONE}')
+    except Exception:
+        pass
+
+def parse_mixed_dates(date_series):
+    parsed = []
+    for val in date_series:
+        dt = pd.to_datetime(str(val).strip(), errors='coerce')
+        if pd.isna(dt):
+            dt = pd.to_datetime(str(val).strip(), dayfirst=True, errors='coerce')
+        parsed.append(dt)
+    return pd.Series(parsed)
+
+@st.cache_data(ttl=5)
+def load_data(active_csv_url="", cache_buster=0):
+    try:
+        target_csv = (active_csv_url or "").strip()
+        if not target_csv:
+            return pd.DataFrame(columns=['Date', 'Item', 'Debit', 'Credit'])
+        sep = "&" if "?" in target_csv else "?"
+        df = pd.read_csv(f"{target_csv}{sep}r={random.randint(1,999999)}_{cache_buster}")
         df.columns = df.columns.str.strip()
+        df['Date'] = parse_mixed_dates(df['Date'])
         df['Debit'] = pd.to_numeric(df['Debit'], errors='coerce').fillna(0)
         df['Credit'] = pd.to_numeric(df['Credit'], errors='coerce').fillna(0)
-        
-        # 👉 ഷോപ്പ് പേര് വേർതിരിച്ചെടുക്കുന്നു
-        if not df.empty and 'Item' in df.columns:
-            df['Shop Name'] = df['Item'].apply(lambda x: x.split(']')[0].replace('[', '') if '[' in str(x) and ']' in str(x) else 'Unknown')
-            # ഇനി 'Item' കോളത്തിൽ നിന്ന് ഷോപ്പ് പേര് ഒഴിവാക്കാം (ഉദാ: '[Shop 1] Tea' -> 'Tea')
-            df['Item'] = df['Item'].apply(lambda x: x.split(']')[1].strip() if ']' in str(x) else str(x))
-            
         return df
     except Exception:
-        return pd.DataFrame(columns=['Date', 'Shop Name', 'Item', 'Debit', 'Credit'])
+        return pd.DataFrame(columns=['Date', 'Item', 'Debit', 'Credit'])
 
-@st.cache_data(ttl=2)
-def load_stock_data(csv_url):
+@st.cache_data(ttl=5)
+def load_debts_data(active_csv_url="", cache_buster=0):
     try:
-        if not csv_url or "http" not in csv_url: raise ValueError("No URL")
-        df = pd.read_csv(f"{csv_url}&r={random.randint(1,999)}")
+        target_csv = (active_csv_url or "").strip()
+        if not target_csv:
+            return pd.DataFrame(columns=['ID', 'Name', 'Type', 'Amount', 'Date', 'Status', 'Sender'])
+        sep = "&" if "?" in target_csv else "?"
+        df = pd.read_csv(f"{target_csv}{sep}r={random.randint(1,999999)}_{cache_buster}")
         df.columns = df.columns.str.strip()
-        df['Quantity'] = pd.to_numeric(df['Quantity'], errors='coerce').fillna(0)
+        df['Amount'] = pd.to_numeric(df['Amount'], errors='coerce').fillna(0)
         return df
     except Exception:
-        return pd.DataFrame(columns=['Date', 'Item', 'Quantity', 'Type'])
+        return pd.DataFrame(columns=['ID', 'Name', 'Type', 'Amount', 'Date', 'Status', 'Sender'])
 
-# --- PDF HELPER ---
-def _find_unicode_font():
-    candidates = ["/usr/share/fonts/truetype/noto/NotoSansMalayalam-Regular.ttf", "C:/Windows/Fonts/arial.ttf"]
-    for p in candidates:
-        if os.path.exists(p): return p
-    return None
+def refresh_user_sheet_cache():
+    st.cache_data.clear()
 
-def generate_pdf(df, title, columns):
-    pdf = FPDF()
-    pdf.add_page()
-    font_path = _find_unicode_font()
-    has_unicode = False
-    if font_path:
-        try:
-            pdf.add_font("UFont", "", font_path)
-            has_unicode = True
-        except: pass
-
-    pdf.set_font("UFont" if has_unicode else "Helvetica", size=14)
-    pdf.cell(190, 10, txt=title, ln=True, align='C')
-    pdf.ln(10)
-    pdf.set_font("UFont" if has_unicode else "Helvetica", size=10)
-    col_width = 190 / len(columns)
-    for col in columns: pdf.cell(col_width, 10, txt=str(col), border=1, align='C')
-    pdf.ln()
-    pdf.set_font("UFont" if has_unicode else "Helvetica", size=9)
-    
-    def _safe(v):
-        s = str(v)
-        return s if has_unicode else s.encode('ascii', 'ignore').decode('ascii')
-    for _, row in df.iterrows():
-        for col in columns: pdf.cell(col_width, 10, txt=_safe(row[col]), border=1)
+def create_pdf(df):
+    try:
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font("Arial", 'B', 14)
+        pdf.cell(190, 10, txt="FINANCE REPORT", ln=True, align='C')
+        pdf.ln(10)
+        pdf.set_font("Arial", 'B', 10)
+        widths = {"Date": 30, "Item": 85, "Debit": 35, "Credit": 35}
+        for col in widths: pdf.cell(widths[col], 10, txt=col, border=1, align='C')
         pdf.ln()
-    return bytes(pdf.output())
+        pdf.set_font("Arial", size=9)
+        for _, row in df.iterrows():
+            if pdf.get_y() > 260: pdf.add_page()
+            y_start = pdf.get_y()
+            pdf.cell(30, 10, txt=str(row['Date']), border=0)
+            x_after_date = pdf.get_x()
+            pdf.multi_cell(85, 5, txt=str(row['Item']).encode('ascii', 'ignore').decode('ascii'), border=0)
+            h = max(10, pdf.get_y() - y_start)
+            pdf.set_xy(x_after_date + 85, y_start)
+            pdf.cell(35, h, txt=str(row['Debit']), border=0, align='R')
+            pdf.cell(35, h, txt=str(row['Credit']), border=0, align='R')
+            pdf.set_xy(10, y_start)
+            for w in widths.values(): pdf.cell(w, h, txt="", border=1)
+            pdf.set_y(y_start + h)
+        return bytes(pdf.output())
+    except Exception:
+        return None
 
-# ============================================
-# 🤖 AI AGENT TOOLS & FUNCTIONS
-# ============================================
+def add_new_entry(item, amount, category="Others", type="Debit", entry_date=None):
+    try:
+        target_url = get_active_web_app_url()
+        eng_item = translate_to_english_label(item, "Expense")
+        eng_cat = translate_to_english_label(category, "Others")
+        eng_date = format_english_datetime(entry_date)
+        payload = {
+            "item": eng_item, "amount": amount, "category": eng_cat,
+            "type": type, "date": eng_date
+        }
+        if target_url:
+            requests.post(target_url, json=payload, timeout=10)
+            refresh_user_sheet_cache()
+        send_whatsapp_auto(f"✅ *AI Entry Added*\n📝 Item: {eng_item}\n💰 Amt: ₹{amount}\n📅 Date: {eng_date}")
+        return True, f"Entry saved to sheet: {eng_item} - ₹{amount} ({type})"
+    except Exception as e:
+        return False, f"Failed to save to sheet: {str(e)}"
+
+def add_multiple_entries(entries_list):
+    results = []
+    try:
+        target_url = get_active_web_app_url()
+        for entry in entries_list:
+            item = translate_to_english_label(entry.get('item', 'Expense'), 'Expense')
+            amount = entry.get('amount', 0)
+            category = translate_to_english_label(entry.get('category', 'Others'), 'Others')
+            entry_type = entry.get('type', 'Debit')
+            entry_date = format_english_datetime(entry.get('date'))
+            payload = {
+                "item": item, "amount": amount, "category": category,
+                "type": entry_type, "date": entry_date
+            }
+            if target_url:
+                requests.post(target_url, json=payload, timeout=10)
+            results.append(f'{item} - ₹{amount}')
+        if target_url:
+            refresh_user_sheet_cache()
+        summary_text = '\n'.join([f'• {r}' for r in results])
+        send_whatsapp_auto(f'✅ *AI Multi-Entries Added*\n{summary_text}')
+        return True, f"Saved {len(results)} entries to sheet: " + ", ".join(results)
+    except Exception as e:
+        return False, f"Failed to save entries: {str(e)}"
+
+def add_debt_via_ai(name, type, amount, date=None):
+    try:
+        target_url = get_active_web_app_url()
+        eng_name = translate_to_english_label(name, "Person")
+        eng_type = "Lent" if "Lent" in str(type) or "കൊടുത്ത" in str(type) else "Borrowed"
+        eng_date_str = " ".join(format_english_datetime(date).split(" ")[0:3])
+        payload = {
+            "action": "add_debt", "name": eng_name, "type": eng_type,
+            "amount": amount, "date": eng_date_str
+        }
+        if target_url:
+            requests.post(target_url, json=payload, timeout=10)
+            refresh_user_sheet_cache()
+        send_whatsapp_auto(f"🤝 *AI Debt Added*\n👤 Person: {eng_name}\n📌 Type: {eng_type}\n💰 Amt: ₹{amount}")
+        return True, f"Debt saved to sheet: {eng_type} - {eng_name} - ₹{amount}"
+    except Exception as e:
+        return False, f"Failed to save debt: {str(e)}"
+
 tools = [
-    {"type": "function", "function": {"name": "add_finance", "description": "Add finance", "parameters": {"type": "object", "properties": {"shop": {"type": "string", "enum": ["Shop 1", "Shop 2"]}, "item": {"type": "string"}, "amount": {"type": "number"}, "type": {"type": "string", "enum": ["Debit", "Credit"]}}, "required": ["shop", "item", "amount", "type"]}}},
-    {"type": "function", "function": {"name": "add_stock", "description": "Add stock", "parameters": {"type": "object", "properties": {"item_name": {"type": "string"}, "qty": {"type": "number"}, "stock_type": {"type": "string", "enum": ["Stock In", "Stock Out"]}}, "required": ["item_name", "qty", "stock_type"]}}},
-    {"type": "function", "function": {"name": "check_gmail", "description": "Read emails", "parameters": {"type": "object", "properties": {"count": {"type": "number"}}, "required": ["count"]}}}
+    {
+        "type": "function",
+        "function": {
+            "name": "add_new_entry",
+            "description": "Add a single expense or income in English when item and amount are clear",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "item": {"type": "string", "description": "Item name translated to clean English"},
+                    "amount": {"type": "number"},
+                    "category": {"type": "string", "description": "Food, Shop, Fish, Travel, Rent, Others"},
+                    "type": {"type": "string", "enum": ["Debit", "Credit"]},
+                    "date": {"type": "string", "description": "English date format e.g. 21 Nov 2026 20:47:00"}
+                },
+                "required": ["item", "amount"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "add_multiple_entries",
+            "description": "Add multiple expenses in English",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "entries_list": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "item": {"type": "string"},
+                                "amount": {"type": "number"},
+                                "category": {"type": "string"},
+                                "type": {"type": "string", "enum": ["Debit", "Credit"]},
+                                "date": {"type": "string"}
+                            },
+                            "required": ["item", "amount"]
+                        }
+                    }
+                },
+                "required": ["entries_list"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "add_debt_entry",
+            "description": "Add money lent or borrowed to Debt Tracker in English",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string", "description": "Person name in English"},
+                    "type": {"type": "string", "enum": ["Lent", "Borrowed"]},
+                    "amount": {"type": "number"},
+                    "date": {"type": "string"}
+                },
+                "required": ["name", "type", "amount"]
+            }
+        }
+    }
 ]
 
-def execute_add_finance(shop, item, amount, t_type):
-    api = st.session_state.user_form_api
-    payload = {
-        "entry.1852575378": datetime.now().strftime("%Y-%m-%d"),
-        "entry.223776979": f"[{shop}] {item}",
-        "entry.510681766": amount if t_type == "Debit" else 0,
-        "entry.954222492": 0 if t_type == "Debit" else amount
-    }
-    if submit_form(api, payload): 
-        load_finance_data.clear()
-        return "Success"
-    return "Failed"
-
-def execute_add_stock(item_name, qty, stock_type):
-    api = st.session_state.user_form_api
-    payload = {
-        "entry.1852575378": datetime.now().strftime("%Y-%m-%d"),
-        "entry.223776979": f"[Stock] {item_name}",
-        "entry.510681766": qty,
-        "entry.954222492": stock_type
-    }
-    if submit_form(api, payload): 
-        load_stock_data.clear()
-        return "Success"
-    return "Failed"
-
-def check_gmail_emails(count=3):
-    if not GMAIL_USER or not GMAIL_APP_PASSWORD: return "Gmail App Password not found."
-    try:
-        mail = imaplib.IMAP4_SSL("imap.gmail.com")
-        mail.login(GMAIL_USER, GMAIL_APP_PASSWORD)
-        mail.select("inbox")
-        status, messages = mail.search(None, "ALL")
-        mail_ids = messages[0].split()
-        if not mail_ids: return "No emails found."
-        
-        latest_ids = mail_ids[-int(count):]
-        email_list = []
-        for i in reversed(latest_ids):
-            res, msg = mail.fetch(i, "(RFC822)")
-            for response in msg:
-                if isinstance(response, tuple):
-                    msg = email.message_from_bytes(response[1])
-                    subject, encoding = decode_header(msg["Subject"])[0]
-                    if isinstance(subject, bytes): subject = subject.decode(encoding if encoding else "utf-8")
-                    from_ = msg.get("From")
-                    email_list.append(f"From: {from_}\nSubject: {subject}\n")
-        mail.logout()
-        return "\n---\n".join(email_list)
-    except Exception as e: return f"Gmail Error: {str(e)}"
-
-def fetch_rss_news():
-    try:
-        url = "https://news.google.com/rss/search?q=gold+rate+petrol+price+kerala+uae+business&hl=en-US&gl=US&ceid=US:en"
-        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-        response = urllib.request.urlopen(req)
-        root = ET.fromstring(response.read())
-        items = root.findall('.//item')
-        return "\n".join([f"- {item.find('title').text}" for item in items[:5]])
-    except: return "Error fetching news"
-
-def extract_frames_from_video(video_bytes, num_frames=3):
-    try:
-        tfile = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
-        tfile.write(video_bytes); tfile.close()
-        cap = cv2.VideoCapture(tfile.name)
-        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        frames = []
-        if total_frames > 0:
-            step = max(1, total_frames // num_frames)
-            for i in range(0, total_frames, step):
-                cap.set(cv2.CAP_PROP_POS_FRAMES, i)
-                ret, frame = cap.read()
-                if ret:
-                    _, buffer = cv2.imencode('.jpg', frame)
-                    frames.append(buffer.tobytes())
-                if len(frames) >= num_frames: break
-        cap.release(); os.unlink(tfile.name)
-        return frames
-    except: return []
-
-def analyze_images_with_groq(images_bytes_list, is_video=False):
-    if not GROQ_API_KEY: return False, "Groq Key missing!"
-    try:
-        client = Groq(api_key=GROQ_API_KEY)
-        
-        if is_video:
-            prompt_text = "Analyze these CCTV video frames carefully. Count the exact number of people visible and describe what they are doing. If there are no people, explicitly say 'No people visible'. Provide the report in English."
-        else:
-            prompt_text = "You are an expert inventory auditor. Look very closely at this image. Count the exact number of items visible. Pay close attention to stacked items. Count each individual layer carefully to get the exact total number. Tell me the name of the item and the exact quantity. Provide the report in English."
-        
-        content_list = [{"type": "text", "text": prompt_text}]
-        for img in images_bytes_list:
-            content_list.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64.b64encode(img).decode('utf-8')}"}})
-            
-        res = client.chat.completions.create(
-            model=VISION_MODEL, 
-            messages=[{"role": "user", "content": content_list}], 
-            max_tokens=800,
-            temperature=0.1
-        ).choices[0].message.content
-        
-        return True, res
-    except Exception as e: 
-        return False, f"Vision Error: {str(e)}"
-
-def process_ai_agent(prompt_text):
-    client = Groq(api_key=GROQ_API_KEY)
-    system_instruction = f"You are a business AI. Answer in English."
-    messages = [{"role": "system", "content": system_instruction}] + [{"role": m["role"], "content": m["content"]} for m in st.session_state.messages[-4:]] + [{"role": "user", "content": prompt_text}]
-    
-    response = client.chat.completions.create(model=AGENT_MODEL, messages=messages, tools=tools, tool_choice="auto")
-    msg = response.choices[0].message
-    tool_used = False
-    
-    if msg.tool_calls:
-        tool_used = True
-        replies = []
-        for tc in msg.tool_calls:
-            try: args = json.loads(tc.function.arguments)
-            except: continue
-            
-            if tc.function.name == "add_finance":
-                res = execute_add_finance(args["shop"], args["item"], args["amount"], args["type"])
-                replies.append(f"✅ Added entry for '{args['item']}' in {args['shop']}!" if res == "Success" else "❌ Failed to add entry.")
-            elif tc.function.name == "add_stock":
-                res = execute_add_stock(args["item_name"], args["qty"], args["stock_type"])
-                replies.append(f"✅ Updated stock for {args['item_name']}!" if res == "Success" else "❌ Failed to update stock.")
-            elif tc.function.name == "check_gmail":
-                raw = check_gmail_emails(args.get("count", 3))
-                replies.append(f"📧 **Emails:**\n\n{raw}")
-        ai_reply = "\n\n".join(replies)
-    else:
-        ai_reply = msg.content or ""
-    return ai_reply, tool_used
-
-# ============================================
-# 🔒 SIMPLE PIN LOGIN
-# ============================================
+# --- 🔒 LOGIN, SIGN UP & FORGOT PASSWORD ---
 if not st.session_state.auth:
     _, mid, _ = st.columns([1, 2, 1])
     with mid:
         st.markdown('<div class="login-card">', unsafe_allow_html=True)
-        st.title("🔐 PAICHI BUSINESS LOGIN")
-        st.write("Please login to continue.")
-        
-        u = st.text_input("Username (e.g., faisal)")
-        pin = st.text_input("PIN", type="password", max_chars=4)
-        
-        if st.button("LOGIN", use_container_width=True):
-            if u in USER_DB and USER_DB[u]["pin"] == pin:
-                st.session_state.auth = True
-                st.session_state.user = u
-                st.session_state.user_csv_url = USER_DB[u]["csv_url"]
-                st.session_state.user_form_api = USER_DB[u]["form_api"]
-                st.rerun()
+        st.subheader("🔐 PAICHI EXPENSES")
+
+        mode_tab1, mode_tab2 = st.tabs(["🔑 Login", "📝 Sign Up"])
+
+        with mode_tab1:
+            l_user = st.text_input("📧 Email / Username", key="login_user", placeholder="Enter your email or username").strip().lower()
+            l_pass = st.text_input("🔑 Password", type="password", key="login_pass", placeholder="Enter your password")
+
+            if st.button("LOGIN 🔓", key="btn_login"):
+                user_rec = db_get_user(l_user)
+                if not l_user:
+                    st.error("❌ Please enter your email or username.")
+                elif not l_pass:
+                    st.error("❌ Please enter your password.")
+                elif not user_rec:
+                    st.error("❌ Account not found. Please sign up first.")
+                elif user_rec["password_hash"] == hash_password(l_pass):
+                    refresh_user_sheet_cache()
+                    set_persistent_login(l_user)
+                    st.rerun()
+                else:
+                    st.error("❌ Incorrect password.")
+
+            with st.expander("🔄 Forgot Password (Email OTP)"):
+                r_user = st.text_input("📧 Registered Email", key="reset_user", placeholder="Enter your registered email").strip().lower()
+
+                if st.button("📩 Send Reset OTP", key="btn_send_reset_otp"):
+                    if not r_user:
+                        st.error("❌ Please enter your registered email.")
+                    elif not db_get_user(r_user):
+                        st.error("❌ No account found for this email.")
+                    elif "@" not in r_user:
+                        st.error("❌ A valid email address is required for OTP.")
+                    else:
+                        code = f"{random.randint(100000, 999999)}"
+                        st.session_state.reset_otp = code
+                        st.session_state.reset_otp_email = r_user
+                        st.session_state.reset_otp_verified = False
+                        try:
+                            send_otp_email(r_user, code, purpose="Reset Password")
+                            st.success("✅ 6-digit OTP sent to your email. Check Inbox or Spam.")
+                        except Exception as e:
+                            st.error(f"❌ Failed to send OTP: {e}")
+
+                if st.session_state.reset_otp and st.session_state.reset_otp_email == r_user:
+                    r_otp_in = st.text_input("🔢 Enter Reset OTP", key="reset_otp_input", max_chars=6, placeholder="6-digit OTP")
+                    if st.button("✅ Verify Reset OTP", key="btn_verify_reset_otp"):
+                        if r_otp_in.strip() == st.session_state.reset_otp:
+                            st.session_state.reset_otp_verified = True
+                            st.success("✅ OTP verified. Enter your new password.")
+                        else:
+                            st.error("❌ Invalid OTP.")
+
+                if st.session_state.reset_otp_verified and st.session_state.reset_otp_email == r_user:
+                    r_new_pass = st.text_input("🔑 New Password", type="password", key="reset_new_pass", placeholder="Enter new password")
+                    r_confirm_pass = st.text_input("🔒 Confirm New Password", type="password", key="reset_confirm_pass", placeholder="Re-enter new password")
+
+                    if st.button("RESET PASSWORD 🔁", key="btn_reset_pass"):
+                        if not r_new_pass:
+                            st.error("❌ Please enter a new password.")
+                        elif r_new_pass != r_confirm_pass:
+                            st.error("❌ Passwords do not match.")
+                        else:
+                            new_hash = db_update_password(r_user, r_new_pass)
+                            st.session_state.reset_otp = None
+                            st.session_state.reset_otp_email = ""
+                            st.session_state.reset_otp_verified = False
+                            st.success("✅ Password updated.")
+                            st.code(f'"{r_user}": {{"password_hash": "{new_hash}"}}', language="json")
+
+        with mode_tab2:
+            st.caption("Each Google/Email account can be registered only once.")
+            s_user = st.text_input("📧 Google / Email ID", key="signup_user", placeholder="example@gmail.com").strip().lower()
+
+            if is_account_already_registered(s_user):
+                st.error("❌ This Google/Email account is already registered and cannot be submitted again.")
             else:
-                st.error("❌ Invalid Username or PIN.")
+                if st.button("📩 Send Sign Up OTP", key="btn_send_signup_otp"):
+                    if not s_user or "@" not in s_user:
+                        st.error("❌ Please enter a valid email address.")
+                    elif is_account_already_registered(s_user):
+                        st.error("❌ This Google/Email account is already registered and cannot be submitted again.")
+                    else:
+                        code = f"{random.randint(100000, 999999)}"
+                        st.session_state.signup_otp = code
+                        st.session_state.signup_otp_email = s_user
+                        st.session_state.signup_otp_verified = False
+                        try:
+                            send_otp_email(s_user, code, purpose="Sign Up")
+                            st.success("✅ 6-digit OTP sent to your email. Check Inbox or Spam.")
+                        except Exception as e:
+                            st.error(f"❌ Failed to send OTP: {e}")
+
+                if st.session_state.signup_otp and st.session_state.signup_otp_email == s_user:
+                    s_otp_in = st.text_input("🔢 Enter OTP", key="signup_otp_input", max_chars=6, placeholder="6-digit OTP")
+                    if st.button("✅ Verify OTP", key="btn_verify_signup_otp"):
+                        if s_otp_in.strip() == st.session_state.signup_otp:
+                            st.session_state.signup_otp_verified = True
+                            st.success("✅ OTP verified. Set your password to complete registration.")
+                        else:
+                            st.error("❌ Invalid OTP.")
+
+                if st.session_state.signup_otp_verified and st.session_state.signup_otp_email == s_user:
+                    s_pass = st.text_input("🔑 Create Password", type="password", key="signup_pass", placeholder="Create your password")
+                    s_confirm = st.text_input("🔒 Confirm Password", type="password", key="signup_confirm", placeholder="Re-enter your password")
+
+                    if st.button("COMPLETE SIGN UP ✨", key="btn_signup"):
+                        if is_account_already_registered(s_user):
+                            st.error("❌ This Google/Email account is already registered and cannot be submitted again.")
+                        elif not s_pass:
+                            st.error("❌ Please enter a password.")
+                        elif s_pass != s_confirm:
+                            st.error("❌ Passwords do not match.")
+                        else:
+                            created_entry = db_create_user(s_user, s_pass, "", "")
+                            st.session_state.signup_otp = None
+                            st.session_state.signup_otp_email = ""
+                            st.session_state.signup_otp_verified = False
+                            refresh_user_sheet_cache()
+                            st.info("📌 Add this entry to `USERS_DATA` in Secrets to keep the account across reboots:")
+                            st.code(json.dumps(created_entry, indent=2), language="json")
+                            set_persistent_login(s_user)
+                            st.rerun()
+
         st.markdown('</div>', unsafe_allow_html=True)
-    st.stop()
 
-# ============================================
-# 🚀 MAIN APP
-# ============================================
-user_data = USER_DB[st.session_state.user]
-st.sidebar.title(f"👋 Welcome, {user_data['name']}")
+else:
+    user_profile = db_get_user(st.session_state.user) or {}
+    active_csv = get_active_csv_url()
+    df = load_data(active_csv)
+    t_in, t_out = (df['Credit'].sum(), df['Debit'].sum()) if not df.empty else (0.0, 0.0)
+    bal = t_in - t_out
 
-menu = ["📊 Dashboard", "💰 Add Finance", "📦 Stock Management", "🧾 Bill Scanner", "📧 Email Replier", "📢 WhatsApp Marketing", "📰 Daily Market News", "👨‍💼 Staff Salary", "🤖 AI Agent", "🎥 CCTV AI Vision"]
-page = st.sidebar.radio("Menu", menu)
+    st.sidebar.caption(f"👤 {format_display_name(st.session_state.user)}")
 
-if st.sidebar.button("Logout"):
-    st.session_state.auth = False
-    st.session_state.messages = []
-    st.rerun()
+    with st.sidebar.expander("🔗 Link Sheet (One-Time)"):
+        has_locked_links = (
+            user_profile.get("links_locked") == 1
+            or bool((user_profile.get("sheet_url") or "").strip())
+            or bool((user_profile.get("csv_url") or "").strip())
+        )
+        if has_locked_links:
+            st.info("🔒 Sheet links are already submitted and permanently locked.")
+        else:
+            sb_sheet = st.text_input("Sheet Web App Link", key="sb_sheet_url", placeholder="https://script.google.com/macros/s/.../exec").strip()
+            sb_csv = st.text_input("Sheet CSV Link", key="sb_csv_url", placeholder="https://docs.google.com/spreadsheets/d/.../export?format=csv").strip()
+            if st.button("SUBMIT LINK ONCE 🔒", key="btn_sb_link_once"):
+                ok_l, msg_l = db_bind_links_once(st.session_state.user, sb_sheet, sb_csv)
+                if ok_l:
+                    refresh_user_sheet_cache()
+                    st.success(f"✅ {msg_l}")
+                    time.sleep(1)
+                    st.rerun()
+                else:
+                    st.error(f"❌ {msg_l}")
 
-df_fin = load_finance_data(st.session_state.user_csv_url)
-df_stk = load_stock_data(st.session_state.user_csv_url)
-bal = (df_fin['Credit'].sum() - df_fin['Debit'].sum()) if not df_fin.empty else 0
+    with st.sidebar.expander("⚙️ Settings"):
+        if st.button("🔄 Sync Data"):
+            refresh_user_sheet_cache()
+            st.rerun()
 
-# --- 1. DASHBOARD ---
-if page == "📊 Dashboard":
-    st.markdown(f'<div class="banner"><span class="b-label">Total Business Balance</span><br><span class="b-value">₹{bal:,.2f}</span></div>', unsafe_allow_html=True)
-    
-    if not df_fin.empty:
-        # 👉 ഇവിടെയാണ് പുതിയ മാറ്റം: Shop Name ഉണ്ടെങ്കിൽ മാത്രം ഗ്രാഫ് വരയ്ക്കും
-        if 'Shop Name' in df_fin.columns:
-            shop_data = df_fin.groupby('Shop Name')[['Credit', 'Debit']].sum().reset_index()
-            st.plotly_chart(px.bar(shop_data, x='Shop Name', y=['Credit', 'Debit'], barmode='group', color_discrete_sequence=['#00FF00', '#FF3131']), use_container_width=True)
-        
-        st.dataframe(df_fin.tail(10).iloc[::-1], use_container_width=True)
+        st.session_state.custom_alert_text = st.text_area("Alert Message", value=st.session_state.custom_alert_text)
+        st.session_state.low_limit = st.number_input("Low Balance Limit (₹)", value=st.session_state.low_limit)
 
-# --- 2. ADD FINANCE ---
-elif page == "💰 Add Finance":
-    st.title("💰 Finance Entry")
-    show_flash()
-    with st.form("finance_form", clear_on_submit=True):
-        shop = st.selectbox("Select Shop", ["Shop 1", "Shop 2"])
-        it = st.text_input("Description"); am_str = st.text_input("Amount")
-        ty = st.radio("Type", ["Debit", "Credit"], horizontal=True)
-        if st.form_submit_button("SAVE ENTRY"):
-            try:
-                am = float(am_str.strip().replace(',', ''))
-                if execute_add_finance(shop, it, am, ty) == "Success":
-                    flash_success("Saved successfully! ✅"); st.rerun()
-            except: st.error("❗ Invalid amount.")
+    menu = ["🏠 Dashboard", "💰 Add Entry", "📅 Calendar", "📊 Report", "🔍 History", "🤝 Debt Tracker", "🤖 AI Chat", "🧠 My AI Buddy"]
+    page = st.sidebar.radio("Menu", menu)
+    if st.sidebar.button("Logout"):
+        clear_persistent_login()
+        st.rerun()
 
-# --- 3. STOCK ---
-elif page == "📦 Stock Management":
-    st.title("📦 Stock Management")
-    show_flash()
-    with st.form("stock_form", clear_on_submit=True):
-        item_name  = st.text_input("Item Name"); qty = st.number_input("Quantity", min_value=1.0)
-        stock_type = st.radio("Type", ["Stock In", "Stock Out"], horizontal=True)
-        if st.form_submit_button("SAVE STOCK"):
-            if execute_add_stock(item_name, qty, stock_type) == "Success":
-                flash_success("Stock Updated successfully! ✅"); st.rerun()
+    # --- DASHBOARD ---
+    if page == "🏠 Dashboard":
+        if bal < st.session_state.low_limit:
+            st.markdown(f'<div class="alert-banner">⚠️ Low Balance Alert: {st.session_state.custom_alert_text} (₹{bal:,.2f})!</div>', unsafe_allow_html=True)
 
-# --- 4. BILL SCANNER ---
-elif page == "🧾 Bill Scanner":
-    st.title("🧾 Bill Scanner")
-    bill_file = st.file_uploader("Upload Bill Photo", type=["jpg", "jpeg", "png"])
-    if bill_file is not None:
-        st.image(bill_file, caption="Uploaded Bill", use_container_width=True)
-        if st.button("🔍 Extract & Add"):
-            with st.spinner("AI is reading the bill..."):
+        st.markdown(f'<div class="balance-banner"><span style="font-size:22px; color:#94A3B8; letter-spacing: 2px;">AVAILABLE BALANCE</span><br><span style="font-size:50px; color:#10B981; font-family: monospace;">₹{bal:,.2f}</span></div>', unsafe_allow_html=True)
+        st.title("Financial Overview")
+        st.markdown(f'<div class="glass-card"><h2 style="color:#10B981;">Credit: ₹{t_in:,.2f}</h2><h2 style="color:#EF4444;">Debit: ₹{t_out:,.2f}</h2></div>', unsafe_allow_html=True)
+
+        if not df.empty and 'Item' in df.columns:
+            def extract_cat(x):
+                item_text = str(x).lower()
+                if any(w in item_text for w in ["food", "tea", "coffee", "biryani", "ഭക്ഷണം", "ചായ", "ഹോട്ടൽ", "ബിരിയാണി"]): return "Food"
+                elif any(w in item_text for w in ["shop", "store", "supermarket", "കട", "സാധനങ്ങൾ", "സൂപ്പർമാർക്കറ്റ്"]): return "Shop"
+                elif any(w in item_text for w in ["fish", "meat", "chicken", "മീൻ", "ഇറച്ചി", "ചിക്കൻ"]): return "Fish"
+                elif any(w in item_text for w in ["travel", "petrol", "fuel", "taxi", "യാത്ര", "പെട്രോൾ", "വണ്ടി", "ടാക്സി"]): return "Travel"
+                elif any(w in item_text for w in ["rent", "room", "വാടക", "റൂം"]): return "Rent"
+                return "Others"
+            df['Cat'] = df['Item'].apply(extract_cat)
+            cats = df.groupby('Cat')['Debit'].sum().to_dict()
+            cols = st.columns(3)
+            for idx, (c_name, c_amt) in enumerate(cats.items()):
+                if c_amt > 0:
+                    with cols[idx % 3]:
+                        st.markdown(f'<div class="category-box"><span style="color:#94A3B8;">Total {c_name}</span><br><span style="font-size:24px; color:#F8FAFC;">₹{c_amt:,.2f}</span></div>', unsafe_allow_html=True)
+
+    # --- ADD ENTRY ---
+    elif page == "💰 Add Entry":
+        st.title("Smart Voice Entry 🎙️")
+        v_raw = speech_to_text(language='ml-IN', key='voice_v9')
+        v_cat, v_amt, v_desc, v_type = "Others", "", "", "Debit"
+
+        if v_raw:
+            raw = v_raw.lower().replace('.', '').replace(',', '')
+            nums = re.findall(r'\d+', raw)
+            v_amt = nums[0] if nums else ""
+            raw_desc = re.sub(r'\d+', '', raw).strip()
+            v_desc = translate_to_english_label(raw_desc, "Expense")
+            if any(x in raw for x in ["food", "tea", "coffee", "biryani", "ഭക്ഷണം", "ചായ", "ഹോട്ടൽ", "ബിരിയാണി"]): v_cat = "Food"
+            elif any(x in raw for x in ["shop", "കട"]): v_cat = "Shop"
+            elif any(x in raw for x in ["fish", "chicken", "മീൻ", "ചിക്കൻ"]): v_cat = "Fish"
+            elif any(x in raw for x in ["travel", "petrol", "പെട്രോൾ", "വണ്ടി"]): v_cat = "Travel"
+            if any(x in raw for x in ["credit", "received", "salary", "കിട്ടി", "വന്നു", "തന്നു"]): v_type = "Credit"
+
+        with st.form("entry_form", clear_on_submit=True):
+            it = st.text_input("Description", value=v_desc)
+            am_str = st.text_input("Amount", value=str(v_amt))
+            cat = st.selectbox("Category", ["Food", "Shop", "Fish", "Travel", "Rent", "Others"], index=["Food", "Shop", "Fish", "Travel", "Rent", "Others"].index(v_cat))
+            ty = st.radio("Type", ["Debit", "Credit"], horizontal=True, index=0 if v_type == "Debit" else 1)
+
+            if st.form_submit_button("SAVE & NOTIFY"):
                 try:
-                    client = Groq(api_key=GROQ_API_KEY)
-                    b64_img = base64.b64encode(bill_file.getvalue()).decode('utf-8')
-                    prompt = "Extract item name, quantity, and total price. Return ONLY JSON array: [{\"item\": \"Sugar\", \"qty\": 5, \"price\": 250}]"
-                    response = client.chat.completions.create(model=VISION_MODEL, messages=[{"role": "user", "content": [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64_img}"}}]}], max_tokens=1000)
-                    res_text = response.choices[0].message.content.strip()
-                    if res_text.startswith("```json"): res_text = res_text[7:-3]
-                    items_data = json.loads(res_text)
-                    for item in items_data:
-                        execute_add_finance("Shop 1", f"Purchase: {item['item']}", item['price'], "Debit")
-                    st.success("🎉 Bill processed successfully!"); st.rerun()
-                except Exception as e: st.error(f"Error: {e}")
+                    am = float(am_str.strip().replace(',', ''))
+                    if not st.session_state.entry_saved_flag:
+                        eng_it = translate_to_english_label(it, "Expense")
+                        eng_dt = format_english_datetime()
+                        target_url = get_active_web_app_url()
+                        payload = {
+                            "item": eng_it, "amount": am, "category": cat,
+                            "type": ty, "date": eng_dt
+                        }
+                        if target_url:
+                            requests.post(target_url, json=payload, timeout=10)
+                            refresh_user_sheet_cache()
+                        send_whatsapp_auto(f"✅ *Expense Entry*\n📝 {eng_it}\n💰 ₹{am}\n📅 {eng_dt}")
 
-# --- 5. EMAIL ---
-elif page == "📧 Email Replier":
-    st.title("📧 Smart Email Replier")
-    if st.button("🔄 Check Latest Emails"):
-        with st.spinner("AI is reading emails..."):
-            raw_emails = check_gmail_emails(1)
-            if "Error" in raw_emails or "No emails" in raw_emails: st.warning(raw_emails)
+                        st.session_state.entry_saved_flag = True
+                        st.success("Saved! ✅")
+                        time.sleep(1)
+                        st.session_state.entry_saved_flag = False
+                        st.rerun()
+                except Exception as e:
+                    st.error(f"Error! Valid amount required. {e}")
+
+    # --- CALENDAR ---
+    elif page == "📅 Calendar":
+        st.title("P&L Calendar View 📅")
+        if df.empty:
+            st.info("No data available yet.")
+        else:
+            df_cal = df.dropna(subset=['Date']).copy()
+            df_cal['DayKey'] = df_cal['Date'].dt.strftime('%Y-%m-%d')
+            summary = df_cal.groupby('DayKey', as_index=False).agg({'Debit': 'sum', 'Credit': 'sum'})
+            events = []
+            for _, row in summary.iterrows():
+                if row['Debit'] > 0:
+                    events.append({"title": f"-₹{row['Debit']:,.0f}", "start": row['DayKey'], "backgroundColor": "#EF4444", "borderColor": "#EF4444", "textColor": "#ffffff"})
+                if row['Credit'] > 0:
+                    events.append({"title": f"+₹{row['Credit']:,.0f}", "start": row['DayKey'], "backgroundColor": "#10B981", "borderColor": "#10B981", "textColor": "#ffffff"})
+
+            calendar_options = {"headerToolbar": {"left": "prev,next today", "center": "title", "right": "dayGridMonth"}, "initialView": "dayGridMonth", "height": "auto", "dayMaxEvents": True}
+            cal_data = calendar(events=events, options=calendar_options, key="pnl_calendar_view")
+
+            selected_date = None
+            if cal_data:
+                if cal_data.get("callback") == "eventClick":
+                    selected_date = cal_data.get("eventClick", {}).get("event", {}).get("start", "").split("T")[0]
+                elif cal_data.get("callback") == "dateClick":
+                    selected_date = cal_data.get("dateClick", {}).get("date", "").split("T")[0]
+
+            if selected_date:
+                st.markdown("---")
+                try:
+                    pretty_dt = pd.to_datetime(selected_date).strftime('%d %b %Y')
+                except Exception:
+                    pretty_dt = selected_date
+                st.subheader(f"📋 Details for {pretty_dt}")
+                day_df = df_cal[df_cal['DayKey'] == selected_date].copy()
+                if not day_df.empty:
+                    day_df['Date'] = day_df['Date'].dt.strftime('%d %b %Y')
+                    st.dataframe(day_df[['Date', 'Item', 'Debit', 'Credit']], use_container_width=True)
+                else:
+                    st.info("No entries found for this date.")
+
+    # --- REPORT & HISTORY ---
+    elif (page == "📊 Report" or page == "🔍 History"):
+        if df.empty:
+            st.info("No data available yet.")
+        else:
+            df_rep = df.dropna(subset=['Date']).copy()
+            df_rep['Month'] = df_rep['Date'].dt.strftime('%B %Y')
+            months = df_rep.dropna(subset=['Month']).sort_values(by='Date', ascending=False)['Month'].unique()
+
+            if len(months) == 0:
+                st.warning("No data found!")
             else:
-                st.info("📥 **Latest Email:**"); st.text_area("Email Content", raw_emails, height=200, disabled=True)
-                client = Groq(api_key=GROQ_API_KEY)
-                prompt = f"Read this email and write a professional reply if it is important.\n\n{raw_emails}"
-                with st.spinner("AI is drafting a reply..."):
-                    reply_res = client.chat.completions.create(model=AGENT_MODEL, messages=[{"role": "user", "content": prompt}], max_tokens=800).choices[0].message.content
-                    st.success("✅ AI Suggested Reply:"); st.markdown(reply_res)
+                sel_m = st.selectbox("Select Month", months)
+                m_df = df_rep[df_rep['Month'] == sel_m].copy()
+                m_deb, m_crd = m_df['Debit'].sum(), m_df['Credit'].sum()
 
-# --- 6. WHATSAPP ---
-elif page == "📢 WhatsApp Marketing":
-    st.title("📢 WhatsApp Marketing")
-    ai_prompt = st.text_input("Ask AI to write a marketing message")
-    if st.button("🤖 Generate Message") and ai_prompt:
-        try:
-            client = Groq(api_key=GROQ_API_KEY)
-            res = client.chat.completions.create(model=AGENT_MODEL, messages=[{"role": "user", "content": f"Write a WhatsApp marketing message based on this: '{ai_prompt}'"}]).choices[0].message.content
-            st.session_state['wa_message'] = res
-        except: st.error("AI Error!")
-    
-    msg_to_send = st.text_area("Message to send", value=st.session_state.get('wa_message', ''), height=150)
-    numbers_input = st.text_area("Phone Numbers (separated by commas)")
-    numbers_list = [num.strip() for num in numbers_input.split(",") if num.strip()]
+                if page == "📊 Report":
+                    st.title("Monthly Expense Analysis")
+                    c1, c2, c3 = st.columns(3)
+                    c1.markdown(f'<div class="glass-card"><h3 style="color:#10B981;">Credit</h3><h1 style="color:#10B981;">₹{m_crd:,.2f}</h1></div>', unsafe_allow_html=True)
+                    c2.markdown(f'<div class="glass-card"><h3 style="color:#EF4444;">Expense</h3><h1 style="color:#EF4444;">₹{m_deb:,.2f}</h1></div>', unsafe_allow_html=True)
+                    c3.markdown(f'<div class="glass-card"><h3 style="color:#F59E0B;">Savings</h3><h1 style="color:#F59E0B;">₹{m_crd - m_deb:,.2f}</h1></div>', unsafe_allow_html=True)
 
-    if st.button("🚀 Send Message"):
-        if not TWILIO_SID: st.error("Twilio Config is missing.")
-        else:
-            success_count = 0
-            for num in numbers_list:
-                formatted_num = f"whatsapp:{num}" if not num.startswith("whatsapp:") else num
-                if send_whatsapp_custom(formatted_num, msg_to_send): success_count += 1
-                time.sleep(1) 
-            st.success(f"✅ Successfully sent {success_count} messages!")
+                    m_df['Cat'] = m_df['Item'].apply(lambda x: x.split(':')[0] if ':' in str(x) else 'Others')
+                    st.plotly_chart(px.pie(m_df[m_df['Debit'] > 0], values='Debit', names='Cat', hole=0.4), use_container_width=True)
 
-# --- 7. NEWS ---
-elif page == "📰 Daily Market News":
-    st.title("📰 Daily Market News")
-    if st.button("🔄 Fetch Latest News"):
-        with st.spinner("Fetching news..."):
-            raw_news = fetch_rss_news()
-            client = Groq(api_key=GROQ_API_KEY)
-            prompt = f"Summarize these news headlines:\n{raw_news}"
-            summary = client.chat.completions.create(model=AGENT_MODEL, messages=[{"role": "user", "content": prompt}], max_tokens=800).choices[0].message.content
-            st.success("📊 **AI News Summary:**"); st.markdown(summary)
+                clean_df = m_df.drop(columns=['Month'], errors='ignore')
+                clean_df['Date'] = clean_df['Date'].dt.strftime('%d %b %Y')
+                st.dataframe(clean_df.iloc[::-1], use_container_width=True)
 
-# --- 8. SALARY ---
-elif page == "👨‍💼 Staff Salary":
-    st.title("👨‍💼 Staff Salary Management")
-    with st.form("salary_form", clear_on_submit=True):
-        shop = st.selectbox("Shop", ["Shop 1", "Shop 2"])
-        emp_name = st.text_input("Employee Name"); sal_amt = st.number_input("Amount", min_value=1.0)
-        if st.form_submit_button("PAY SALARY"):
-            if execute_add_finance(shop, f"Salary: {emp_name}", sal_amt, "Debit") == "Success":
-                st.success(f"✅ Salary paid for {emp_name}!"); st.rerun()
+                if page == "📊 Report":
+                    pdf_bytes = create_pdf(clean_df)
+                    if pdf_bytes:
+                        st.download_button(label="📄 Download PDF Report", data=pdf_bytes, file_name=f"Expense_Report_{sel_m}.pdf", mime="application/pdf")
 
-# --- 9. AI AGENT ---
-elif page == "🤖 AI Agent":
-    st.title("🤖 PAICHI Business AI")
-    if st.button("🗑️ Clear Chat"): st.session_state.messages = []; st.session_state['audio_counter'] += 1; st.rerun()
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]): st.markdown(message["content"])
+    # --- DEBT TRACKER ---
+    elif page == "🤝 Debt Tracker":
+        st.title("🤝 Debt Tracker")
+        df_debts = load_debts_data(active_csv)
+        tab1, tab2, tab3 = st.tabs(["📋 View All Debts", "➕ Add New Debt", "⚙️ Settlement History"])
 
-    audio_value = st.audio_input("🎤 Record a message", key=f"audio_{st.session_state['audio_counter']}")
-    text_prompt = st.chat_input("Type here...")
-    prompt = None
+        with tab1:
+            st.subheader("Active Debts & Loans")
+            if not df_debts.empty:
+                pending_df = df_debts[df_debts['Status'] == "Pending"]
+                total_lent = pending_df[pending_df['Type'].str.contains("Lent", na=False)]['Amount'].sum()
+                total_borrowed = pending_df[pending_df['Type'].str.contains("Borrowed", na=False)]['Amount'].sum()
+            else:
+                total_lent, total_borrowed = 0.0, 0.0
 
-    if audio_value:
-        if st.session_state.get("last_audio_hash") != hashlib.md5(audio_value.getvalue()).hexdigest():
-            st.session_state["last_audio_hash"] = hashlib.md5(audio_value.getvalue()).hexdigest()
-            with st.spinner("Listening..."):
+            col_a, col_b = st.columns(2)
+            col_a.markdown(f'<div class="glass-card"><h4 style="color:#10B981;">Total Lent (Receivable)</h4><h2 style="color:#10B981;">₹{total_lent:,.2f}</h2></div>', unsafe_allow_html=True)
+            col_b.markdown(f'<div class="glass-card"><h4 style="color:#EF4444;">Total Borrowed (Payable)</h4><h2 style="color:#EF4444;">₹{total_borrowed:,.2f}</h2></div>', unsafe_allow_html=True)
+
+            st.markdown("---")
+            if df_debts.empty or len(df_debts[df_debts['Status'] == "Pending"]) == 0:
+                st.info("No pending debts available.")
+            else:
+                pending_items = df_debts[df_debts['Status'] == "Pending"].to_dict('records')
+                for debt in pending_items:
+                    with st.container():
+                        c1, c2, c3, c4, c5 = st.columns([2, 2, 2, 2, 2])
+                        c1.write(f"**{debt['Name']}**")
+                        c2.write(f"{debt['Type']}")
+                        c3.write(f"**₹{debt['Amount']:,.2f}**")
+                        c4.write(f"{str(debt['Date']).split(' ')[0]}")
+                        if c5.button("✅ Settle", key=f"settle_cloud_{debt['ID']}"):
+                            try:
+                                target_url = get_active_web_app_url()
+                                payload = {"action": "settle_debt", "id": debt['ID']}
+                                if target_url:
+                                    requests.post(target_url, json=payload, timeout=10)
+                                    refresh_user_sheet_cache()
+                                st.success(f"Settled debt for {debt['Name']}.")
+                                time.sleep(1)
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Error: {e}")
+                        st.markdown("<hr style='margin: 5px 0; border-color: #334155;'>", unsafe_allow_html=True)
+
+        with tab2:
+            st.subheader("Add New Debt Entry")
+            with st.form("cloud_debt_form", clear_on_submit=True):
+                d_name = st.text_input("👤 Person Name")
+                d_type = st.selectbox("📌 Transaction Type", ["Lent", "Borrowed"])
+                d_amount = st.number_input("💰 Amount (₹)", min_value=1.0, step=10.0)
+                d_date = st.date_input("📅 Date", value=datetime.now(GST).date())
+
+                if st.form_submit_button("SAVE TO GOOGLE SHEET 💾"):
+                    if not d_name.strip():
+                        st.error("Please enter a person name.")
+                    else:
+                        try:
+                            eng_d_name = translate_to_english_label(d_name.strip(), "Person")
+                            eng_d_date = d_date.strftime("%d %b %Y")
+                            target_url = get_active_web_app_url()
+                            payload = {"action": "add_debt", "name": eng_d_name, "type": d_type, "amount": d_amount, "date": eng_d_date}
+                            if target_url:
+                                requests.post(target_url, json=payload, timeout=10)
+                                refresh_user_sheet_cache()
+                            send_whatsapp_auto(f"🤝 *New Debt Saved*\n👤 Person: {eng_d_name}\n📌 Type: {d_type}\n💰 Amt: ₹{d_amount}")
+                            st.success("Debt saved successfully! ✅")
+                            time.sleep(1)
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Failed to save: {e}")
+
+        with tab3:
+            st.subheader("Settled History")
+            if df_debts.empty or len(df_debts[df_debts['Status'] == "Settled"]) == 0:
+                st.info("No settled records available.")
+            else:
+                settled_df = df_debts[df_debts['Status'] == "Settled"]
+                for _, item in settled_df.iterrows():
+                    st.write(f"✔️ **{item['Name']}** - {item['Type']} - ₹{item['Amount']:,.2f} (Date: {str(item['Date']).split(' ')[0]})")
+
+    # --- MY AI BUDDY ---
+    elif page == "🧠 My AI Buddy":
+        st.title("🧠 Your Personal AI Buddy")
+        if "buddy_messages" not in st.session_state: st.session_state.buddy_messages = []
+        for msg in st.session_state.buddy_messages:
+            with st.chat_message(msg["role"]): st.markdown(msg["content"])
+        user_input = st.chat_input("Ask me anything in English, Malayalam, Arabic, or Hindi...", key="buddy_chat_box")
+        if user_input:
+            st.session_state.buddy_messages.append({"role": "user", "content": user_input})
+            with st.chat_message("user"): st.markdown(user_input)
+            with st.spinner("Thinking..."):
                 try:
                     client = Groq(api_key=GROQ_API_KEY)
-                    prompt = client.audio.transcriptions.create(file=(audio_value.name, audio_value.getvalue()), model=WHISPER_MODEL, response_format="text").strip()
-                except Exception as e: st.error(f"Audio Error: {str(e)}")
+                    system_prompt = "You are a helpful personal AI assistant. Understand user messages in English, Malayalam, Arabic, or Hindi, but ALWAYS reply clearly and politely in English."
+                    messages = [{"role": "system", "content": system_prompt}] + [{"role": m["role"], "content": m["content"]} for m in st.session_state.buddy_messages[-4:]]
+                    response = client.chat.completions.create(model="openai/gpt-oss-120b", messages=messages, max_tokens=1024)
+                    ai_reply = response.choices[0].message.content
+                    st.session_state.buddy_messages.append({"role": "assistant", "content": ai_reply})
+                    with st.chat_message("assistant"): st.markdown(ai_reply)
+                except Exception as e:
+                    st.error(f"Error: {e}")
 
-    if text_prompt: prompt = text_prompt
+    # --- AI CHAT (AI Agent) ---
+    elif page == "🤖 AI Chat":
+        st.title("🤖 AI Agent & Assistant")
 
-    if prompt:
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"): st.markdown(prompt)
-        with st.spinner("AI is thinking..."):
-            try:
-                ai_reply, tool_used = process_ai_agent(prompt)
-                st.session_state.messages.append({"role": "assistant", "content": ai_reply})
-                with st.chat_message("assistant"): st.markdown(ai_reply)
-                st.session_state['audio_counter'] += 1; st.rerun()
-            except Exception as e: st.error(f"AI Error: {str(e)}")
+        if st.session_state.ai_action_notice:
+            st.success(st.session_state.ai_action_notice)
 
-# --- 10. CCTV ---
-elif page == "🎥 CCTV AI Vision":
-    st.title("🎥 CCTV AI Vision")
-    uploaded_file = st.file_uploader("Upload CCTV Photo/Video", type=["jpg", "jpeg", "png", "mp4"])
-    if uploaded_file is not None:
-        if "image" in uploaded_file.type:
-            st.image(uploaded_file, use_container_width=True)
-            images_to_analyze = [uploaded_file.getvalue()]
-            is_vid = False
-        else:
-            st.video(uploaded_file)
-            with st.spinner("Extracting frames..."):
-                images_to_analyze = extract_frames_from_video(uploaded_file.getvalue())
-                if not images_to_analyze: st.error("Could not extract frames from video."); st.stop()
-                is_vid = True
+        if st.session_state.last_heard_text:
+            st.caption(f"🎙️ Heard: {st.session_state.last_heard_text}")
 
-        if st.button("🔍 Analyze with AI"):
-            with st.spinner("AI is analyzing..."):
-                ok, analysis_result = analyze_images_with_groq(images_to_analyze, is_video=is_vid)
-                st.subheader("📊 AI Analysis Report")
-                if ok: st.success(analysis_result)
-                else: st.error(analysis_result)
+        for h_msg in st.session_state.ai_chat_history[-6:]:
+            with st.chat_message(h_msg["role"]):
+                st.markdown(h_msg["content"])
+
+        if st.session_state.pending_entry:
+            p_item = st.session_state.pending_entry["item"]
+            p_amt = st.session_state.pending_entry["amount"]
+            p_date = st.session_state.pending_entry["date"]
+
+            st.info(f"**Confirm Entry:** {p_item} - ₹{p_amt} ({p_date}). Save this entry to sheet?")
+            col1, col2 = st.columns(2)
+
+            if col1.button("Yes", key="save_entry_btn"):
+                entry_data = st.session_state.pending_entry
+                st.session_state.pending_entry = None
+                st.session_state.last_processed_prompt = None
+                st.session_state.last_voice_text = ""
+                ok, status_msg = add_new_entry(
+                    item=entry_data['item'], amount=entry_data['amount'],
+                    category=entry_data['category'], type=entry_data['type'], entry_date=entry_data['date']
+                )
+                st.session_state.ai_action_notice = status_msg if ok else f"Not saved: {status_msg}"
+                st.session_state.ai_chat_history.append({"role": "assistant", "content": st.session_state.ai_action_notice})
+                st.rerun()
+
+            if col2.button("No", key="cancel_entry_btn"):
+                cancelled_item = st.session_state.pending_entry["item"]
+                cancelled_amt = st.session_state.pending_entry["amount"]
+                st.session_state.pending_entry = None
+                st.session_state.last_processed_prompt = None
+                st.session_state.last_voice_text = ""
+                st.session_state.ai_action_notice = f"Not saved to sheet: {cancelled_item} - ₹{cancelled_amt} (Cancelled)."
+                st.session_state.ai_chat_history.append({"role": "assistant", "content": st.session_state.ai_action_notice})
+                st.rerun()
+
+        v_col, _ = st.columns([1.4, 2.6])
+        with v_col:
+            v_raw = speech_to_text(
+                language='ml-IN', start_prompt="🎙️ Speak (ML / EN)", stop_prompt="⏹️ Stop", just_once=True, key=f'ai_voice_input_{st.session_state.ai_chat_key_id}'
+            )
+
+        prompt = st.chat_input("Type or speak in Malayalam, English, Arabic, or Hindi...", key="ai_chat_box")
+
+        final_prompt = None
+        if v_raw and v_raw.strip() and v_raw.strip() != st.session_state.last_voice_text:
+            st.session_state.last_voice_text = v_raw.strip()
+            st.session_state.last_heard_text = v_raw.strip()
+            st.session_state.ai_chat_key_id += 1
+            final_prompt = v_raw.strip()
+        elif prompt and prompt.strip():
+            st.session_state.last_heard_text = prompt.strip()
+            final_prompt = prompt.strip()
+
+        if final_prompt:
+            clean_cmd = final_prompt.lower().strip()
+
+            if clean_cmd in ["yes", "y", "yep", "ya", "ok", "okay", "അതെ", "ശരി", "نعم", "हां"] and st.session_state.pending_entry:
+                entry_data = st.session_state.pending_entry
+                st.session_state.pending_entry = None
+                st.session_state.last_processed_prompt = None
+                st.session_state.last_voice_text = ""
+                ok, status_msg = add_new_entry(
+                    item=entry_data['item'], amount=entry_data['amount'],
+                    category=entry_data['category'], type=entry_data['type'], entry_date=entry_data['date']
+                )
+                st.session_state.ai_action_notice = status_msg if ok else f"Not saved: {status_msg}"
+                st.session_state.ai_chat_history.append({"role": "user", "content": final_prompt})
+                st.session_state.ai_chat_history.append({"role": "assistant", "content": st.session_state.ai_action_notice})
+                st.rerun()
+
+            elif clean_cmd in ["no", "n", "nope", "cancel", "അല്ല", "വേണ്ട", "لا", "नहीं"] and st.session_state.pending_entry:
+                cancelled_item = st.session_state.pending_entry["item"]
+                cancelled_amt = st.session_state.pending_entry["amount"]
+                st.session_state.pending_entry = None
+                st.session_state.last_processed_prompt = None
+                st.session_state.last_voice_text = ""
+                st.session_state.ai_action_notice = f"Not saved to sheet: {cancelled_item} - ₹{cancelled_amt} (Cancelled)."
+                st.session_state.ai_chat_history.append({"role": "user", "content": final_prompt})
+                st.session_state.ai_chat_history.append({"role": "assistant", "content": st.session_state.ai_action_notice})
+                st.rerun()
+
+            else:
+                st.session_state.ai_action_notice = None
+                st.session_state.ai_chat_history.append({"role": "user", "content": final_prompt})
+                with st.spinner("Processing..."):
+                    try:
+                        today_str = datetime.now(GST).strftime('%Y-%m-%d')
+                        today_deb = 0.0
+                        today_crd = 0.0
+                        if not df.empty and 'Date' in df.columns:
+                            d_valid = df.dropna(subset=['Date'])
+                            t_rows = d_valid[d_valid['Date'].dt.strftime('%Y-%m-%d') == today_str]
+                            if not t_rows.empty:
+                                today_deb = float(t_rows['Debit'].sum())
+                                today_crd = float(t_rows['Credit'].sum())
+
+                        client = Groq(api_key=GROQ_API_KEY)
+                        eng_now = format_english_datetime()
+                        system_instruction = (
+                            f"You are a sharp, accurate English finance AI assistant. Current time (GST): {eng_now}. "
+                            f"Available balance: ₹{bal:,.2f}. Total Credit: ₹{t_in:,.2f}, Total Debit: ₹{t_out:,.2f}. "
+                            f"Today's Credit: ₹{today_crd:,.2f}, Today's Debit: ₹{today_deb:,.2f}. "
+                            f"Understand short or casual speech/text in Malayalam, English, Arabic, or Hindi, even if voice transcription has minor typos, "
+                            f"and ALWAYS respond clearly and concisely in English. "
+                            f"When the user asks for balance or today's balance, clearly state the Available Balance (₹{bal:,.2f}) and today's summary. "
+                            f"Accurately interpret Malayalam/Arabic/Hindi/English expense words and numbers. "
+                            f"Do NOT invent weird names or ask unnecessary follow-up questions when an expense item and amount are clear. "
+                            f"When the user adds an expense or income, call 'add_new_entry' or 'add_multiple_entries'. "
+                            f"When money is lent or borrowed, call 'add_debt_entry'."
+                        )
+
+                        recent_ctx = [{"role": m["role"], "content": m["content"]} for m in st.session_state.ai_chat_history[-5:-1]]
+                        messages_for_api = [{"role": "system", "content": system_instruction}, *recent_ctx, {"role": "user", "content": final_prompt}]
+
+                        response = client.chat.completions.create(
+                            model="openai/gpt-oss-120b", messages=messages_for_api, tools=tools, tool_choice="auto", max_tokens=1024
+                        )
+
+                        response_message = response.choices[0].message
+
+                        if response_message.tool_calls:
+                            for tool_call in response_message.tool_calls:
+                                if tool_call.function.name == 'add_new_entry':
+                                    args = json.loads(tool_call.function.arguments)
+                                    eng_item = translate_to_english_label(args.get("item", "Expense"), "Expense")
+                                    eng_cat = translate_to_english_label(args.get("category", "Others"), "Others")
+                                    st.session_state.pending_entry = {
+                                        "item": eng_item, "amount": args.get("amount", 0), "category": eng_cat,
+                                        "type": args.get("type", "Debit"), "date": format_english_datetime(args.get("date"))
+                                    }
+                                    st.rerun()
+
+                                elif tool_call.function.name == 'add_multiple_entries':
+                                    args = json.loads(tool_call.function.arguments)
+                                    entries = args.get("entries_list", [])
+                                    ok, msg = add_multiple_entries(entries)
+                                    st.session_state.ai_action_notice = msg
+                                    st.session_state.ai_chat_history.append({"role": "assistant", "content": msg})
+                                    st.rerun()
+
+                                elif tool_call.function.name == 'add_debt_entry':
+                                    args = json.loads(tool_call.function.arguments)
+                                    d_name = translate_to_english_label(args.get("name", "Person"), "Person")
+                                    d_type = args.get("type", "Lent")
+                                    d_amount = args.get("amount", 0)
+                                    d_date = format_english_datetime(args.get("date"))
+                                    ok, msg = add_debt_via_ai(d_name, d_type, d_amount, d_date)
+                                    st.session_state.ai_action_notice = msg
+                                    st.session_state.ai_chat_history.append({"role": "assistant", "content": msg})
+                                    st.rerun()
+
+                        elif response_message.content:
+                            reply_txt = response_message.content
+                            st.session_state.ai_chat_history.append({"role": "assistant", "content": reply_txt})
+                            st.rerun()
+
+                    except Exception as e:
+                        st.error(f"AI Error: {str(e)}")
