@@ -461,10 +461,16 @@ if "last_voice_text" not in st.session_state: st.session_state.last_voice_text =
 if "last_heard_text" not in st.session_state: st.session_state.last_heard_text = ""
 if "ai_chat_history" not in st.session_state: st.session_state.ai_chat_history = []
 
-if "signup_otp" not in st.session_state: st.session_state.signup_otp = None
-if "signup_otp_email" not in st.session_state: st.session_state.signup_otp_email = ""
-if "signup_otp_verified" not in st.session_state: st.session_state.signup_otp_verified = False
+if "signup_otp" not in st.session_state:
+    st.session_state.signup_otp = None
+if "signup_otp_email" not in st.session_state:
+    st.session_state.signup_otp_email = ""
+if "signup_otp_verified" not in st.session_state:
+    st.session_state.signup_otp_verified = False
 
-if "reset_otp" not in st.session_state: st.session_state.reset_otp = None
-if "reset_otp_email" not in st.session_state: st.session_state.reset_otp_email = ""
-if "reset_otp"
+if "reset_otp" not in st.session_state:
+    st.session_state.reset_otp = None
+if "reset_otp_email" not in st.session_state:
+    st.session_state.reset_otp_email = ""
+if "reset_otp_verified" not in st.session_state:
+    st.session_state.reset_otp_verified = False
