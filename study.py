@@ -9,7 +9,6 @@ import time
 from datetime import datetime
 from email.message import EmailMessage
 
-import google.generativeai as genai
 import pandas as pd
 import requests
 import streamlit as st
@@ -21,7 +20,8 @@ st.set_page_config(page_title="Paichi AI Expense Tracker", page_icon="💸", lay
 
 MASTER_APPS_SCRIPT_URL = st.secrets.get("MASTER_APPS_SCRIPT_URL", os.getenv("MASTER_APPS_SCRIPT_URL", ""))
 GOOGLE_FORM_URL = st.secrets.get("GOOGLE_FORM_URL", os.getenv("GOOGLE_FORM_URL", ""))
-GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY", os.getenv("GEMINI_API_KEY", ""))
+GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", os.getenv("GROQ_API_KEY", ""))
+GROQ_MODEL = st.secrets.get("GROQ_MODEL", os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"))
 APP_SECRET_KEY = st.secrets.get("APP_SECRET_KEY", os.getenv("APP_SECRET_KEY", "paichi-default-secret-key"))
 
 SMTP_HOST = st.secrets.get("SMTP_HOST", os.getenv("SMTP_HOST", "smtp.gmail.com"))
@@ -29,11 +29,8 @@ SMTP_PORT = int(st.secrets.get("SMTP_PORT", os.getenv("SMTP_PORT", 587)))
 SMTP_USER = st.secrets.get("SMTP_USER", os.getenv("SMTP_USER", ""))
 SMTP_PASS = st.secrets.get("SMTP_PASS", os.getenv("SMTP_PASS", ""))
 
-if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
-
 # ---------------------------------------------------------
-# 2. SQLite User Persistence & Signed Session Token
+# 2. SQLite User Persistence (/tmp path for Streamlit Cloud)
 # ---------------------------------------------------------
 DB_PATH = "/tmp/paichi_users_v2.db"
 
@@ -57,21 +54,6 @@ def init_db():
 
 def save_user(email: str, name: str = ""):
     init_db()
-    conn = sqlite3.connect(DB_PATH)
-    now = datetime.utcnow().isoformat()
-    cur = conn.execute("SELECT email FROM users WHERE email = ?", (email,))
-    if cur.fetchone():
-        conn.execute("UPDATE users SET last_login = ? WHERE email = ?", (now, email))
-    else:
-        conn.execute(
-            "INSERT INTO users (email, name, created_at, last_login) VALUES (?, ?, ?, ?)",
-            (email, name or email.split("@")[0], now, now),
-        )
-    conn.commit()
-    conn.close()
-
-
-def save_user(email: str, name: str = ""):
     conn = sqlite3.connect(DB_PATH)
     now = datetime.utcnow().isoformat()
     cur = conn.execute("SELECT email FROM users WHERE email = ?", (email,))
@@ -126,22 +108,20 @@ def send_email_otp(to_email: str, otp_code: str) -> bool:
 
 
 # ---------------------------------------------------------
-# 3. AI Agent Parser (No hardcoded keywords)
+# 3. Groq AI Agent Parser (No hardcoded keywords)
 # ---------------------------------------------------------
 def parse_message_with_ai(user_message: str) -> dict:
-    if not GEMINI_API_KEY:
-        raise ValueError("GEMINI_API_KEY is missing in Secrets.")
+    if not GROQ_API_KEY:
+        raise ValueError("GROQ_API_KEY is missing in Secrets.")
 
-    model = genai.GenerativeModel("gemini-2.5-flash")
     today = datetime.now().strftime("%Y-%m-%d")
-
     prompt = f"""
 You are an intelligent personal finance & expense AI agent. Today's date is {today}.
 Analyze the user's message (which may be in English, Malayalam, or Manglish) and extract structured JSON.
 
 Rules:
-- Determine if this is an "expense" (spending or income) or a "debt" (money lent to someone or borrowed from someone).
-- For "expense": infer a clean English item name, choose the most accurate category (e.g., Food, Fish, Travel, Rent, Groceries, Bills, Shopping, Health, Salary, Others), and set "debit" (money spent) or "credit" (money received).
+- Decide if this is an "expense" (spending or income) or a "debt" (money lent to someone or borrowed from someone).
+- For "expense": infer a clean English item name, choose the best category (e.g., Food, Fish, Travel, Rent, Groceries, Bills, Shopping, Health, Salary, Others), and set "debit" (money spent) or "credit" (money received).
 - For "debt": extract "party" (person's name), "type" ("Lent" or "Borrowed"), "amount", and "notes".
 - Return ONLY valid JSON matching this schema:
 {{
@@ -160,11 +140,27 @@ Rules:
 
 User message: "{user_message}"
 """
-    response = model.generate_content(
-        prompt,
-        generation_config={"response_mime_type": "application/json"},
+
+    res = requests.post(
+        "https://api.groq.com/openai/v1/chat/completions",
+        headers={
+            "Authorization": f"Bearer {GROQ_API_KEY}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "model": GROQ_MODEL,
+            "temperature": 0.1,
+            "response_format": {"type": "json_object"},
+            "messages": [
+                {"role": "system", "content": "You output only valid JSON."},
+                {"role": "user", "content": prompt},
+            ],
+        },
+        timeout=20,
     )
-    return json.loads(response.text)
+    res.raise_for_status()
+    content = res.json()["choices"][0]["message"]["content"]
+    return json.loads(content)
 
 
 # ---------------------------------------------------------
@@ -236,7 +232,7 @@ if "user_email" not in st.session_state:
 
 
 # ---------------------------------------------------------
-# 6. Main App UI (Chat AI + Summary + Form Link)
+# 6. Main App UI (Groq AI Chat + Summary + Form Link)
 # ---------------------------------------------------------
 st.title("💸 Paichi AI")
 col_user, col_logout = st.columns([4, 1])
@@ -270,7 +266,7 @@ with tab_chat:
             st.markdown(user_prompt)
 
         with st.chat_message("assistant"):
-            with st.spinner("AI analyzing & saving..."):
+            with st.spinner("Groq AI analyzing & saving..."):
                 try:
                     parsed = parse_message_with_ai(user_prompt)
                     res = post_to_master_sheet(parsed)
