@@ -1345,17 +1345,18 @@ else:
                             f"Accurately interpret Malayalam/Arabic/Hindi/English expense words and numbers (for example 'ചായ മൂന്ന്' -> item 'Tea', amount 3; "
                             f"'ജയയ്ക്ക് 500 കൊടുത്തു' -> debt lent to 'Jaya', amount 500). "
                             f"Do NOT invent weird names or ask unnecessary follow-up questions when an expense item and amount are clear. "
-                            f"When the user adds an expense or income, call 'add_new_entry' or 'add_multiple_entries'. "
                             f"When money is lent or borrowed, call 'add_debt_entry'."
                         )
 
                         recent_ctx = [
                             {"role": m["role"], "content": m["content"]}
                             for m in st.session_state.ai_chat_history[-5:-1]
-                                                messages_for_api = [
+                        ]
+                        messages_for_api = [
                             {"role": "system", "content": system_instruction},
                             *recent_ctx,
-                            {"role": "user", "content": user_prompt},]
+                            {"role": "user", "content": user_prompt},
+                        ]
                         
                        
   
