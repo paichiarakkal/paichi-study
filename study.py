@@ -28,7 +28,7 @@ st.set_page_config(page_title="PAICHI EXPENSES", layout="wide")
 WA_PHONE = st.secrets.get("DEFAULT_WA_PHONE", "")
 BG_IMAGE_URL = "https://raw.githubusercontent.com/paichiarakkal/paichiarakkal/main/profile.jpg"
 GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "")
-GROQ_MODEL = st.secrets.get("GROQ_MODEL", "llama-3.3-70b-versatile")
+GROQ_MODEL = "openai/gpt-oss-120b"
 SECRET_KEY = st.secrets.get("SESSION_SECRET_KEY", "paichi_expenses_secure_key_2026")
 SMTP_EMAIL = st.secrets.get("SMTP_EMAIL", "")
 SMTP_APP_PASSWORD = st.secrets.get("SMTP_APP_PASSWORD", "")
