@@ -119,7 +119,7 @@ def send_email_otp(to_email: str, otp_code: str) -> bool:
 
 
 # ---------------------------------------------------------
-# 3. Groq AI Agent Parser (Official Groq SDK)
+# 3. Groq AI Agent Parser (llama-3.3-70b-versatile)
 # ---------------------------------------------------------
 def parse_message_with_ai(user_message: str) -> dict:
     if not GROQ_API_KEY:
@@ -127,6 +127,7 @@ def parse_message_with_ai(user_message: str) -> dict:
 
     client = Groq(api_key=GROQ_API_KEY)
     today = datetime.now().strftime("%Y-%m-%d")
+    model_name = GROQ_MODEL or "llama-3.3-70b-versatile"
 
     prompt = f"""
 You are an intelligent personal finance & expense AI agent. Today's date is {today}.
@@ -155,7 +156,7 @@ User message: "{user_message}"
 """
 
     completion = client.chat.completions.create(
-        model=GROQ_MODEL,
+        model=model_name,
         temperature=0.1,
         response_format={"type": "json_object"},
         messages=[
