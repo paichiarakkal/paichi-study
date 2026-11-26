@@ -35,10 +35,11 @@ if GEMINI_API_KEY:
 # ---------------------------------------------------------
 # 2. SQLite User Persistence & Signed Session Token
 # ---------------------------------------------------------
-DB_PATH = "paichi_users_v2.db"
+DB_PATH = "/tmp/paichi_users_v2.db"
 
 
 def init_db():
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     conn.execute(
         """
@@ -50,6 +51,22 @@ def init_db():
         )
         """
     )
+    conn.commit()
+    conn.close()
+
+
+def save_user(email: str, name: str = ""):
+    init_db()
+    conn = sqlite3.connect(DB_PATH)
+    now = datetime.utcnow().isoformat()
+    cur = conn.execute("SELECT email FROM users WHERE email = ?", (email,))
+    if cur.fetchone():
+        conn.execute("UPDATE users SET last_login = ? WHERE email = ?", (now, email))
+    else:
+        conn.execute(
+            "INSERT INTO users (email, name, created_at, last_login) VALUES (?, ?, ?, ?)",
+            (email, name or email.split("@")[0], now, now),
+        )
     conn.commit()
     conn.close()
 
