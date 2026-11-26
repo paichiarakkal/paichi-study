@@ -12,22 +12,33 @@ from email.message import EmailMessage
 import pandas as pd
 import requests
 import streamlit as st
+from groq import Groq
 
 # ---------------------------------------------------------
 # 1. Page Config & Secrets
 # ---------------------------------------------------------
 st.set_page_config(page_title="Paichi AI Expense Tracker", page_icon="💸", layout="centered")
 
-MASTER_APPS_SCRIPT_URL = st.secrets.get("MASTER_APPS_SCRIPT_URL", os.getenv("MASTER_APPS_SCRIPT_URL", ""))
-GOOGLE_FORM_URL = st.secrets.get("GOOGLE_FORM_URL", os.getenv("GOOGLE_FORM_URL", ""))
-GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", os.getenv("GROQ_API_KEY", ""))
-GROQ_MODEL = st.secrets.get("GROQ_MODEL", os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"))
-APP_SECRET_KEY = st.secrets.get("APP_SECRET_KEY", os.getenv("APP_SECRET_KEY", "paichi-default-secret-key"))
+MASTER_APPS_SCRIPT_URL = str(
+    st.secrets.get("MASTER_APPS_SCRIPT_URL", os.getenv("MASTER_APPS_SCRIPT_URL", ""))
+).strip()
+GOOGLE_FORM_URL = str(
+    st.secrets.get("GOOGLE_FORM_URL", os.getenv("GOOGLE_FORM_URL", ""))
+).strip()
+GROQ_API_KEY = str(
+    st.secrets.get("GROQ_API_KEY", os.getenv("GROQ_API_KEY", ""))
+).strip()
+GROQ_MODEL = str(
+    st.secrets.get("GROQ_MODEL", os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"))
+).strip()
+APP_SECRET_KEY = str(
+    st.secrets.get("APP_SECRET_KEY", os.getenv("APP_SECRET_KEY", "paichi-default-secret-key"))
+).strip()
 
-SMTP_HOST = st.secrets.get("SMTP_HOST", os.getenv("SMTP_HOST", "smtp.gmail.com"))
+SMTP_HOST = str(st.secrets.get("SMTP_HOST", os.getenv("SMTP_HOST", "smtp.gmail.com"))).strip()
 SMTP_PORT = int(st.secrets.get("SMTP_PORT", os.getenv("SMTP_PORT", 587)))
-SMTP_USER = st.secrets.get("SMTP_USER", os.getenv("SMTP_USER", ""))
-SMTP_PASS = st.secrets.get("SMTP_PASS", os.getenv("SMTP_PASS", ""))
+SMTP_USER = str(st.secrets.get("SMTP_USER", os.getenv("SMTP_USER", ""))).strip()
+SMTP_PASS = str(st.secrets.get("SMTP_PASS", os.getenv("SMTP_PASS", ""))).strip()
 
 # ---------------------------------------------------------
 # 2. SQLite User Persistence (/tmp path for Streamlit Cloud)
@@ -108,13 +119,15 @@ def send_email_otp(to_email: str, otp_code: str) -> bool:
 
 
 # ---------------------------------------------------------
-# 3. Groq AI Agent Parser (No hardcoded keywords)
+# 3. Groq AI Agent Parser (Official Groq SDK)
 # ---------------------------------------------------------
 def parse_message_with_ai(user_message: str) -> dict:
     if not GROQ_API_KEY:
         raise ValueError("GROQ_API_KEY is missing in Secrets.")
 
+    client = Groq(api_key=GROQ_API_KEY)
     today = datetime.now().strftime("%Y-%m-%d")
+
     prompt = f"""
 You are an intelligent personal finance & expense AI agent. Today's date is {today}.
 Analyze the user's message (which may be in English, Malayalam, or Manglish) and extract structured JSON.
@@ -141,25 +154,16 @@ Rules:
 User message: "{user_message}"
 """
 
-    res = requests.post(
-        "https://api.groq.com/openai/v1/chat/completions",
-        headers={
-            "Authorization": f"Bearer {GROQ_API_KEY}",
-            "Content-Type": "application/json",
-        },
-        json={
-            "model": GROQ_MODEL,
-            "temperature": 0.1,
-            "response_format": {"type": "json_object"},
-            "messages": [
-                {"role": "system", "content": "You output only valid JSON."},
-                {"role": "user", "content": prompt},
-            ],
-        },
-        timeout=20,
+    completion = client.chat.completions.create(
+        model=GROQ_MODEL,
+        temperature=0.1,
+        response_format={"type": "json_object"},
+        messages=[
+            {"role": "system", "content": "You output only valid JSON."},
+            {"role": "user", "content": prompt},
+        ],
     )
-    res.raise_for_status()
-    content = res.json()["choices"][0]["message"]["content"]
+    content = completion.choices[0].message.content
     return json.loads(content)
 
 
@@ -170,6 +174,7 @@ def post_to_master_sheet(payload: dict) -> dict:
     if not MASTER_APPS_SCRIPT_URL:
         return {"ok": False, "error": "MASTER_APPS_SCRIPT_URL not configured in Secrets."}
     res = requests.post(MASTER_APPS_SCRIPT_URL, json=payload, timeout=15)
+    res.raise_for_status()
     return res.json()
 
 
