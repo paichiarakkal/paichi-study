@@ -1355,7 +1355,7 @@ else:
                                                 messages_for_api = [
                             {"role": "system", "content": system_instruction},
                             *recent_ctx,
-                            {"role": "user", "content": user_prompt},
-                        ]
+                            {"role": "user", "content": user_prompt},]
+                        
                        
   
