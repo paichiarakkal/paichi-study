@@ -1355,8 +1355,54 @@ else:
                         messages_for_api = [
                             {"role": "system", "content": system_instruction},
                             *recent_ctx,
-                            {"role": "user", "content": user_prompt},
+                            {"role": "user", "content": final_prompt},
                         ]
-                        
-                       
-  
+
+                        response = client.chat.completions.create(
+                            model="openai/gpt-oss-120b",
+                            messages=messages_for_api,
+                            tools=tools,
+                            tool_choice="auto",
+                            max_tokens=1024
+                        )
+
+                        msg = response.choices[0].message
+
+                        if msg.tool_calls:
+                            for tool_call in msg.tool_calls:
+                                fn_name = tool_call.function.name
+                                args = json.loads(tool_call.function.arguments or "{}")
+
+                                if fn_name == "add_new_entry":
+                                    st.session_state.pending_entry = {
+                                        "item": translate_to_english_label(args.get("item", "Expense"), "Expense"),
+                                        "amount": float(args.get("amount", 0)),
+                                        "category": translate_to_english_label(args.get("category", "Others"), "Others"),
+                                        "type": args.get("type", "Debit"),
+                                        "date": format_english_datetime(args.get("date"))
+                                    }
+                                    st.rerun()
+
+                                elif fn_name == "add_multiple_entries":
+                                    ok, status_msg = add_multiple_entries(args.get("entries_list", []))
+                                    st.session_state.ai_action_notice = status_msg if ok else f"Not saved: {status_msg}"
+                                    st.session_state.ai_chat_history.append({"role": "assistant", "content": st.session_state.ai_action_notice})
+                                    st.rerun()
+
+                                elif fn_name == "add_debt_entry":
+                                    ok, status_msg = add_debt_via_ai(
+                                        name=args.get("name", "Person"),
+                                        type=args.get("type", "Lent"),
+                                        amount=float(args.get("amount", 0)),
+                                        date=args.get("date")
+                                    )
+                                    st.session_state.ai_action_notice = status_msg if ok else f"Not saved: {status_msg}"
+                                    st.session_state.ai_chat_history.append({"role": "assistant", "content": st.session_state.ai_action_notice})
+                                    st.rerun()
+                        else:
+                            ai_reply = (msg.content or "").strip() or "How can I help you?"
+                            st.session_state.ai_chat_history.append({"role": "assistant", "content": ai_reply})
+                            st.rerun()
+
+                    except Exception as e:
+                        st.error(f"Error: {e}")
