@@ -23,7 +23,7 @@ from streamlit_calendar import calendar
 from twilio.rest import Client
 
 # --- STREAMLIT UI SETUP ---
-st.set_page_config(page_title="PAICHI EXPENSES & AI", layout="wide")
+st.set_page_config(page_title="PAICHI EXPENSES", layout="wide")
 
 # --- CONFIG & SETTINGS ---
 WA_PHONE = st.secrets.get("DEFAULT_WA_PHONE", "")
@@ -39,8 +39,8 @@ BREVO_SENDER_EMAIL = st.secrets.get("BREVO_SENDER_EMAIL", "")
 DEFAULT_WEB_APP_URL = st.secrets.get("SHEET_WEB_APP_URL", st.secrets.get("GOOGLE_SHEET_WEB_APP_URL", ""))
 DEFAULT_CSV_URL = st.secrets.get("SHEET_CSV_URL", st.secrets.get("GOOGLE_SHEET_CSV_URL", ""))
 
-# 👇 പുതിയ ഡാറ്റാബേസ് ഫയൽ (പഴയ എററുകൾ ഒഴിവാക്കാൻ) 👇
-DB_FILE = "paichi_app_v3.db" 
+# പുതിയ ഡാറ്റാബേസ് ഫയൽ (എറർ ഒഴിവാക്കാൻ)
+DB_FILE = "paichi_app_final.db"
 NOTES_DIR = "personal_notes"
 os.makedirs(NOTES_DIR, exist_ok=True)
 
@@ -49,7 +49,7 @@ GST = timezone(timedelta(hours=4))
 st_autorefresh(interval=60000, key="auto_refresh")
 
 # ============================================
-# 🗄️ DATABASE SETUP
+# 🗄️ DATABASE + ST.SECRETS USER STORE
 # ============================================
 def init_db():
     conn = sqlite3.connect(DB_FILE)
@@ -82,24 +82,6 @@ init_db()
 def hash_password(pwd: str) -> str:
     return hashlib.sha256(pwd.encode("utf-8")).hexdigest()
 
-def load_secrets_users() -> dict:
-    raw_users = st.secrets.get("USERS_DATA", {})
-    if isinstance(raw_users, str):
-        try: return json.loads(raw_users)
-        except Exception: return {}
-    return dict(raw_users) if isinstance(raw_users, dict) else {}
-
-def is_account_already_registered(username: str) -> bool:
-    u = (username or "").strip().lower()
-    if not u: return False
-    if u in load_secrets_users(): return True
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute("SELECT 1 FROM users WHERE username = ?", (u,))
-    exists = c.fetchone() is not None
-    conn.close()
-    return exists
-
 def db_get_user(username: str):
     u = (username or "").strip().lower()
     if not u: return None
@@ -120,7 +102,7 @@ def db_get_user(username: str):
 
 def db_create_user(username: str, password: str, sheet_url: str = "", csv_url: str = ""):
     u = username.strip().lower()
-    if is_account_already_registered(u): raise ValueError("Already registered.")
+    if db_get_user(u): raise ValueError("Already registered.")
     pwd_hash = hash_password(password)
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
@@ -290,7 +272,7 @@ if not st.session_state.auth:
             s_pass = st.text_input("🔑 Password", type="password", key="signup_pass")
             if st.button("SIGN UP ✨"):
                 if not s_user or not s_pass: st.error("Fill all fields.")
-                elif is_account_already_registered(s_user): st.error("Already registered.")
+                elif db_get_user(s_user): st.error("Already registered.")
                 else:
                     db_create_user(s_user, s_pass)
                     set_persistent_login(s_user)
@@ -321,7 +303,7 @@ else:
                     time.sleep(1)
                     st.rerun()
 
-    menu = ["🏠 Dashboard", "💰 Add Entry", "📊 Report", "🧠 Personal AI Buddy", "🤖 AI Chat"]
+    menu = ["🏠 Dashboard", "💰 Add Entry", "📅 Calendar", "📊 Report", "🧠 Personal AI Buddy", "🤖 AI Chat"]
     page = st.sidebar.radio("Menu", menu)
 
     if st.sidebar.button("Logout"):
@@ -337,18 +319,49 @@ else:
 
     # --- ADD ENTRY ---
     elif page == "💰 Add Entry":
-        st.title("Smart Voice Entry 🎙️")
+        st.title("Smart Entry 🎙️")
+        v_raw = speech_to_text(language='ml-IN', key='voice_v9')
+        v_cat, v_amt, v_desc, v_type = "Others", "", "", "Debit"
+        if v_raw:
+            raw = v_raw.lower().replace('.', '').replace(',', '')
+            nums = re.findall(r'\d+', raw)
+            v_amt = nums[0] if nums else ""
+            v_desc = translate_to_english_label(re.sub(r'\d+', '', raw).strip(), "Expense")
+            if any(x in raw for x in ["food", "tea", "ഭക്ഷണം", "ചായ"]): v_cat = "Food"
+            if any(x in raw for x in ["credit", "received", "salary", "കിട്ടി"]): v_type = "Credit"
+
         with st.form("entry_form", clear_on_submit=True):
-            it = st.text_input("Description")
-            am_str = st.text_input("Amount")
+            it = st.text_input("Description", value=v_desc)
+            am_str = st.text_input("Amount", value=str(v_amt))
             cat = st.selectbox("Category", ["Food", "Shop", "Fish", "Travel", "Rent", "Others"])
-            ty = st.radio("Type", ["Debit", "Credit"], horizontal=True)
+            ty = st.radio("Type", ["Debit", "Credit"], horizontal=True, index=0 if v_type == "Debit" else 1)
             if st.form_submit_button("SAVE & NOTIFY"):
                 try:
                     ok, msg = add_new_entry(it, float(am_str), cat, ty)
                     if ok: st.success("Saved!"); time.sleep(1); st.rerun()
                     else: st.error(msg)
                 except Exception as e: st.error(f"Error: {e}")
+
+    # --- CALENDAR ---
+    elif page == "📅 Calendar":
+        st.title("P&L Calendar View 📅")
+        if df.empty: st.info("No data available yet.")
+        else:
+            df_cal = df.dropna(subset=['Date']).copy()
+            df_cal['DayKey'] = df_cal['Date'].dt.strftime('%Y-%m-%d')
+            summary = df_cal.groupby('DayKey', as_index=False).agg({'Debit': 'sum', 'Credit': 'sum'})
+            events = []
+            for _, row in summary.iterrows():
+                if row['Debit'] > 0: events.append({"title": f"-₹{row['Debit']:,.0f}", "start": row['DayKey'], "backgroundColor": "#d9383a"})
+                if row['Credit'] > 0: events.append({"title": f"+₹{row['Credit']:,.0f}", "start": row['DayKey'], "backgroundColor": "#2e8b57"})
+            calendar_options = {"headerToolbar": {"left": "prev,next today", "center": "title", "right": "dayGridMonth"}, "initialView": "dayGridMonth", "height": "auto"}
+            cal_data = calendar(events=events, options=calendar_options, key="pnl_calendar_view")
+            if cal_data and cal_data.get("callback") == "dateClick":
+                selected_date = cal_data.get("dateClick", {}).get("date", "").split("T")[0]
+                st.subheader(f"📋 Details for {selected_date}")
+                day_df = df_cal[df_cal['DayKey'] == selected_date]
+                if not day_df.empty: st.dataframe(day_df[['Item', 'Debit', 'Credit']], use_container_width=True)
+                else: st.info("No entries for this date.")
 
     # --- REPORT ---
     elif page == "📊 Report":
@@ -369,17 +382,14 @@ else:
         files = sorted(f for f in os.listdir(NOTES_DIR) if f.endswith(".md"))
         if files:
             chosen = st.selectbox("തിരഞ്ഞെടുക്കുക", files)
-            with open(os.path.join(NOTES_DIR, chosen), "r", encoding="utf-8") as f:
-                st.markdown(f.read())
+            with open(os.path.join(NOTES_DIR, chosen), "r", encoding="utf-8") as f: st.markdown(f.read())
         else: st.info("നോട്ടുകൾ ഒന്നുമില്ല.")
-
         st.divider()
         st.subheader("📌 ലോഗുകൾ")
         conn = sqlite3.connect(DB_FILE)
         logs_df = pd.read_sql_query("SELECT created_at AS Time, category AS Category, title AS Title, details AS Details FROM personal_logs ORDER BY id DESC LIMIT 10", conn)
         conn.close()
         if not logs_df.empty: st.dataframe(logs_df, use_container_width=True, hide_index=True)
-        else: st.info("ലോഗുകൾ ഒന്നുമില്ല.")
 
     # --- AI CHAT ---
     elif page == "🤖 AI Chat":
@@ -388,11 +398,14 @@ else:
         for h_msg in st.session_state.ai_chat_history[-8:]:
             with st.chat_message(h_msg["role"]): st.markdown(h_msg["content"])
 
-        prompt = st.chat_input("ഉദാ: 'ചായയ്ക്ക് 10 രൂപ', 'ഒരു നോട്ട് എഴുതൂ', 'ടാസ്ക് ചേർക്കൂ'...")
+        v_raw = speech_to_text(language='ml-IN', start_prompt="🎙️ Speak", stop_prompt="⏹️ Stop", just_once=True, key="ai_voice_chat")
+        prompt = st.chat_input("Type here...")
         
-        if prompt:
-            with st.chat_message("user"): st.markdown(prompt)
-            st.session_state.ai_chat_history.append({"role": "user", "content": prompt})
+        final_prompt = v_raw if v_raw else prompt
+
+        if final_prompt:
+            with st.chat_message("user"): st.markdown(final_prompt)
+            st.session_state.ai_chat_history.append({"role": "user", "content": final_prompt})
             
             with st.spinner("ഏജന്റ് ചിന്തിക്കുന്നു..."):
                 try:
@@ -408,7 +421,7 @@ else:
                     
                     resp = client.chat.completions.create(
                         model="openai/gpt-oss-120b", 
-                        messages=[{"role": "system", "content": sys_prompt}, {"role": "user", "content": prompt}], 
+                        messages=[{"role": "system", "content": sys_prompt}, {"role": "user", "content": final_prompt}], 
                         max_tokens=300
                     )
                     
