@@ -40,7 +40,7 @@ DEFAULT_WEB_APP_URL = st.secrets.get("SHEET_WEB_APP_URL", st.secrets.get("GOOGLE
 DEFAULT_CSV_URL = st.secrets.get("SHEET_CSV_URL", st.secrets.get("GOOGLE_SHEET_CSV_URL", ""))
 
 # 👇 പുതിയ ഡാറ്റാബേസ് (എറർ ഒഴിവാക്കാൻ) 👇
-DB_FILE = "paichi_master_v10.db"
+DB_FILE = "paichi_master_v12.db"
 NOTES_DIR = "personal_notes"
 os.makedirs(NOTES_DIR, exist_ok=True)
 
@@ -82,24 +82,6 @@ init_db()
 def hash_password(pwd: str) -> str:
     return hashlib.sha256(pwd.encode("utf-8")).hexdigest()
 
-def load_secrets_users() -> dict:
-    raw_users = st.secrets.get("USERS_DATA", {})
-    if isinstance(raw_users, str):
-        try: return json.loads(raw_users)
-        except Exception: return {}
-    return dict(raw_users) if isinstance(raw_users, dict) else {}
-
-def is_account_already_registered(username: str) -> bool:
-    u = (username or "").strip().lower()
-    if not u: return False
-    if u in load_secrets_users(): return True
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute("SELECT 1 FROM users WHERE username = ?", (u,))
-    exists = c.fetchone() is not None
-    conn.close()
-    return exists
-
 def db_get_user(username: str):
     u = (username or "").strip().lower()
     if not u: return None
@@ -120,7 +102,7 @@ def db_get_user(username: str):
 
 def db_create_user(username: str, password: str, sheet_url: str = "", csv_url: str = ""):
     u = username.strip().lower()
-    if is_account_already_registered(u): raise ValueError("Already registered.")
+    if db_get_user(u): raise ValueError("Already registered.")
     pwd_hash = hash_password(password)
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
@@ -128,16 +110,6 @@ def db_create_user(username: str, password: str, sheet_url: str = "", csv_url: s
     conn.commit()
     conn.close()
     return {u: {"password_hash": pwd_hash}}
-
-def db_update_password(username: str, new_password: str):
-    u = username.strip().lower()
-    pwd_hash = hash_password(new_password)
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute("UPDATE users SET password_hash = ? WHERE username = ?", (pwd_hash, u))
-    conn.commit()
-    conn.close()
-    return pwd_hash
 
 def db_bind_links_once(username: str, sheet_url: str = "", csv_url: str = ""):
     conn = sqlite3.connect(DB_FILE)
@@ -174,7 +146,7 @@ def manage_personal_notes(action: str, note_title: str, content: str = "") -> st
 
 def manage_tasks_and_schedule(action: str, item_title: str, time_or_priority: str = "") -> str:
     log_personal_activity("Schedule / Task", f"{action}: {item_title}", time_or_priority)
-    return f"[Task] '{item_title}' ({time_or_priority}) രേഖപ്പെടുത്തി."
+    return f"[Task/Reminder] '{item_title}' ({time_or_priority}) വിജയകരമായി രേഖപ്പെടുത്തി."
 
 # ============================================
 # 📧 EMAIL OTP & AUTH
@@ -185,7 +157,7 @@ def send_otp_email(to_email: str, otp_code: str, purpose: str = "OTP Verificatio
     resend_key = (st.secrets.get("RESEND_API_KEY", RESEND_API_KEY) or "").strip()
     from_email = (st.secrets.get("OTP_FROM_EMAIL", OTP_FROM_EMAIL) or "onboarding@resend.dev").strip()
 
-    body_text = f"Hello,\n\nYour 6-digit OTP code for PAICHI EXPENSES ({purpose}) is:\n\nOTP: {otp_code}\n\nPlease do not share this code."
+    body_text = f"Hello,\n\nYour 6-digit OTP code for PAICHI ({purpose}) is:\n\nOTP: {otp_code}\n\nPlease do not share this code."
 
     if brevo_key and brevo_sender:
         resp = requests.post("https://api.brevo.com/v3/smtp/email", headers={"api-key": brevo_key, "Content-Type": "application/json"}, json={"sender": {"name": "PAICHI", "email": brevo_sender}, "to": [{"email": to_email}], "subject": f"PAICHI - {purpose} OTP", "textContent": body_text}, timeout=15)
@@ -500,7 +472,7 @@ else:
                     You are a multi-tasking AI Agent. Reply ONLY with JSON.
                     1. For expenses: {"action":"expense", "item":"Name", "amount":100, "category":"Food", "type":"Debit"}
                     2. For notes: {"action":"note", "note_title":"Title", "content":"Content"}
-                    3. For tasks: {"action":"task", "item_title":"Task", "time_or_priority":"Time"}
+                    3. For tasks/reminders: {"action":"task", "item_title":"Task Name", "time_or_priority":"Time"}
                     4. For chat: {"action":"chat", "reply":"Your response"}
                     """
                     
