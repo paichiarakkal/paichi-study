@@ -1,20 +1,21 @@
+import json
 import os
 import re
 import sqlite3
 from datetime import datetime
 import pandas as pd
 import streamlit as st
-from google import genai
-from google.genai import types
+from groq import Groq
 
 st.set_page_config(
-    page_title="Personal AI Agent",
+    page_title="Personal AI Agent (Groq)",
     page_icon="🧠",
     layout="wide",
 )
 
 NOTES_DIR = "personal_notes"
 DB_PATH = "personal_agent.db"
+MODEL_NAME = "openai/gpt-oss-120b"
 os.makedirs(NOTES_DIR, exist_ok=True)
 
 
@@ -90,7 +91,7 @@ def manage_personal_notes(action: str, note_title: str, content: str = "") -> st
     വ്യക്തിഗത നോട്ടുകൾ, ജേണൽ, പഠന/പ്രൊജക്ട് കുറിപ്പുകൾ എന്നിവ കൈകാര്യം ചെയ്യുക.
     action: 'save', 'read', 'list', 'append'.
     """
-    act = action.strip().lower()
+    act = (action or "save").strip().lower()
 
     if act == "list":
         files = sorted(f for f in os.listdir(NOTES_DIR) if f.endswith(".md"))
@@ -186,60 +187,231 @@ def summarize_and_reflect(focus_area: str, key_points: str = "") -> str:
     return f"[Reflection - {focus_area}] സംഗ്രഹവും അടുത്ത ഘട്ടങ്ങളും തയ്യാറാക്കി."
 
 
-PERSONAL_AGENT_TOOLS = [
-    manage_personal_notes,
-    manage_tasks_and_schedule,
-    create_personal_plan,
-    summarize_and_reflect,
+TOOL_FUNCTIONS = {
+    "manage_personal_notes": manage_personal_notes,
+    "manage_tasks_and_schedule": manage_tasks_and_schedule,
+    "create_personal_plan": create_personal_plan,
+    "summarize_and_reflect": summarize_and_reflect,
+}
+
+GROQ_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "manage_personal_notes",
+            "description": "Save, read, list, or append personal notes (.md files).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["save", "read", "list", "append"],
+                        "description": "Action to perform on personal notes.",
+                    },
+                    "note_title": {
+                        "type": "string",
+                        "description": "Title of the note.",
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "Note body text to save or append.",
+                    },
+                },
+                "required": ["action", "note_title"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "manage_tasks_and_schedule",
+            "description": "Manage personal tasks, reminders, and schedules.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "description": "Action such as add, update, complete, or reminder.",
+                    },
+                    "item_title": {
+                        "type": "string",
+                        "description": "Task or event title.",
+                    },
+                    "time_or_priority": {
+                        "type": "string",
+                        "description": "Time, deadline, or priority level.",
+                    },
+                    "requires_approval": {
+                        "type": "boolean",
+                        "description": "Set True if human confirmation is needed before applying a major change.",
+                    },
+                },
+                "required": ["action", "item_title"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "create_personal_plan",
+            "description": "Create structured plans for travel, study, budget, or health/fitness.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "domain": {
+                        "type": "string",
+                        "description": "Domain such as Travel, Study, Budget, or Health.",
+                    },
+                    "goal": {
+                        "type": "string",
+                        "description": "The main personal goal.",
+                    },
+                    "constraints_or_budget": {
+                        "type": "string",
+                        "description": "Budget, time limits, or preferences.",
+                    },
+                },
+                "required": ["domain", "goal"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "summarize_and_reflect",
+            "description": "Create summaries, daily briefings, next steps, or reflections.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "focus_area": {
+                        "type": "string",
+                        "description": "Topic or area being summarized.",
+                    },
+                    "key_points": {
+                        "type": "string",
+                        "description": "Key points or notes to summarize.",
+                    },
+                },
+                "required": ["focus_area"],
+            },
+        },
+    },
 ]
 
 
 # ==========================================
-# 2. API KEY & AGENT SESSION SETUP
+# 2. API KEY & GROQ AGENT LOOP
 # ==========================================
 
-def get_api_key() -> str | None:
-    if "GEMINI_API_KEY" in st.secrets:
-        return st.secrets["GEMINI_API_KEY"]
-    return os.environ.get("GEMINI_API_KEY")
+def get_groq_api_key() -> str | None:
+    if "GROQ_API_KEY" in st.secrets:
+        return st.secrets["GROQ_API_KEY"]
+    return os.environ.get("GROQ_API_KEY")
 
 
-init_db()
+SYSTEM_INSTRUCTION = (
+    "നിങ്ങൾ ഒരു വ്യക്തിഗത AI ഏജന്റാണ് (Personal AI Agent). "
+    "ഉപയോക്താവിന്റെ ദൈനംദിന ടാസ്കുകൾ, ഷെഡ്യൂൾ, നോട്ടുകൾ, പഠനം, യാത്ര/ബജറ്റ് പ്ലാനിംഗ് എന്നിവയിൽ "
+    "ഘട്ടം ഘട്ടമായി സഹായിക്കുക. ലഭ്യമായ ടൂളുകൾ ഉപയോഗിച്ച് വിവരങ്ങൾ സേവ് ചെയ്യുകയും പ്ലാൻ ചെയ്യുകയും ചെയ്യുക. "
+    "പ്രധാനപ്പെട്ടതോ സംശയാസ്പദമായതോ ആയ മാറ്റങ്ങളിൽ (പ്രത്യേകിച്ച് സമയമാറ്റങ്ങൾ, പ്രധാന തീരുമാനങ്ങൾ) "
+    "ഉപയോക്താവിന്റെ അനുമതി (Human-in-the-loop) ചോദിക്കുകയും, വ്യക്തമായ ചെക്കുകൾ പാലിക്കുകയും ചെയ്യുക. "
+    "മറുപടി വ്യക്തവും പ്രായോഗികവും മലയാളത്തിലുമായിരിക്കണം."
+)
 
-if "messages" not in st.session_state:
-    st.session_state.messages = []
 
-api_key = get_api_key()
+def run_groq_agent(api_key: str, chat_history: list[dict], user_text: str) -> str:
+    client = Groq(api_key=api_key)
 
-if "chat" not in st.session_state and api_key:
-    client = genai.Client(api_key=api_key)
-    system_instruction = (
-        "നിങ്ങൾ ഒരു വ്യക്തിഗത AI ഏജന്റാണ് (Personal AI Agent). "
-        "ഉപയോക്താവിന്റെ ദൈനംദിന ടാസ്കുകൾ, ഷെഡ്യൂൾ, നോട്ടുകൾ, പഠനം, യാത്ര/ബജറ്റ് പ്ലാനിംഗ് എന്നിവയിൽ "
-        "ഘട്ടം ഘട്ടമായി സഹായിക്കുക. ലഭ്യമായ ടൂളുകൾ ഉപയോഗിച്ച് വിവരങ്ങൾ സേവ് ചെയ്യുകയും പ്ലാൻ ചെയ്യുകയും ചെയ്യുക. "
-        "പ്രധാനപ്പെട്ടതോ സംശയാസ്പദമായതോ ആയ മാറ്റങ്ങളിൽ (പ്രത്യേകിച്ച് സമയമാറ്റങ്ങൾ, ഡിലീറ്റ്/പ്രധാന തീരുമാനങ്ങൾ) "
-        "ഉപയോക്താവിന്റെ അനുമതി (Human-in-the-loop) ചോദിക്കുകയും, വ്യക്തമായ ചെക്കുകൾ പാലിക്കുകയും ചെയ്യുക. "
-        "മറുപടി വ്യക്തവും പ്രായോഗികവും മലയാളത്തിലുമായിരിക്കണം."
-    )
-    st.session_state.chat = client.chats.create(
-        model="gemini-2.5-flash",
-        config=types.GenerateContentConfig(
-            system_instruction=system_instruction,
-            tools=PERSONAL_AGENT_TOOLS,
+    messages = [{"role": "system", "content": SYSTEM_INSTRUCTION}]
+    for msg in chat_history:
+        if msg["role"] in ("user", "assistant"):
+            messages.append({"role": msg["role"], "content": msg["content"]})
+    messages.append({"role": "user", "content": user_text})
+
+    max_iterations = 6
+    for _ in range(max_iterations):
+        completion = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=messages,
+            tools=GROQ_TOOLS,
+            tool_choice="auto",
             temperature=0.35,
-        ),
+        )
+
+        assistant_msg = completion.choices[0].message
+        tool_calls = assistant_msg.tool_calls or []
+
+        if not tool_calls:
+            return assistant_msg.content or "ജോലി പൂർത്തിയായി."
+
+        messages.append(
+            {
+                "role": "assistant",
+                "content": assistant_msg.content or "",
+                "tool_calls": [
+                    {
+                        "id": tc.id,
+                        "type": "function",
+                        "function": {
+                            "name": tc.function.name,
+                            "arguments": tc.function.arguments,
+                        },
+                    }
+                    for tc in tool_calls
+                ],
+            }
+        )
+
+        for tc in tool_calls:
+            fn_name = tc.function.name
+            try:
+                fn_args = json.loads(tc.function.arguments or "{}")
+            except json.JSONDecodeError:
+                fn_args = {}
+
+            fn = TOOL_FUNCTIONS.get(fn_name)
+            if fn:
+                try:
+                    tool_result = fn(**fn_args)
+                except TypeError as exc:
+                    tool_result = f"[Tool Argument Error] {exc}"
+            else:
+                tool_result = f"[Unknown Tool] '{fn_name}' ലഭ്യമല്ല."
+
+            messages.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": tc.id,
+                    "content": str(tool_result),
+                }
+            )
+
+    final_completion = client.chat.completions.create(
+        model=MODEL_NAME,
+        messages=messages,
+        temperature=0.35,
     )
+    return final_completion.choices[0].message.content or "ജോലി പൂർത്തിയായി."
 
 
 # ==========================================
 # 3. STREAMLIT UI
 # ==========================================
 
-st.title("🧠 Personal AI Agent")
+init_db()
+
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+api_key = get_groq_api_key()
+
+st.title("🧠 Personal AI Agent (Groq)")
 st.caption("നിങ്ങളുടെ വ്യക്തിഗത ടാസ്കുകൾ, നോട്ടുകൾ, പ്ലാനുകൾ, പ്രതിദിന അവലോകനം എന്നിവയ്ക്കുള്ള AI ഏജന്റ്.")
 
 if not api_key:
-    st.warning("`GEMINI_API_KEY` കണ്ടെത്താനായില്ല. Streamlit Cloud-ൽ **Secrets**-ൽ `GEMINI_API_KEY = \"നിങ്ങളുടെ_KEY\"` എന്ന് ചേർക്കുക.")
+    st.warning(
+        '`GROQ_API_KEY` കണ്ടെത്താനായില്ല. Streamlit Cloud-ൽ **Secrets**-ൽ `GROQ_API_KEY = "നിങ്ങളുടെ_GROQ_KEY"` എന്ന് ചേർക്കുക.'
+    )
     st.stop()
 
 col_left, col_right = st.columns([1.35, 1])
@@ -254,10 +426,8 @@ with col_left:
         )
         st.session_state.messages.append({"role": "user", "content": brief_prompt})
         with st.spinner("ദൈനംദിന അവലോകനം തയ്യാറാക്കുന്നു..."):
-            res = st.session_state.chat.send_message(brief_prompt)
-            st.session_state.messages.append(
-                {"role": "assistant", "content": res.text or "പൂർത്തിയായി."}
-            )
+            reply = run_groq_agent(api_key, st.session_state.messages[:-1], brief_prompt)
+            st.session_state.messages.append({"role": "assistant", "content": reply})
         st.rerun()
 
     for msg in st.session_state.messages:
@@ -275,8 +445,7 @@ with col_left:
 
         with st.chat_message("assistant"):
             with st.spinner("ഏജന്റ് പ്രവർത്തിക്കുന്നു..."):
-                response = st.session_state.chat.send_message(user_prompt)
-                reply_text = response.text or "ജോലി പൂർത്തിയായി."
+                reply_text = run_groq_agent(api_key, st.session_state.messages[:-1], user_prompt)
                 st.markdown(reply_text)
 
         st.session_state.messages.append({"role": "assistant", "content": reply_text})
@@ -311,6 +480,4 @@ with col_right:
 
     if st.button("ചാറ്റ് ഹിസ്റ്ററി ക്ലിയർ ചെയ്യുക"):
         st.session_state.messages = []
-        if "chat" in st.session_state:
-            del st.session_state["chat"]
         st.rerun()
