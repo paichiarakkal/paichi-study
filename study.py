@@ -23,7 +23,7 @@ from streamlit_calendar import calendar
 from twilio.rest import Client
 
 # --- STREAMLIT UI SETUP ---
-st.set_page_config(page_title="PAICHI EXPENSES", layout="wide")
+st.set_page_config(page_title="PAICHI EXPENSES & AI", layout="wide")
 
 # --- CONFIG & SETTINGS ---
 WA_PHONE = st.secrets.get("DEFAULT_WA_PHONE", "")
@@ -39,13 +39,14 @@ BREVO_SENDER_EMAIL = st.secrets.get("BREVO_SENDER_EMAIL", "")
 DEFAULT_WEB_APP_URL = st.secrets.get("SHEET_WEB_APP_URL", st.secrets.get("GOOGLE_SHEET_WEB_APP_URL", ""))
 DEFAULT_CSV_URL = st.secrets.get("SHEET_CSV_URL", st.secrets.get("GOOGLE_SHEET_CSV_URL", ""))
 
-# പുതിയ ഡാറ്റാബേസ് ഫയൽ (എറർ ഒഴിവാക്കാൻ)
-DB_FILE = "paichi_app_final.db"
+# പുതിയ ഡാറ്റാബേസ് (എറർ ഒഴിവാക്കാൻ)
+DB_FILE = "paichi_users_v6.db" 
 NOTES_DIR = "personal_notes"
 os.makedirs(NOTES_DIR, exist_ok=True)
 
 # --- TIMEZONE SETUP (GST - Dubai Time) ---
 GST = timezone(timedelta(hours=4))
+
 st_autorefresh(interval=60000, key="auto_refresh")
 
 # ============================================
@@ -82,6 +83,24 @@ init_db()
 def hash_password(pwd: str) -> str:
     return hashlib.sha256(pwd.encode("utf-8")).hexdigest()
 
+def load_secrets_users() -> dict:
+    raw_users = st.secrets.get("USERS_DATA", {})
+    if isinstance(raw_users, str):
+        try: return json.loads(raw_users)
+        except Exception: return {}
+    return dict(raw_users) if isinstance(raw_users, dict) else {}
+
+def is_account_already_registered(username: str) -> bool:
+    u = (username or "").strip().lower()
+    if not u: return False
+    if u in load_secrets_users(): return True
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("SELECT 1 FROM users WHERE username = ?", (u,))
+    exists = c.fetchone() is not None
+    conn.close()
+    return exists
+
 def db_get_user(username: str):
     u = (username or "").strip().lower()
     if not u: return None
@@ -102,7 +121,7 @@ def db_get_user(username: str):
 
 def db_create_user(username: str, password: str, sheet_url: str = "", csv_url: str = ""):
     u = username.strip().lower()
-    if db_get_user(u): raise ValueError("Already registered.")
+    if is_account_already_registered(u): raise ValueError("Already registered.")
     pwd_hash = hash_password(password)
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
@@ -319,7 +338,7 @@ else:
 
     # --- ADD ENTRY ---
     elif page == "💰 Add Entry":
-        st.title("Smart Entry 🎙️")
+        st.title("Smart Voice Entry 🎙️")
         v_raw = speech_to_text(language='ml-IN', key='voice_v9')
         v_cat, v_amt, v_desc, v_type = "Others", "", "", "Debit"
         if v_raw:
@@ -391,7 +410,7 @@ else:
         conn.close()
         if not logs_df.empty: st.dataframe(logs_df, use_container_width=True, hide_index=True)
 
-    # --- AI CHAT ---
+    # --- AI CHAT (Agentic AI with Voice & Text) ---
     elif page == "🤖 AI Chat":
         st.title("🤖 Agentic AI Chat")
         
