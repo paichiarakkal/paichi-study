@@ -23,7 +23,7 @@ from streamlit_calendar import calendar
 from twilio.rest import Client
 
 # --- STREAMLIT UI SETUP ---
-st.set_page_config(page_title="PAICHI EXPENSES & AI AGENT", layout="wide")
+st.set_page_config(page_title="PAICHI EXPENSES & AI", layout="wide")
 
 # --- CONFIG & SETTINGS ---
 WA_PHONE = st.secrets.get("DEFAULT_WA_PHONE", "")
@@ -39,7 +39,8 @@ BREVO_SENDER_EMAIL = st.secrets.get("BREVO_SENDER_EMAIL", "")
 DEFAULT_WEB_APP_URL = st.secrets.get("SHEET_WEB_APP_URL", st.secrets.get("GOOGLE_SHEET_WEB_APP_URL", ""))
 DEFAULT_CSV_URL = st.secrets.get("SHEET_CSV_URL", st.secrets.get("GOOGLE_SHEET_CSV_URL", ""))
 
-DB_FILE = "paichi_users_v2.db"
+# 👇 പുതിയ ഡാറ്റാബേസ് ഫയൽ (പഴയ എററുകൾ ഒഴിവാക്കാൻ) 👇
+DB_FILE = "paichi_app_v3.db" 
 NOTES_DIR = "personal_notes"
 os.makedirs(NOTES_DIR, exist_ok=True)
 
@@ -48,12 +49,11 @@ GST = timezone(timedelta(hours=4))
 st_autorefresh(interval=60000, key="auto_refresh")
 
 # ============================================
-# 🗄️ DATABASE (Users + Personal Agent)
+# 🗄️ DATABASE SETUP
 # ============================================
 def init_db():
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
-    # യൂസർ ടേബിൾ
     c.execute("""
         CREATE TABLE IF NOT EXISTS users (
             username TEXT PRIMARY KEY,
@@ -64,7 +64,6 @@ def init_db():
             account_locked INTEGER DEFAULT 1
         )
     """)
-    # പേഴ്സണൽ ലോഗ്സ് ടേബിൾ
     c.execute("""
         CREATE TABLE IF NOT EXISTS personal_logs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -128,10 +127,17 @@ def db_create_user(username: str, password: str, sheet_url: str = "", csv_url: s
     c.execute("INSERT INTO users (username, password_hash, sheet_url, csv_url, links_locked, account_locked) VALUES (?, ?, ?, ?, ?, 1)", (u, pwd_hash, sheet_url, csv_url, 1 if (sheet_url or csv_url) else 0))
     conn.commit()
     conn.close()
-    return {u: {"password_hash": pwd_hash, "sheet_url": sheet_url, "csv_url": csv_url, "links_locked": True, "account_locked": True}}
+    return {u: {"password_hash": pwd_hash}}
+
+def db_bind_links_once(username: str, sheet_url: str = "", csv_url: str = ""):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("UPDATE users SET sheet_url = ?, csv_url = ?, links_locked = 1 WHERE username = ?", (sheet_url, csv_url, username.strip().lower()))
+    conn.commit()
+    conn.close()
 
 # ============================================
-# 🧠 PERSONAL AI AGENT HELPERS & TOOLS
+# 🧠 PERSONAL AI AGENT HELPERS
 # ============================================
 def log_personal_activity(category: str, title: str, details: str = "", status: str = "Completed"):
     now_str = datetime.now(GST).strftime("%Y-%m-%d %H:%M")
@@ -145,7 +151,7 @@ def manage_personal_notes(action: str, note_title: str, content: str = "") -> st
     act = (action or "save").strip().lower()
     if act == "list":
         files = sorted(f for f in os.listdir(NOTES_DIR) if f.endswith(".md"))
-        return "[Notes] ലഭ്യമായ നോട്ടുകൾ: " + (", ".join(files) if files else "ഒന്നുമില്ല")
+        return "[Notes] " + (", ".join(files) if files else "ഒന്നുമില്ല")
     filename = re.sub(r"[^\w\s-]", "", note_title.strip()).replace(" ", "_") + ".md"
     filepath = os.path.join(NOTES_DIR, filename)
     if act == "read" and os.path.exists(filepath):
@@ -158,10 +164,10 @@ def manage_personal_notes(action: str, note_title: str, content: str = "") -> st
 
 def manage_tasks_and_schedule(action: str, item_title: str, time_or_priority: str = "") -> str:
     log_personal_activity("Schedule / Task", f"{action}: {item_title}", time_or_priority)
-    return f"[Task] '{item_title}' ({time_or_priority}) വിജയകരമായി രേഖപ്പെടുത്തി."
+    return f"[Task] '{item_title}' ({time_or_priority}) രേഖപ്പെടുത്തി."
 
 # ============================================
-# 🔐 AUTH & SESSION FUNCTIONS
+# 🔐 AUTH & SESSION
 # ============================================
 def create_session_token(username: str) -> str:
     sig = hmac.new(SECRET_KEY.encode(), username.strip().lower().encode(), hashlib.sha256).hexdigest()[:24]
@@ -192,7 +198,7 @@ def clear_persistent_login():
     if "session" in st.query_params: del st.query_params["session"]
 
 # ============================================
-# 🎨 CSS & UI SETUP
+# 🎨 CSS & HELPER FUNCTIONS
 # ============================================
 st.markdown(f"""
     <style>
@@ -201,7 +207,6 @@ st.markdown(f"""
     .stButton>button {{ background: linear-gradient(135deg, #FFD700, #FFA500); color: #000; border-radius: 12px; font-weight: bold; }}
     .glass-card {{ background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border-radius: 20px; padding: 25px; text-align: center; margin-bottom: 25px; }}
     .balance-banner {{ background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.02)); padding: 30px; border-radius: 20px; border-left: 8px solid #FFD700; text-align: center; margin-bottom: 25px; }}
-    .category-box {{ background: rgba(0, 0, 0, 0.5); padding: 20px; border-radius: 15px; border-bottom: 4px solid #FFD700; text-align: center; }}
     .login-card {{ background: rgba(20, 20, 35, 0.8); padding: 40px; border-radius: 20px; max-width: 450px; margin: auto; margin-top: 80px; }}
     h1, h2, h3, p, label {{ color: #FFFFFF !important; font-weight: bold !important; }}
     input, textarea {{ color: #FFFFFF !important; background-color: rgba(0, 0, 0, 0.5) !important; }}
@@ -209,23 +214,13 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 if 'auth' not in st.session_state: st.session_state.auth, st.session_state.user = False, ""
-if 'custom_alert_text' not in st.session_state: st.session_state.custom_alert_text = "Low balance alert"
-if 'low_limit' not in st.session_state: st.session_state.low_limit = 6000
-if "ai_chat_key_id" not in st.session_state: st.session_state.ai_chat_key_id = 0
-if "last_voice_text" not in st.session_state: st.session_state.last_voice_text = ""
-if "last_heard_text" not in st.session_state: st.session_state.last_heard_text = ""
 if "ai_chat_history" not in st.session_state: st.session_state.ai_chat_history = []
-if "buddy_messages" not in st.session_state: st.session_state.buddy_messages = []
+if "pending_entry" not in st.session_state: st.session_state.pending_entry = None
 
 restore_session_from_url()
 
-# --- HELPER FUNCTIONS ---
-def format_display_name(username: str) -> str:
-    return username.split("@")[0] if "@" in username else username
-
-def format_english_datetime(dt_value=None) -> str:
-    dt_obj = datetime.now(GST) if dt_value is None else pd.to_datetime(dt_value)
-    return dt_obj.strftime("%d %b %Y %H:%M:%S")
+def format_display_name(username: str) -> str: return username.split("@")[0] if "@" in username else username
+def format_english_datetime(dt_value=None) -> str: return (datetime.now(GST) if dt_value is None else pd.to_datetime(dt_value)).strftime("%d %b %Y %H:%M:%S")
 
 def translate_to_english_label(text: str, default_label: str = "Expense") -> str:
     raw = (text or "").strip()
@@ -240,15 +235,6 @@ def translate_to_english_label(text: str, default_label: str = "Expense") -> str
         except: pass
     return re.sub(r"[^\x00-\x7F]+", "", raw).strip() or default_label
 
-def categorize_item_label(item_str: str) -> str:
-    low = str(item_str or "").lower()
-    if any(w in low for w in ["food", "tea", "coffee", "ഭക്ഷണം", "ചായ"]): return "Food"
-    elif any(w in low for w in ["shop", "grocery", "കട"]): return "Shop"
-    elif any(w in low for w in ["fish", "meat", "മീൻ", "ചിക്കൻ"]): return "Fish"
-    elif any(w in low for w in ["travel", "petrol", "യാത്ര", "പെട്രോൾ"]): return "Travel"
-    elif any(w in low for w in ["rent", "വാടക"]): return "Rent"
-    return "Others"
-
 def get_active_web_app_url() -> str:
     prof = db_get_user(st.session_state.get("user", ""))
     return prof["sheet_url"].strip() if prof and prof.get("sheet_url") else ""
@@ -257,8 +243,7 @@ def get_active_csv_url() -> str:
     prof = db_get_user(st.session_state.get("user", ""))
     return prof["csv_url"].strip() if prof and prof.get("csv_url") else ""
 
-def refresh_user_sheet_cache():
-    st.cache_data.clear()
+def refresh_user_sheet_cache(): st.cache_data.clear()
 
 @st.cache_data(ttl=5)
 def load_data(active_csv_url="", cache_buster=0):
@@ -271,8 +256,7 @@ def load_data(active_csv_url="", cache_buster=0):
         df['Debit'] = pd.to_numeric(df['Debit'], errors='coerce').fillna(0)
         df['Credit'] = pd.to_numeric(df['Credit'], errors='coerce').fillna(0)
         return df
-    except Exception:
-        return pd.DataFrame(columns=['Date', 'Item', 'Debit', 'Credit'])
+    except Exception: return pd.DataFrame(columns=['Date', 'Item', 'Debit', 'Credit'])
 
 def add_new_entry(item, amount, category="Others", type="Debit", entry_date=None):
     try:
@@ -283,8 +267,7 @@ def add_new_entry(item, amount, category="Others", type="Debit", entry_date=None
             requests.post(target_url, json=payload, timeout=10)
             refresh_user_sheet_cache()
         return True, f"Saved: {eng_item} - ₹{amount}"
-    except Exception as e:
-        return False, f"Failed: {e}"
+    except Exception as e: return False, f"Failed: {e}"
 
 # --- 🔒 LOGIN & SIGN UP ---
 if not st.session_state.auth:
@@ -316,6 +299,7 @@ if not st.session_state.auth:
 
 # --- MAIN APP ---
 else:
+    user_profile = db_get_user(st.session_state.user) or {}
     active_csv = get_active_csv_url()
     df = load_data(active_csv)
     t_in, t_out = (df['Credit'].sum(), df['Debit'].sum()) if not df.empty else (0.0, 0.0)
@@ -323,6 +307,20 @@ else:
 
     st.sidebar.caption(f"👤 {format_display_name(st.session_state.user)}")
     
+    with st.sidebar.expander("🔗 Link Sheet (One-Time)"):
+        if user_profile.get("links_locked") == 1 or user_profile.get("sheet_url"):
+            st.info("🔒 Sheet links locked.")
+        else:
+            sb_sheet = st.text_input("Sheet Web App Link", key="sb_sheet_url").strip()
+            sb_csv = st.text_input("Sheet CSV Link", key="sb_csv_url").strip()
+            if st.button("SUBMIT LINK ONCE 🔒"):
+                if sb_sheet or sb_csv:
+                    db_bind_links_once(st.session_state.user, sb_sheet, sb_csv)
+                    refresh_user_sheet_cache()
+                    st.success("✅ Links locked!")
+                    time.sleep(1)
+                    st.rerun()
+
     menu = ["🏠 Dashboard", "💰 Add Entry", "📊 Report", "🧠 Personal AI Buddy", "🤖 AI Chat"]
     page = st.sidebar.radio("Menu", menu)
 
@@ -332,6 +330,8 @@ else:
 
     # --- DASHBOARD ---
     if page == "🏠 Dashboard":
+        if bal < 6000:
+            st.markdown(f'<div style="background:red; color:white; padding:10px; border-radius:10px; text-align:center;">⚠️ Low Balance Alert! (₹{bal:,.2f})</div>', unsafe_allow_html=True)
         st.markdown(f'<div class="balance-banner"><span style="font-size:22px; color:#E0B0FF;">AVAILABLE BALANCE</span><br><span style="font-size:50px; color:#FFD700;">₹{bal:,.2f}</span></div>', unsafe_allow_html=True)
         st.markdown(f'<div class="glass-card"><h2 style="color:#00FF00;">Credit: ₹{t_in:,.2f}</h2><h2 style="color:#FF3131;">Debit: ₹{t_out:,.2f}</h2></div>', unsafe_allow_html=True)
 
@@ -350,19 +350,28 @@ else:
                     else: st.error(msg)
                 except Exception as e: st.error(f"Error: {e}")
 
-    # --- PERSONAL AI BUDDY (Notes & Tasks) ---
+    # --- REPORT ---
+    elif page == "📊 Report":
+        if df.empty: st.info("No data available yet.")
+        else:
+            df_rep = df.dropna(subset=['Date']).copy()
+            df_rep['Month'] = df_rep['Date'].dt.strftime('%B %Y')
+            months = df_rep.dropna(subset=['Month']).sort_values(by='Date', ascending=False)['Month'].unique()
+            if len(months) > 0:
+                sel_m = st.selectbox("Select Month", months)
+                m_df = df_rep[df_rep['Month'] == sel_m].copy()
+                st.dataframe(m_df, use_container_width=True)
+
+    # --- PERSONAL AI BUDDY ---
     elif page == "🧠 Personal AI Buddy":
         st.title("🧠 Personal Notes & Tasks")
-        st.write("ഇവിടെ നിങ്ങളുടെ നോട്ടുകളും ടാസ്കുകളും കാണാം. നിർദ്ദേശങ്ങൾ AI ചാറ്റിൽ നൽകാം.")
-        
         st.subheader("📓 നോട്ടുകൾ")
         files = sorted(f for f in os.listdir(NOTES_DIR) if f.endswith(".md"))
         if files:
             chosen = st.selectbox("തിരഞ്ഞെടുക്കുക", files)
             with open(os.path.join(NOTES_DIR, chosen), "r", encoding="utf-8") as f:
                 st.markdown(f.read())
-        else:
-            st.info("നോട്ടുകൾ ഒന്നുമില്ല.")
+        else: st.info("നോട്ടുകൾ ഒന്നുമില്ല.")
 
         st.divider()
         st.subheader("📌 ലോഗുകൾ")
@@ -372,7 +381,7 @@ else:
         if not logs_df.empty: st.dataframe(logs_df, use_container_width=True, hide_index=True)
         else: st.info("ലോഗുകൾ ഒന്നുമില്ല.")
 
-    # --- AI CHAT (Expenses + Notes + Tasks) ---
+    # --- AI CHAT ---
     elif page == "🤖 AI Chat":
         st.title("🤖 Agentic AI Chat")
         
@@ -389,7 +398,6 @@ else:
                 try:
                     client = Groq(api_key=GROQ_API_KEY)
                     
-                    # AI-ക്ക് നൽകുന്ന നിർദ്ദേശങ്ങൾ (Tools)
                     sys_prompt = """
                     You are a multi-tasking AI Agent. Reply ONLY with JSON.
                     1. For expenses: {"action":"expense", "item":"Name", "amount":100, "category":"Food", "type":"Debit"}
