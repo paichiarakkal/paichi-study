@@ -23,7 +23,7 @@ from streamlit_calendar import calendar
 from twilio.rest import Client
 
 # --- STREAMLIT UI SETUP ---
-st.set_page_config(page_title="PAICHI EXPENSES & AI", layout="wide")
+st.set_page_config(page_title="PAICHI EXPENSES PRO", layout="wide")
 
 # --- CONFIG & SETTINGS ---
 WA_PHONE = st.secrets.get("DEFAULT_WA_PHONE", "")
@@ -39,18 +39,17 @@ BREVO_SENDER_EMAIL = st.secrets.get("BREVO_SENDER_EMAIL", "")
 DEFAULT_WEB_APP_URL = st.secrets.get("SHEET_WEB_APP_URL", st.secrets.get("GOOGLE_SHEET_WEB_APP_URL", ""))
 DEFAULT_CSV_URL = st.secrets.get("SHEET_CSV_URL", st.secrets.get("GOOGLE_SHEET_CSV_URL", ""))
 
-# പുതിയ ഡാറ്റാബേസ് (എറർ ഒഴിവാക്കാൻ)
-DB_FILE = "paichi_users_v6.db" 
+# 👇 പുതിയ ഡാറ്റാബേസ് (എറർ ഒഴിവാക്കാൻ) 👇
+DB_FILE = "paichi_master_v10.db"
 NOTES_DIR = "personal_notes"
 os.makedirs(NOTES_DIR, exist_ok=True)
 
 # --- TIMEZONE SETUP (GST - Dubai Time) ---
 GST = timezone(timedelta(hours=4))
-
 st_autorefresh(interval=60000, key="auto_refresh")
 
 # ============================================
-# 🗄️ DATABASE + ST.SECRETS USER STORE
+# 🗄️ DATABASE SETUP
 # ============================================
 def init_db():
     conn = sqlite3.connect(DB_FILE)
@@ -130,6 +129,16 @@ def db_create_user(username: str, password: str, sheet_url: str = "", csv_url: s
     conn.close()
     return {u: {"password_hash": pwd_hash}}
 
+def db_update_password(username: str, new_password: str):
+    u = username.strip().lower()
+    pwd_hash = hash_password(new_password)
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("UPDATE users SET password_hash = ? WHERE username = ?", (pwd_hash, u))
+    conn.commit()
+    conn.close()
+    return pwd_hash
+
 def db_bind_links_once(username: str, sheet_url: str = "", csv_url: str = ""):
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
@@ -168,8 +177,39 @@ def manage_tasks_and_schedule(action: str, item_title: str, time_or_priority: st
     return f"[Task] '{item_title}' ({time_or_priority}) രേഖപ്പെടുത്തി."
 
 # ============================================
-# 🔐 AUTH & SESSION
+# 📧 EMAIL OTP & AUTH
 # ============================================
+def send_otp_email(to_email: str, otp_code: str, purpose: str = "OTP Verification") -> bool:
+    brevo_key = (st.secrets.get("BREVO_API_KEY", BREVO_API_KEY) or "").strip()
+    brevo_sender = (st.secrets.get("BREVO_SENDER_EMAIL", BREVO_SENDER_EMAIL) or "").strip()
+    resend_key = (st.secrets.get("RESEND_API_KEY", RESEND_API_KEY) or "").strip()
+    from_email = (st.secrets.get("OTP_FROM_EMAIL", OTP_FROM_EMAIL) or "onboarding@resend.dev").strip()
+
+    body_text = f"Hello,\n\nYour 6-digit OTP code for PAICHI EXPENSES ({purpose}) is:\n\nOTP: {otp_code}\n\nPlease do not share this code."
+
+    if brevo_key and brevo_sender:
+        resp = requests.post("https://api.brevo.com/v3/smtp/email", headers={"api-key": brevo_key, "Content-Type": "application/json"}, json={"sender": {"name": "PAICHI", "email": brevo_sender}, "to": [{"email": to_email}], "subject": f"PAICHI - {purpose} OTP", "textContent": body_text}, timeout=15)
+        if resp.status_code in (200, 201, 202): return True
+        raise RuntimeError(f"Brevo Error: {resp.text}")
+
+    if resend_key:
+        resp = requests.post("https://api.resend.com/emails", headers={"Authorization": f"Bearer {resend_key}", "Content-Type": "application/json"}, json={"from": from_email, "to": [to_email], "subject": f"PAICHI - {purpose} OTP", "text": body_text}, timeout=15)
+        if resp.status_code in (200, 201): return True
+        raise RuntimeError(f"Resend Error: {resp.text}")
+
+    sender = (st.secrets.get("SMTP_EMAIL", SMTP_EMAIL) or "").strip()
+    app_pwd = (st.secrets.get("SMTP_APP_PASSWORD", SMTP_APP_PASSWORD) or "").replace(" ", "").strip()
+
+    if not sender or not app_pwd: raise ValueError("Email config missing.")
+    msg = EmailMessage()
+    msg["Subject"] = f"PAICHI - {purpose} OTP"
+    msg["From"], msg["To"] = sender, to_email
+    msg.set_content(body_text)
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=15) as server:
+        server.login(sender, app_pwd)
+        server.send_message(msg)
+    return True
+
 def create_session_token(username: str) -> str:
     sig = hmac.new(SECRET_KEY.encode(), username.strip().lower().encode(), hashlib.sha256).hexdigest()[:24]
     return base64.urlsafe_b64encode(f"{username.strip().lower()}:{sig}".encode()).decode()
@@ -217,6 +257,7 @@ st.markdown(f"""
 if 'auth' not in st.session_state: st.session_state.auth, st.session_state.user = False, ""
 if "ai_chat_history" not in st.session_state: st.session_state.ai_chat_history = []
 if "pending_entry" not in st.session_state: st.session_state.pending_entry = None
+if "signup_otp" not in st.session_state: st.session_state.signup_otp = None
 
 restore_session_from_url()
 
@@ -270,13 +311,23 @@ def add_new_entry(item, amount, category="Others", type="Debit", entry_date=None
         return True, f"Saved: {eng_item} - ₹{amount}"
     except Exception as e: return False, f"Failed: {e}"
 
-# --- 🔒 LOGIN & SIGN UP ---
+def send_whatsapp_auto(msg):
+    try:
+        account_sid = st.secrets.get("TWILIO_ACCOUNT_SID", "")
+        auth_token = st.secrets.get("TWILIO_AUTH_TOKEN", "")
+        if account_sid and auth_token and WA_PHONE:
+            client = Client(account_sid, auth_token)
+            client.messages.create(from_='whatsapp:+14155238886', body=msg, to=f'whatsapp:+{WA_PHONE}')
+    except Exception: pass
+
+# --- 🔒 LOGIN & SIGN UP WITH OTP ---
 if not st.session_state.auth:
     _, mid, _ = st.columns([1, 2, 1])
     with mid:
         st.markdown('<div class="login-card">', unsafe_allow_html=True)
         st.subheader("🔐 PAICHI EXPENSES")
         tab1, tab2 = st.tabs(["🔑 Login", "📝 Sign Up"])
+        
         with tab1:
             l_user = st.text_input("📧 Email", key="login_user").strip().lower()
             l_pass = st.text_input("🔑 Password", type="password", key="login_pass")
@@ -286,16 +337,29 @@ if not st.session_state.auth:
                     set_persistent_login(l_user)
                     st.rerun()
                 else: st.error("❌ Invalid credentials.")
+                
         with tab2:
             s_user = st.text_input("📧 Email", key="signup_user").strip().lower()
-            s_pass = st.text_input("🔑 Password", type="password", key="signup_pass")
-            if st.button("SIGN UP ✨"):
-                if not s_user or not s_pass: st.error("Fill all fields.")
+            if st.button("📩 Send OTP"):
+                if not s_user or "@" not in s_user: st.error("Enter valid email.")
                 elif db_get_user(s_user): st.error("Already registered.")
                 else:
-                    db_create_user(s_user, s_pass)
-                    set_persistent_login(s_user)
-                    st.rerun()
+                    code = f"{random.randint(100000, 999999)}"
+                    st.session_state.signup_otp = code
+                    try:
+                        send_otp_email(s_user, code, "Sign Up")
+                        st.success("OTP Sent!")
+                    except Exception as e: st.error(f"Failed: {e}")
+            
+            if st.session_state.signup_otp:
+                otp_in = st.text_input("🔢 Enter OTP", max_chars=6)
+                s_pass = st.text_input("🔑 Create Password", type="password")
+                if st.button("SIGN UP ✨"):
+                    if otp_in == st.session_state.signup_otp and s_pass:
+                        db_create_user(s_user, s_pass)
+                        set_persistent_login(s_user)
+                        st.rerun()
+                    else: st.error("Invalid OTP or empty password.")
         st.markdown('</div>', unsafe_allow_html=True)
 
 # --- MAIN APP ---
@@ -357,7 +421,9 @@ else:
             if st.form_submit_button("SAVE & NOTIFY"):
                 try:
                     ok, msg = add_new_entry(it, float(am_str), cat, ty)
-                    if ok: st.success("Saved!"); time.sleep(1); st.rerun()
+                    if ok: 
+                        send_whatsapp_auto(f"✅ Entry Added: {it} - ₹{am_str}")
+                        st.success("Saved!"); time.sleep(1); st.rerun()
                     else: st.error(msg)
                 except Exception as e: st.error(f"Error: {e}")
 
@@ -410,7 +476,7 @@ else:
         conn.close()
         if not logs_df.empty: st.dataframe(logs_df, use_container_width=True, hide_index=True)
 
-    # --- AI CHAT (Agentic AI with Voice & Text) ---
+    # --- AI CHAT (Agentic AI) ---
     elif page == "🤖 AI Chat":
         st.title("🤖 Agentic AI Chat")
         
