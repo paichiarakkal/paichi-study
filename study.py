@@ -36,11 +36,9 @@ RESEND_API_KEY = st.secrets.get("RESEND_API_KEY", "")
 OTP_FROM_EMAIL = st.secrets.get("OTP_FROM_EMAIL", "onboarding@resend.dev")
 BREVO_API_KEY = st.secrets.get("BREVO_API_KEY", "")
 BREVO_SENDER_EMAIL = st.secrets.get("BREVO_SENDER_EMAIL", "")
-DEFAULT_WEB_APP_URL = st.secrets.get("SHEET_WEB_APP_URL", st.secrets.get("GOOGLE_SHEET_WEB_APP_URL", ""))
-DEFAULT_CSV_URL = st.secrets.get("SHEET_CSV_URL", st.secrets.get("GOOGLE_SHEET_CSV_URL", ""))
 
 # 👇 പുതിയ ഡാറ്റാബേസ് (എറർ ഒഴിവാക്കാൻ) 👇
-DB_FILE = "paichi_master_v12.db"
+DB_FILE = "paichi_master_v14.db"
 NOTES_DIR = "personal_notes"
 os.makedirs(NOTES_DIR, exist_ok=True)
 
@@ -448,7 +446,7 @@ else:
         conn.close()
         if not logs_df.empty: st.dataframe(logs_df, use_container_width=True, hide_index=True)
 
-    # --- AI CHAT (Agentic AI) ---
+    # --- AI CHAT (Agentic AI with Advanced Routing) ---
     elif page == "🤖 AI Chat":
         st.title("🤖 Agentic AI Chat")
         
@@ -468,12 +466,27 @@ else:
                 try:
                     client = Groq(api_key=GROQ_API_KEY)
                     
+                    # 👇 AI-യുടെ തലച്ചോറ് (മാറ്റിയത്) 👇
                     sys_prompt = """
-                    You are a multi-tasking AI Agent. Reply ONLY with JSON.
-                    1. For expenses: {"action":"expense", "item":"Name", "amount":100, "category":"Food", "type":"Debit"}
-                    2. For notes: {"action":"note", "note_title":"Title", "content":"Content"}
-                    3. For tasks/reminders: {"action":"task", "item_title":"Task Name", "time_or_priority":"Time"}
-                    4. For chat: {"action":"chat", "reply":"Your response"}
+                    You are a multi-tasking AI Agent. Analyze the user's input carefully.
+                    If the user is asking to remember something for a specific time or date (like a reminder or task), you MUST use the "task" action.
+                    Reply ONLY with a valid JSON object. Do not add any markdown or extra text.
+
+                    Formats:
+                    1. Expense: {"action":"expense", "item":"English Name", "amount":100, "category":"Food", "type":"Debit"}
+                    2. Note: {"action":"note", "note_title":"Title", "content":"Content"}
+                    3. Task/Reminder: {"action":"task", "item_title":"What to do", "time_or_priority":"When to do it"}
+                    4. Normal Chat: {"action":"chat", "reply":"Your conversational response here"}
+
+                    Examples:
+                    User: "നാളെ രാവിലെ 10 മണിക്ക് ഷോപ്പിംഗിന് പോകണം എന്ന് ഓർമ്മിപ്പിക്കണം"
+                    Response: {"action":"task", "item_title":"Shopping trip", "time_or_priority":"Tomorrow 10 AM"}
+
+                    User: "ചായയ്ക്ക് 10 രൂപ"
+                    Response: {"action":"expense", "item":"Tea", "amount":10, "category":"Food", "type":"Debit"}
+                    
+                    User: "how are you?"
+                    Response: {"action":"chat", "reply":"I am doing well, thank you!"}
                     """
                     
                     resp = client.chat.completions.create(
