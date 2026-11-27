@@ -12,4 +12,3 @@ streamlit-calendar
 Pillow
 twilio
 google-generativeai
-google-genai
