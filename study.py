@@ -28,7 +28,7 @@ st.set_page_config(page_title="PAICHI EXPENSES", layout="wide")
 WA_PHONE = st.secrets.get("DEFAULT_WA_PHONE", "")
 BG_IMAGE_URL = "https://raw.githubusercontent.com/paichiarakkal/paichiarakkal/main/profile.jpg"
 GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "")
-GROQ_MODEL = "openai/gpt-oss-120b"
+GROQ_MODEL = str(st.secrets.get("GROQ_MODEL", "openai/gpt-oss-120b")).strip()
 SECRET_KEY = st.secrets.get("SESSION_SECRET_KEY", "paichi_expenses_secure_key_2026")
 SMTP_EMAIL = st.secrets.get("SMTP_EMAIL", "")
 SMTP_APP_PASSWORD = st.secrets.get("SMTP_APP_PASSWORD", "")
@@ -38,7 +38,7 @@ BREVO_API_KEY = st.secrets.get("BREVO_API_KEY", "")
 BREVO_SENDER_EMAIL = st.secrets.get("BREVO_SENDER_EMAIL", "")
 DEFAULT_WEB_APP_URL = st.secrets.get("SHEET_WEB_APP_URL", st.secrets.get("GOOGLE_SHEET_WEB_APP_URL", ""))
 DEFAULT_CSV_URL = st.secrets.get("SHEET_CSV_URL", st.secrets.get("GOOGLE_SHEET_CSV_URL", ""))
-DB_FILE = "paichi_users_v2.db"
+DB_FILE = "/tmp/paichi_users_v2.db"
 
 # --- TIMEZONE SETUP (GST - Dubai Time) ---
 GST = timezone(timedelta(hours=4))
@@ -1216,7 +1216,7 @@ else:
                 except Exception as e:
                     st.error(f"Error: {e}")
 
-    # --- AI CHAT (Zero 'Type' KeyError + Full App Context + Daily Math + Clear Voice + Single Confirmation) ---
+    # --- AI CHAT ---
     elif page == "🤖 AI Chat":
         st.title("🤖 AI Agent & Assistant")
 
